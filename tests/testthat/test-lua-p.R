@@ -142,7 +142,7 @@ test_that("E6: sigfig on .p is a construct error, whatever the other keys", {
 test_that("E6: on .date digits and sigfig stay the error of today (control)", {
   res <- filter_cases(c(a = "A `dt`{.date digits=\"2\"} z."), list(carrier(dt = fr_date("2024-06-03"))), draft = TRUE)
   expect_true(grepl("weft: construct error", res$got[["a"]], fixed = TRUE))
-  expect_true(grepl("`digits` and `sigfig` do not apply to `.date`.", res$stderr, fixed = TRUE))
+  expect_true(grepl("`digits` and `sigfig` do not apply to `.date` (rule 1.4.7).", res$stderr, fixed = TRUE))
   expect_false(grepl("must be a whole number from 1 to 6", res$stderr, fixed = TRUE))
 })
 

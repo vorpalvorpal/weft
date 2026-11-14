@@ -240,7 +240,7 @@ test_that("E6: on .date digits and sigfig stay the error of today (control)", {
   for (k in c("digits", "sigfig")) {
     e <- tryCatch(weft:::apply_formatters(d, ".date", stats::setNames(list("2"), k)), error = function(e) e)
     expect_s3_class(e, "weft_construct_error")
-    expect_equal(conditionMessage(e), "`digits` and `sigfig` do not apply to `.date`.")
+    expect_equal(conditionMessage(e), "`digits` and `sigfig` do not apply to `.date` (rule 1.4.7).")
   }
 })
 
