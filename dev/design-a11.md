@@ -140,6 +140,9 @@ row 14 is unchanged by ruling. One function per message, `msg_*()` in
 `list="."`, an `#id` on a `list` span and a `#` in the zero arm cite rule
 1.5.19 (stated in its last paragraph); the two `none` messages without a
 collapse class cite 1.4.14. Lua: the `.date` text now matches (rule 1.4.7).
-Still differing in Lua, for the later step: row 2 (the unit group takes the
-row 1 text), row 3 (`together`), rows 10 and 11 (the old render text), the
-`none` without a collapse class text, and row 14's twin.
+Lua follows (15 Nov): `inst/quarto/weft.lua` (`check_construct()`) now writes the
+scanner's text for rows 1 to 5, 7, 8, 10 and 11 and for `none` without a collapse
+class on a named value (the unit group takes the row 2 text; the empty `none`
+takes `msg_none_empty()`); `tests/testthat/test-a11-wording-lua.R` ties each to
+`scan_text()`. No pair is left differing except row 14's twin (unchanged by
+ruling) and messages only one side produces.

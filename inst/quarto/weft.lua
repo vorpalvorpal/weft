@@ -731,7 +731,9 @@ local function check_construct(c)
     if m and #m > 1 then
       local names = {}
       for _, x in ipairs(m) do names[#names + 1] = "." .. x end
-      return "construct error", string.format("Two classes from one group in one block: %s (rule 1.4.2).", table.concat(names, " "))
+      return "construct error", string.format(
+        g == "unit" and "Two unit classes in one block: %s (rule 1.4.2)."
+          or "Two classes from one group in one block: %s (rule 1.4.2).", table.concat(names, " "))
     end
   end
   if (has.pct or has.sci) then
@@ -758,7 +760,7 @@ local function check_construct(c)
     end
   end
   if c.keys.digits ~= nil and c.keys.sigfig ~= nil then
-    return "construct error", "`digits` and `sigfig` together are an error (rule 1.4.7)."
+    return "construct error", "`digits` with `sigfig` is an error (rule 1.4.7)."
   end
   if has.date and (c.keys.digits ~= nil or c.keys.sigfig ~= nil) then
     return "construct error", "`digits` and `sigfig` do not apply to `.date` (rule 1.4.7)."
@@ -785,13 +787,13 @@ local function check_construct(c)
   end
   if c.keys.none ~= nil then
     if not by_group.collapse then
-      return "construct error", "`none` needs a collapse class: .and, .or, .pairs, .ul, .ol or .dl (rule 1.4.14)."
+      return "construct error", "The key `none` needs a collapse class (`.and`, `.or`, `.pairs`, `.ul`, `.ol`, `.dl`) on the value (rule 1.4.14)."
     end
     if has.range then
-      return "construct error", "`none` does not apply to `.range`: a range has two ends (rule 1.4.14)."
+      return "construct error", "The key `none` does not apply to `.range`: a range has two ends (rule 1.4.14)."
     end
     if c.keys.none:match("^[ \t\r\n]*$") then
-      return "construct error", "`none` must be one string that is not empty or only spaces (rule 1.4.14)."
+      return "construct error", "The key `none` is empty; give the text to print for an empty value (rule 1.4.14)."
     end
   end
   for cl in pairs(LIST_CLASS) do
