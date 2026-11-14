@@ -2,6 +2,12 @@
 
 ## weft (development version)
 
+- Some error messages are reworded so that the lint and the render say
+  the same thing for the same mistake (two classes from one group,
+  `digits` with `sigfig`, `digits` or `sigfig` on `.date`, `.usym` with
+  a spelled number, `none` empty or with `.range`); messages that cited
+  a build stage now cite a rule; the Quarto filter writes the same texts
+  for named values. No behaviour change.
 - A `decision` pointer on a
   [`claim()`](https://vorpalvorpal.github.io/weft/reference/claim.md) in
   an R chunk that is statically not evaluated (a literal `eval: false`
