@@ -110,3 +110,20 @@ scanner's (rows 3, 4, 10 and 11 are the render text today), move in the later
 Lua parity step. Of these, only row 4 is tied to an R text by an existing test
 (`test-lua-p.R:145`, against the text `test-p-digits.R:243` pins); changing
 row 4's R text breaks `test-lua-p.R:145` until Lua follows.
+
+## Rulings (orchestrator, 15 Nov)
+
+- **Row 14 (a class with no TeX form): unchanged.** The render text
+  belongs to `fmt_*(target = "tex")` called in code, where there is no
+  place to name; the scanner's text is about a construct written in
+  math. They are two messages for two situations. Alternative: one text
+  saying "a formula". Rejected: it is vaguer than either.
+- **Rows 10 and 11 (`none`): the scanner's sentence with a rule
+  citation.** The scanner cites "(stage 1h)", a build stage that means
+  nothing to a reader; the render side cites rule 1.4.14. The adopted
+  text is the scanner's sentence ending "(rule 1.4.14)", on both sides.
+- **Every other "(stage 1h)" in a scanner message** (`list="."`, an
+  `#id` on a `list` span, `none` without a collapse class, a `#` in the
+  zero arm) is replaced by the rule that states it, found in the
+  specification. No message cites a stage.
+- A `none` that is not one string keeps its render-only message.
