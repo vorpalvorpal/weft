@@ -541,9 +541,12 @@ not build vignettes: a push on 14 Nov broke CI that way for two runs.
 Ruled "drop" on 15 Nov: a decision pointer on a `claim()` in a chunk with
 `eval: false` is not collected (done).
 
+One wording for the static errors (A11) was ruled "unify" and done on
+15 Nov: the render-time texts are the scanner's, and the Lua twins follow
+in a later step.
+
 Open, waiting on Robin: the pieces of "weft everywhere" (section
-above); the default `skills` folders of `use_agent_docs()`; one wording for the
-static errors (A11). Deferred by Robin: Windows CI; the untested areas
+above); the default `skills` folders of `use_agent_docs()`. Deferred by Robin: Windows CI; the untested areas
 (Render and Knit buttons, Windows, a real `renv`); project formatters
 for named values in Jupyter and Julia documents. Paused: the `units`
 switch (upstream issue 451). At the next release: bump the version and

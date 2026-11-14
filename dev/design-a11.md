@@ -127,3 +127,19 @@ row 4's R text breaks `test-lua-p.R:145` until Lua follows.
   zero arm) is replaced by the rule that states it, found in the
   specification. No message cites a stage.
 - A `none` that is not one string keeps its render-only message.
+
+## Done (15 Nov)
+
+Rows 1 to 5, 7 to 9, 10 and 11 are done; rows 6, 12, 13 were one function and
+row 14 is unchanged by ruling. One function per message, `msg_*()` in
+`R/scan.R` above `block_errors()`, serves both sides (`msg_two_classes()`,
+`msg_digits_sigfig()`, `msg_date_digits()`, `msg_sigfig_p()`, `msg_label_p()`,
+`msg_plus_clash()`, `msg_usym_spelled()`, `msg_none_range()`,
+`msg_none_empty()`). The `none` branch at render is split: empty takes
+`msg_none_empty()`, not one string keeps its message. Stage citations:
+`list="."`, an `#id` on a `list` span and a `#` in the zero arm cite rule
+1.5.19 (stated in its last paragraph); the two `none` messages without a
+collapse class cite 1.4.14. Lua: the `.date` text now matches (rule 1.4.7).
+Still differing in Lua, for the later step: row 2 (the unit group takes the
+row 1 text), row 3 (`together`), rows 10 and 11 (the old render text), the
+`none` without a collapse class text, and row 14's twin.

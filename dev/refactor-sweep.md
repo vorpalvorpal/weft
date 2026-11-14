@@ -568,8 +568,8 @@ These are the accepted, unbuilt items, each still valid. One at a time,
 whole suite after each. Order:
 
 1. A11, A12, A15 and A16: `scan.R`, `format.R`, `resolve.R`.
-   - A11: skipped. One wording for the class and key errors changes
-     messages that `test-lint-named.R` and others pin.
+   - A11: done 15 Nov, ruled "unify" (`dev/design-a11.md`): the render-time
+     texts are the scanner's, one `msg_*()` function per message in `scan.R`.
    - A12, A15, A16: done (`registered_classes()`, `text_classes()`,
      `unit_affix()`, `range_text()`, `arm_tokens()`).
 2. A13 (first half) and A14: `resolve.R`, `phrases.R`, `arms.R`, `claim.R`.
@@ -691,7 +691,7 @@ root)` file by file as H touches them.
 
 | Item | State at a8e7989 | Where it goes |
 |---|---|---|
-| A11 class and key checks twice | Applies: texts differ, `scan.R:771,792` and `format.R:668,673` | H1 |
+| A11 class and key checks twice | Done 15 Nov: one text per message, `msg_*()` in `scan.R` (`dev/design-a11.md`) | H1 |
 | A12 stage filter, `TEXT_CLASSES` literal | Applies: `resolve.R:514,972` | H1 |
 | A13 English test, metadata lookup | Applies: `check_english`, `non_english`, two copies of the plural-rules message | A3, H2 |
 | A14 claim lines drifted | Applies: `claim_warn()` still lacks the `all()` advice | H2 |
