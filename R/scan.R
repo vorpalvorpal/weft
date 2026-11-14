@@ -857,6 +857,29 @@ expr_errors <- function(text, what, as_list = FALSE) {
 
 BIND_HINT <- "Bind the expression to a name in a chunk and use the name."
 
+# One text per mistake that the scanner (block_errors()) and the formatter at render
+# (apply_formatters()) both detect, so the two cannot drift (A11, dev/design-a11.md).
+# They run only when a mistake is found, so they cost nothing on the scan path.
+msg_two_classes <- function(group, classes) {
+  sprintf(if (identical(group, "unit")) "Two unit classes in one block: %s (rule 1.4.2)."
+          else "Two classes from one group in one block: %s (rule 1.4.2).",
+          paste(classes, collapse = " "))
+}
+msg_digits_sigfig <- function() "`digits` with `sigfig` is an error (rule 1.4.7)."
+msg_date_digits <- function() "`digits` and `sigfig` do not apply to `.date` (rule 1.4.7)."
+msg_sigfig_p <- function() "`sigfig` does not apply to `.p`; use `digits` (rule 1.4.17)."
+msg_label_p <- function() "`label` applies to `.p` only (rule 1.4.17)."
+msg_plus_clash <- function(cl) {
+  sprintf(paste0("`.plus` cannot go with `%s`: it signs a number that `.num` or `.pct` ",
+                 "prints (rule 1.4.21)."), cl)
+}
+msg_usym_spelled <- function(cl) {
+  sprintf(paste0("The unit class `.usym` with `%s` is an error: a spelled number takes the ",
+                 "unit's name (rule 1.4.19)."), cl)
+}
+msg_none_range <- function() "The key `none` does not apply to `.range`: a range has two ends (rule 1.4.14)."
+msg_none_empty <- function() "The key `none` is empty; give the text to print for an empty value (rule 1.4.14)."
+
 # Shared checks on the attribute block of a weft construct.
 block_errors <- function(S, blk, kind) {
   e <- character()
@@ -968,12 +991,7 @@ block_errors <- function(S, blk, kind) {
   }
   for (g in unique(grp[!is.na(grp)])) {
     if (sum(grp == g, na.rm = TRUE) > 1L) {
-      e <- c(e, if (g == "unit") {
-        sprintf("Two unit classes in one block: %s (rule 1.4.2).", paste(cls[which(grp == g)], collapse = " "))
-      } else {
-        sprintf("Two classes from one group in one block: %s (rule 1.4.2).",
-                paste(cls[which(grp == g)], collapse = " "))
-      })
+      e <- c(e, msg_two_classes(g, cls[which(grp == g)]))
     }
   }
   # a spelled number takes the unit's name, so `.usym` cannot go with the
@@ -981,8 +999,7 @@ block_errors <- function(S, blk, kind) {
   spelling <- c(intersect(cls, c(".no", ".word", ".count")),
                 intersect(cls, registered_classes(S$reg, "wording")))
   if (".usym" %in% cls && length(spelling)) {
-    e <- c(e, sprintf("The unit class `.usym` with `%s` is an error: a spelled number takes the unit's name (rule 1.4.19).",
-                      spelling[1L]))
+    e <- c(e, msg_usym_spelled(spelling[1L]))
   }
   if (any(cls %in% UNIT_CLASSES) && kind %in% c("if", "cite")) {
     e <- c(e, sprintf("A unit class on %s is an error (rule 1.4.19): %s.",
@@ -990,7 +1007,7 @@ block_errors <- function(S, blk, kind) {
                       paste(intersect(cls, UNIT_CLASSES), collapse = " ")))
   }
   if (all(c("digits", "sigfig") %in% lc)) {
-    e <- c(e, "`digits` with `sigfig` is an error (rule 1.4.7).")
+    e <- c(e, msg_digits_sigfig())
   }
   if (kind == "if") {
     if ("level" %in% lc) {
@@ -1006,10 +1023,10 @@ block_errors <- function(S, blk, kind) {
     }
   }
   if (".date" %in% cls && any(c("digits", "sigfig") %in% lc)) {
-    e <- c(e, "`digits` and `sigfig` do not apply to `.date` (rule 1.4.7).")
+    e <- c(e, msg_date_digits())
   }
   if (".p" %in% cls) {
-    if ("sigfig" %in% lc) e <- c(e, "`sigfig` does not apply to `.p`; use `digits` (rule 1.4.17).")
+    if ("sigfig" %in% lc) e <- c(e, msg_sigfig_p())
     dv <- blk$values[lc == "digits"]
     if (length(dv)) {
       pd <- tryCatch({ p_digits_value(trim_ws(dv[1L])); NULL }, weft_construct_error = function(err) conditionMessage(err))
@@ -1017,14 +1034,13 @@ block_errors <- function(S, blk, kind) {
     }
   }
   if (kind %in% c("value", "named") && "label" %in% tolower(blk$names) && !".p" %in% cls) {
-    e <- c(e, "`label` applies to `.p` only (rule 1.4.17).")
+    e <- c(e, msg_label_p())
   }
   if (".plus" %in% cls) {
     clash <- c(intersect(cls, PLUS_CLASH),
                intersect(cls, registered_classes(S$reg, "number")))
     if (length(clash)) {
-      e <- c(e, sprintf(paste0("`.plus` cannot go with `%s`: it signs a number that `.num` or `.pct` ",
-                               "prints (rule 1.4.21)."), clash[1L]))
+      e <- c(e, msg_plus_clash(clash[1L]))
     }
     if (length(gov)) {
       e <- c(e, sprintf("`.plus` does not apply to a span with `%s=` (rule 1.4.21).", gov[1L]))
@@ -1036,21 +1052,21 @@ block_errors <- function(S, blk, kind) {
   }
   if (kind == "list" && !S$filter_doc && length(blk$values[lc == "list"]) &&
       identical(trim_ws(blk$values[lc == "list"][1L]), ".")) {
-    e <- c(e, "There is no `list=\".\"`; only `n=\".\"` inherits (stage 1h).")
+    e <- c(e, "There is no `list=\".\"`; only `n=\".\"` inherits (rule 1.5.19).")
   }
   if (kind == "list" && !is.na(blk$id)) {
-    e <- c(e, "An `#id` on a `list` span is an error (stage 1h).")
+    e <- c(e, "An `#id` on a `list` span is an error (rule 1.5.19).")
   }
   if ("none" %in% lc) {
     nv <- blk$values[lc == "none"][1L]
     if (!kind %in% c("value", "named")) {
-      e <- c(e, "The key `none` belongs on a value with a collapse class (stage 1h).")
+      e <- c(e, "The key `none` belongs on a value with a collapse class (rule 1.4.14).")
     } else if (!any(cls %in% c(COLLAPSE_CLASSES, registered_classes(S$reg, "collapse")))) {
-      e <- c(e, "The key `none` needs a collapse class (`.and`, `.or`, `.pairs`, `.ul`, `.ol`, `.dl`) on the value (stage 1h).")
+      e <- c(e, "The key `none` needs a collapse class (`.and`, `.or`, `.pairs`, `.ul`, `.ol`, `.dl`) on the value (rule 1.4.14).")
     } else if (".range" %in% cls) {
-      e <- c(e, "The key `none` does not apply to `.range`: a range has two ends (stage 1h).")
+      e <- c(e, msg_none_range())
     } else if (!nzchar(trim_ws(nv))) {
-      e <- c(e, "The key `none` is empty; give the text to print for an empty value (stage 1h).")
+      e <- c(e, msg_none_empty())
     }
   }
   if (kind == "cite") {
@@ -1676,7 +1692,7 @@ handle_bracket <- function(S, p, parent) {
         paste(range(allowed), collapse = " to "), length(arms)))
     }
     if (kind == "list" && length(arms) >= 3L && grepl(ARM_PLACEHOLDER, templates[1L], fixed = TRUE)) {
-      errs <- c(errs, "A `#` in the zero arm of a `list` span has nothing to print: the list is empty there (stage 1h).")
+      errs <- c(errs, "A `#` in the zero arm of a `list` span has nothing to print: the list is empty there (rule 1.5.19).")
     }
     if (sp$unescaped && isTRUE(S$tbl[line_index(S, p)])) {
       errs <- c(errs, paste0(

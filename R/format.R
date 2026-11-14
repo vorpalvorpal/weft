@@ -750,12 +750,11 @@ apply_formatters <- function(value, classes = character(), keys = list(),
 
   if (!is.null(keys$none)) {
     nn <- keys$none
-    if (!is.character(nn) || length(nn) != 1L || is.na(nn) || !nzchar(trimws(nn))) {
+    if (!is.character(nn) || length(nn) != 1L || is.na(nn)) {
       construct_error("`none` must be one string that is not empty or only spaces (rule 1.4.14).")
     }
-    if (".range" %in% classes) {
-      construct_error("`none` does not apply to `.range`: a range has two ends (rule 1.4.14).")
-    }
+    if (!nzchar(trimws(nn))) construct_error(msg_none_empty())
+    if (".range" %in% classes) construct_error(msg_none_range())
   }
 
   # the result of of_n(), about(), ci() or pm() is finished wording: a number
@@ -780,13 +779,11 @@ apply_formatters <- function(value, classes = character(), keys = list(),
   grp <- class_group(classes, reg)
   for (g in unique(grp[!is.na(grp)])) {
     if (sum(grp == g, na.rm = TRUE) > 1L) {
-      construct_error(sprintf(
-        "Two classes from one group (%s) in one construct: %s (rule 1.4.2).",
-        g, paste(classes[which(grp == g)], collapse = " ")))
+      construct_error(msg_two_classes(g, classes[which(grp == g)]))
     }
   }
   if (!is.null(keys$digits) && !is.null(keys$sigfig)) {
-    construct_error("`digits` and `sigfig` together are an error (rule 1.4.7).")
+    construct_error(msg_digits_sigfig())
   }
   # project classes: undeclared weft keys of their stage and values outside their types (rule 1.4.22)
   pargs <- list()
@@ -799,22 +796,21 @@ apply_formatters <- function(value, classes = character(), keys = list(),
     }
   }
   if (".date" %in% classes && (!is.null(keys$digits) || !is.null(keys$sigfig))) {
-    construct_error("`digits` and `sigfig` do not apply to `.date`.")
+    construct_error(msg_date_digits())
   }
   if (".p" %in% classes) {
     if (!is.null(keys$sigfig)) {
-      construct_error("`sigfig` does not apply to `.p`; use `digits` (rule 1.4.17).")
+      construct_error(msg_sigfig_p())
     }
     p_digits_value(keys$digits)
   }
   if (!is.null(keys$label) && !".p" %in% classes) {
-    construct_error("`label` applies to `.p` only (rule 1.4.17).")
+    construct_error(msg_label_p())
   }
   if (".plus" %in% classes) {
     clash <- c(intersect(classes, PLUS_CLASH), proj("number"))
     if (length(clash)) {
-      construct_error(sprintf(
-        "`.plus` cannot go with `%s`: it signs a number that `.num` or `.pct` prints (rule 1.4.21).", clash[1L]))
+      construct_error(msg_plus_clash(clash[1L]))
     }
   }
   unit_cls <- intersect(classes, c(".pct", ".sci"))
@@ -822,8 +818,7 @@ apply_formatters <- function(value, classes = character(), keys = list(),
   # a class that prints a number as a word: the unit's name follows it (4.4.2)
   spell_cls <- c(intersect(classes, c(".word", ".count", ".no")), proj("wording"))
   if (identical(unit_class_form(classes), "symbol") && length(spell_cls)) {
-    construct_error(sprintf(paste0("`.usym` with `%s` is an error: a spelled number takes the unit's name, ",
-                                   "and \"five m\" is not written (rule 1.4.19)."), spell_cls[1L]))
+    construct_error(msg_usym_spelled(spell_cls[1L]))
   }
   if (length(unit_cls) && length(wording_cls)) {
     construct_error(sprintf(
@@ -855,7 +850,7 @@ apply_formatters <- function(value, classes = character(), keys = list(),
     text
   }
 
-  # a zero-length atomic value under a collapse class prints `none` (stage 1h)
+  # a zero-length atomic value under a collapse class prints `none` (rule 1.4.14)
   if (!governor && !is.null(keys$none) && !is.null(value) && is.atomic(value) &&
       length(value) == 0L && !inherits(value, "weft_text") &&
       (length(intersect(classes, COLLAPSE_CLASSES)) || length(proj("collapse")))) {

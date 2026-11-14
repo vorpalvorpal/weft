@@ -761,7 +761,7 @@ local function check_construct(c)
     return "construct error", "`digits` and `sigfig` together are an error (rule 1.4.7)."
   end
   if has.date and (c.keys.digits ~= nil or c.keys.sigfig ~= nil) then
-    return "construct error", "`digits` and `sigfig` do not apply to `.date`."
+    return "construct error", "`digits` and `sigfig` do not apply to `.date` (rule 1.4.7)."
   end
   if has.p then
     if c.keys.sigfig ~= nil then
