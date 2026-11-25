@@ -39,6 +39,7 @@ variable afterwards changes nothing."></head><body>
     <li><a class="dropdown-item" href="../articles/targets.html">Using weft with targets</a></li>
     <li><a class="dropdown-item" href="../articles/languages.html">Python and Julia chunks</a></li>
     <li><a class="dropdown-item" href="../articles/named-values.html">Values by name</a></li>
+    <li><a class="dropdown-item" href="../articles/strings.html">weft in strings</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Checking</h6></li>
     <li><a class="dropdown-item" href="../articles/lints.html">The static lints</a></li>
@@ -89,6 +90,9 @@ variable afterwards changes nothing.</p>
 <span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">x</span>, <span class="va">...</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># S3 method for class 'weft'</span></span>
+<span><span class="fu">cli_format</span><span class="op">(</span><span class="va">x</span>, style <span class="op">=</span> <span class="cn">NULL</span>, <span class="va">...</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># S3 method for class 'weft'</span></span>
 <span><span class="va">x</span><span class="op">[</span><span class="va">...</span><span class="op">]</span></span>
 <span></span>
 <span><span class="co"># S3 method for class 'weft'</span></span>
@@ -102,6 +106,12 @@ variable afterwards changes nothing.</p>
 <span></span>
 <span><span class="co"># S3 method for class 'weft'</span></span>
 <span><span class="va">x</span><span class="op">[</span><span class="va">i</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="va">value</span></span>
+<span></span>
+<span><span class="co"># S3 method for class 'weft'</span></span>
+<span><span class="va">x</span><span class="op">[[</span><span class="va">i</span><span class="op">]</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="va">value</span></span>
+<span></span>
+<span><span class="co"># S3 method for class 'weft'</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">x</span><span class="op">)</span> <span class="op">&lt;-</span> <span class="va">value</span></span>
 <span></span>
 <span><span class="co"># S3 method for class 'weft'</span></span>
 <span><span class="fu">knit_print</span><span class="op">(</span><span class="va">x</span>, options <span class="op">=</span> <span class="cn">NULL</span>, inline <span class="op">=</span> <span class="cn">FALSE</span>, <span class="va">...</span><span class="op">)</span></span></code></pre></div>
@@ -125,7 +135,12 @@ a <code>weft</code> object, which is returned as it is. An <code>NA</code> eleme
 
 
 <dt id="arg-target">target<a class="anchor" aria-label="anchor" href="#arg-target"></a></dt>
-<dd><p>For <code><a href="https://rdrr.io/r/base/format.html" class="external-link">format()</a></code>: <code>"plain"</code> (the default) or <code>"markdown"</code>.</p></dd>
+<dd><p>For <code><a href="https://rdrr.io/r/base/format.html" class="external-link">format()</a></code>: <code>"plain"</code> (the default), <code>"markdown"</code> or
+<code>"ansi"</code> (the console form, see "In the console and in cli").</p></dd>
+
+
+<dt id="arg-style">style<a class="anchor" aria-label="anchor" href="#arg-style"></a></dt>
+<dd><p>Not used (for <code>cli_format()</code>).</p></dd>
 
 
 <dt id="arg-i">i<a class="anchor" aria-label="anchor" href="#arg-i"></a></dt>
@@ -155,8 +170,8 @@ a <code>weft</code> object, which is returned as it is. An <code>NA</code> eleme
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
     <p>The result is a <code>weft</code> object, a character vector with two forms of each
-element. Its content is the <strong>plain</strong> text (Unicode, no markup: <code>m²</code>,
-<code>1.2 × 10⁻⁴</code>, emphasis without its marks, rule 1.4.24), so
+element. Its content is the <strong>plain</strong> text (Unicode, no markup: <code>m^2</code>,
+<code>1.2 x 10^-4</code>, emphasis without its marks, rule 1.4.24), so
 anything that reads a character vector (<code><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat()</a></code>, <code><a href="https://rdrr.io/r/base/nchar.html" class="external-link">nchar()</a></code>, <code><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste()</a></code>, a
 ggplot2 title) gets readable text. The attribute <code>markdown</code> holds the
 <strong>markdown</strong> text. <code><a href="https://rdrr.io/r/base/character.html" class="external-link">as.character()</a></code> and <code><a href="https://rdrr.io/r/base/format.html" class="external-link">format()</a></code> give the plain text;
@@ -168,9 +183,40 @@ vectors (text as it is: not markup, not evaluated); <code><a href="https://rdrr.
 inside the markup of another, or to an <code>fmt_*()</code>, contributes its markdown.</p>
 <p>A caption option that R computes as a <code>weft</code> object (<code>fig.cap = weft(...)</code>,
 <code>#| fig-cap: !expr weft(...)</code>) is given to knitr as markdown (as plain text
-for <code>fig.alt</code>). <code>knitr::kable(caption = weft(...))</code> gets the plain text.
-<code><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat()</a></code> in a <code>results = "asis"</code> chunk writes plain text; to write markdown,
-print the object or use <code>cat(format(x, target = "markdown"))</code>.</p>
+for <code>fig.alt</code>). <code>knitr::kable(caption = weft(...))</code> gets the plain text.</p>
+<p>The plain text of a <code>weft</code> object uses Unicode superscripts and the minus
+sign, which the <code><a href="https://rdrr.io/r/grDevices/pdf.html" class="external-link">pdf()</a></code> device cannot draw: for a plot with weft text that
+is saved as PDF, use <code><a href="https://rdrr.io/r/grDevices/cairo.html" class="external-link">cairo_pdf()</a></code> or a ragg device.</p>
+<p><code><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat()</a></code> in a <code>results = "asis"</code> chunk writes plain text; to write markdown,
+leave the object as a top-level value in a chunk (knitr then calls <code>knit_print()</code>)
+or use <code>cat(format(x, target = "markdown"))</code>; an explicit <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code> writes plain text.</p>
+    </div>
+    <div class="section level2">
+    <h2 id="in-the-console-and-in-cli">In the console and in cli<a class="anchor" aria-label="anchor" href="#in-the-console-and-in-cli"></a></h2>
+
+
+<p>The console form of a <code>weft</code> text is its plain text with emphasis in italic,
+strong emphasis in bold (both for <code>***</code>) and each failure marker in bold
+red; with the styles removed it is the plain text. A superscript or subscript
+with Unicode characters takes no style, and an element joined by <code><a href="https://rdrr.io/r/base/c.html" class="external-link">c()</a></code> or
+<code>[&lt;-</code>, or changed by a function, is plain. <code>format(x, target = "ansi")</code> gives
+it, and <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code> writes it, but only where cli would write its own styles
+(<code><a href="https://cli.r-lib.org/reference/num_ansi_colors.html" class="external-link">cli::num_ansi_colors()</a></code>; <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code> asks about <code><a href="https://rdrr.io/r/base/showConnections.html" class="external-link">stdout()</a></code>, and about cli's
+own count as well under a sink): not under
+<code>NO_COLOR</code>, in a knit, into a sink or on a terminal without colour. <code>format(x)</code>
+and <code>as.character(x)</code> are always plain.</p>
+<p>In a cli message, <code>{.val {x}}</code> draws the console form, unquoted, in cli's value
+colour (<code>cli_format()</code>, which returns a bare character vector), and <code>{x}</code> gives
+the plain text. A <code>weft</code> object given to cli as a value is never read as a
+template, so braces in it are text; given as the template itself
+(<code>cli_inform(x)</code>) it is read by cli, which evaluates what is in braces, so pass
+it as <code>"{x}"</code>. Use <code>{.val {x}}</code> alone: <code>{.val text {x}}</code> pastes the value
+and quotes it. Markup is not written into a cli template: resolve it with
+<code>weft()</code> first.</p>
+<p></p><div class="sourceCode r"><pre><code><span><span class="va">w</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/weft.html">weft</a></span><span class="op">(</span><span class="st">"Depth at *[one site | # sites]{n='k'}*: `r d`{.num unit='m'}"</span><span class="op">)</span></span>
+<span><span class="fu">cli</span><span class="fu">::</span><span class="fu"><a href="https://cli.r-lib.org/reference/cli_abort.html" class="external-link">cli_inform</a></span><span class="op">(</span><span class="st">"{.val {w}}"</span><span class="op">)</span>   <span class="co"># emphasis drawn, in the value colour</span></span>
+<span><span class="fu">cli</span><span class="fu">::</span><span class="fu"><a href="https://cli.r-lib.org/reference/cli_abort.html" class="external-link">cli_inform</a></span><span class="op">(</span><span class="st">"Plotted {w}"</span><span class="op">)</span>  <span class="co"># plain text</span></span>
+<span><span class="va">msg</span> <span class="op">&lt;-</span> <span class="fu">cli</span><span class="fu">::</span><span class="fu"><a href="https://cli.r-lib.org/reference/format_inline.html" class="external-link">format_inline</a></span><span class="op">(</span><span class="st">"{.val {w}}"</span><span class="op">)</span></span></code></pre><p></p></div>
 <p>During a knit with weft active a failed check, a missing value or a value
 error is collected as it is in prose (rules 2.4.1, 3.6.3) and marked in the
 text with the chunk that holds the call, or the line of the inline R (rule
@@ -181,9 +227,17 @@ first failure stops at once, with the class of the failure
 signalled at the call and the object is returned.</p>
 <p>Outside a knit, the configuration is that of the project root of the working
 directory (the nearest folder upward that holds <code>_weft.yml</code>, else
-<code>_quarto.yml</code>, else the working directory). It is read once and kept for the
+<code>_quarto.yml</code> or <code>_quarto.yaml</code>, else the working directory). It is read once and kept for the
 session, and read again when <code>_weft.yml</code> appears, disappears or changes size
 or modification time. A <code>_weft.yml</code> with an error is a <code>weft_config_error</code>.</p>
+<p>A named value in the markup, <code>`depth`{.num}</code>, is read from <code>.envir</code>
+(rule 1.12.12): the call looks the name up in <code>.envir</code> and its enclosing
+environments as far as the global environment, never in base R, a
+namespace or an attached package, and prints it as <code>`r depth`{.num}</code>
+would. A name that is not bound there, or is bound to a function, is a "no
+value" failure; nothing is left for a filter, because the text goes to
+plots and consoles where none runs. In a loop, each call reads the names as
+they stand.</p>
 <p>Block-only constructs do not apply; each element is read as inline markup.
 Bare inline R in a string is evaluated as knitr evaluates it (rule 1.1.8).
 The functions inline code calls by name (<code><a href="claim.html">claim()</a></code>, <code><a href="plural.html">plural()</a></code>, the
@@ -208,7 +262,7 @@ attached; a function of the same name that <code>.envir</code> can see wins.</p>
 <span class="r-in"><span><span class="kw">if</span> <span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/ns-load.html" class="external-link">requireNamespace</a></span><span class="op">(</span><span class="st">"ggplot2"</span>, quietly <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span></span>
 <span class="r-in"><span>  <span class="fu">ggplot2</span><span class="fu">::</span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggplot.html" class="external-link">ggplot</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>x <span class="op">=</span> <span class="fl">1</span>, y <span class="op">=</span> <span class="fl">1</span><span class="op">)</span>, <span class="fu">ggplot2</span><span class="fu">::</span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/aes.html" class="external-link">aes</a></span><span class="op">(</span><span class="va">x</span>, <span class="va">y</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span></span>
 <span class="r-in"><span>    <span class="fu">ggplot2</span><span class="fu">::</span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/geom_point.html" class="external-link">geom_point</a></span><span class="op">(</span><span class="op">)</span> <span class="op">+</span></span></span>
-<span class="r-in"><span>    <span class="fu">ggplot2</span><span class="fu">::</span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html" class="external-link">labs</a></span><span class="op">(</span>title <span class="op">=</span> <span class="fu">weft</span><span class="op">(</span><span class="st">"Rate of 1.2 &amp;times; 10^-4^ m^2^"</span><span class="op">)</span><span class="op">)</span></span></span>
+<span class="r-in"><span>    <span class="fu">ggplot2</span><span class="fu">::</span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html" class="external-link">labs</a></span><span class="op">(</span>title <span class="op">=</span> <span class="fu">weft</span><span class="op">(</span><span class="st">"Rate of 1.2 &amp;times; 10 per m^2^"</span><span class="op">)</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="op">}</span></span></span>
 <span class="r-plt img"><img src="weft-1.png" alt="" width="700" height="433"></span>
 </code></pre></div>

@@ -9,12 +9,13 @@ articles:
   lints: lints.html
   named-values: named-values.html
   setup: setup.html
+  strings: strings.html
   targets: targets.html
   units: units.html
   values: values.html
   weft: weft.html
   wording: wording.html
-last_built: 2026-11-25T17:11Z
+last_built: 2026-11-25T19:40Z
 urls:
   reference: https://vorpalvorpal.github.io/weft/reference
   article: https://vorpalvorpal.github.io/weft/articles

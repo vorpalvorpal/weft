@@ -74,6 +74,7 @@ lint_rules()[, c("id", "tier", "scope", "what")]
 #> 37         ojs-value    2    file
 #> 38 named-unpublished    2    file
 #> 39    publish-hidden    1    file
+#> 40     string-markup    2    file
 #>                                                                   what
 #> 1  A number typed in prose, a caption, front matter, a string or math.
 #> 2                           An error the scanner finds in a construct.
@@ -114,6 +115,7 @@ lint_rules()[, c("id", "tier", "scope", "what")]
 #> 37               An Observable value computed in the reader's browser.
 #> 38 A name used by a named value or filter span that nothing publishes.
 #> 39          A chunk that publishes values where its output is dropped.
+#> 40         Weft markup in an R string that does not go through weft().
 ```
 
 A rule’s **scope** is `file` when it reads one document at a time, and
@@ -381,6 +383,87 @@ and
 [`verify()`](https://vorpalvorpal.github.io/weft/reference/verify.md)
 run them over the lines added since a commit.
 
+## Scripts
+
+Plot titles and console text are written in scripts as often as in
+chunks, so
+[`lints()`](https://vorpalvorpal.github.io/weft/reference/lints.md) also
+reads the `.R` and `.r` files of the project, but only for the literal
+strings they pass to
+[`weft()`](https://vorpalvorpal.github.io/weft/reference/weft.md). A
+call is `weft(...)`, `weft::weft(...)` or `weft:::weft(...)`, or the
+right-hand side of a pipe; the argument read is the one R matches to
+`x`: a string (a raw string too) or the literal elements of a
+[`c()`](https://rdrr.io/r/base/c.html). A computed argument
+([`paste0()`](https://rdrr.io/r/base/paste.html),
+[`sprintf()`](https://rdrr.io/r/base/sprintf.html), a name) is skipped.
+The code around the call is not read, nor are
+[`claim()`](https://vorpalvorpal.github.io/weft/reference/claim.md)
+calls, the phrases of
+[`lookup()`](https://vorpalvorpal.github.io/weft/reference/lookup.md)
+and [`brk()`](https://vorpalvorpal.github.io/weft/reference/lookup.md),
+or strings given to other functions.
+
+``` r
+
+dir.create("R")
+writeLines(c(
+  "library(ggplot2)",
+  "p <- labs(title = weft(\"We found 12 sites\"))"), "R/plots.R")
+lints()
+#> weft lints: 8 findings in 2 files (8 tier 1, 0 tier 2)
+#> 
+#> R/plots.R
+#>   2:34  numeral  "12" is a number typed in prose (rule 5.2.1).
+#>                  Write it as a value, put it in the dictionary, or mark it [12]{.weft-literal why="..."}.
+#> 
+#> survey.qmd
+#>   1:1    engine          survey.qmd holds weft constructs but is not marked `engine: knitr` and no document includes it (rule 5.8.9).
+#>                          Add `engine: knitr` to its front matter. Or write each value as a name, `x`{.num}, and publish it in code: then no knitr is needed (rule 1.12.8).
+#>   12:12  numeral         "14" is a number typed in prose (rule 5.2.1).
+#>                          Write it as a value, put it in the dictionary, or mark it [14]{.weft-literal why="..."}.
+#>   13:14  literal-value   `3 + 4` is made only of constants, so it is a number typed in the source (rule 5.6.1).
+#>                          Compute it, put it in the dictionary, or write [3 + 4]{.weft-literal why="..."}.
+#>   14:11  construct       A formatter on an `if` span is an error (rule 1.5.7): .num.
+#>   18:12  numeral         "2" after "Figure" is a typed cross-reference number; use @fig-<label> (rule 5.2.4).
+#>                          Write @fig-<label> and give the target that label.
+#>   20:4   section-anchor  The heading `Methods` has no `{#id}` (rule 5.8.1).
+#>                          Give it an id, for example `{#sec-name}`.
+#>   22:1   chunk-label     The r chunk `plot(1:3)` has no label (rule 5.8.1).
+#>                          Give the chunk a label, as `#| label: name`.
+unlink("R", recursive = TRUE)
+```
+
+The finding is placed at the character of the script that holds it,
+through escapes and raw strings. The rules that read scripts are the
+ones marked `scripts` in
+[`lint_rules()`](https://vorpalvorpal.github.io/weft/reference/lint_rules.md):
+`numeral`, `construct`, `read`, `block-start`, `lone-bar`, `if-zero`,
+`name`, `inert-check`, `long-guard`, `claim-word`, `literal-value`,
+`value-constant` and `value-format`. The rules that read across
+documents (cross-references, citations, hygiene) read documents only.
+
+A script is left out when it is in a folder that starts with `.` or `_`,
+or in `renv`, `packrat`, `node_modules`, `_site`, `_book`, `_freeze` or
+`_extensions`, or when its own file name starts with `.`. The setting
+`scripts_skip` in `_weft.yml` names more: a name with no `/` is matched
+against each folder and the file name, and an entry with a `/` is a path
+from the folder that holds the `_weft.yml`. No wildcards: an entry with
+`*` or `?`, a leading `/` or a backslash is an error. Each script is
+judged by the `_weft.yml` nearest to it, so a nested project can read
+its own `tests` folder with its own `scripts_skip: []`. The setting is
+`[tests]` unless set, because test files hold typed numbers and broken
+markup on purpose; a list that you give replaces it, so keep `tests` in
+it, and `[]` reads every script. An empty or commented-out
+`scripts_skip:` (a null value) keeps the default. A script whose bytes
+do not hold `weft` is never read, one that is not valid UTF-8 gives the
+`read` finding, and one that does not parse as R gives a note and no
+findings. Naming a script that is left out, in `files` or as `path`,
+gives a note that says which rule left it out.
+`lints(reader = "pandoc")` reads scripts with weft’s reader too, since
+they need no Pandoc. The commit gate counts a script’s findings and
+constructs as it counts a document’s.
+
 ## Settings
 
 | Setting | Default | Governs |
@@ -393,6 +476,7 @@ run them over the lines added since a commit.
 | `guard_words` | `25` | the length of an `if` arm that `long-guard` lists |
 | `expected_names` | `[]` | classes (`.foo`) and keys (`foo`) from other tools that `name` should accept |
 | `strict` | `[]` | tier-1 rules whose every instance fails [`verify()`](https://vorpalvorpal.github.io/weft/reference/verify.md) |
+| `scripts_skip` | `[tests]` | folders and files whose `.R` scripts are not read (project setting) |
 | `anchor_calls` | `[]` | helper calls that define anchors, for `xref`, `anchor-twice` and `anchor-unused` |
 
 `strict` is for the end of adoption. Once a project has removed every

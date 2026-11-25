@@ -29,8 +29,8 @@ print(x, ...)
 
 - files:
 
-  `NULL`, or documents (relative to the root or absolute under it) to
-  report on.
+  `NULL`, or documents and scripts (relative to the root or absolute
+  under it) to report on.
 
 - repeats:
 
@@ -52,6 +52,14 @@ check is not readable), `text`, `always`, `rebound`, `flag` and
 `repeated`, and the attribute `notes`. Printing it shows the report.
 
 ## Details
+
+The `.R` scripts of the project are read too, for the guards and the
+[`claim()`](https://vorpalvorpal.github.io/weft/reference/claim.md)
+calls inside the values of the literal strings they pass to
+[`weft()`](https://vorpalvorpal.github.io/weft/reference/weft.md) (see
+[`lints()`](https://vorpalvorpal.github.io/weft/reference/lints.md)); a
+[`claim()`](https://vorpalvorpal.github.io/weft/reference/claim.md) in a
+script's code is not read.
 
 A value is *flagged* when two of its checks compare it with the same
 other operand under operators that differ only in strictness

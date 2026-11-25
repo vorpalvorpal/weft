@@ -41,6 +41,7 @@
     <li><a class="dropdown-item" href="../articles/targets.html">Using weft with targets</a></li>
     <li><a class="dropdown-item" href="../articles/languages.html">Python and Julia chunks</a></li>
     <li><a class="dropdown-item" href="../articles/named-values.html">Values by name</a></li>
+    <li><a class="dropdown-item" href="../articles/strings.html">weft in strings</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Checking</h6></li>
     <li><a class="dropdown-item" href="../articles/lints.html">The static lints</a></li>
@@ -362,6 +363,10 @@ are the same block. Inside quotes, <code>\"</code>, <code>\'</code> and
 <code>\|</code> stand for the character, which is how the visual editor
 writes a value when it saves; any other backslash is an error, and the
 fix is to bind the expression to a name in a chunk.</p>
+<p>A value that must start with a space is written with a
+backslash-space, as in <code>{.and last="\ plus "}</code>. A value that
+starts with a plain space is an error, because Pandoc does not read it
+as an attribute.</p>
 <p>In R code a raw string needs no escapes. A raw string ends at
 <code>)"</code>, so a value that ends in <code>)</code> takes single
 quotes (<code>{if='isTRUE(x)'}</code>).</p>

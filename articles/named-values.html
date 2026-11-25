@@ -41,6 +41,7 @@
     <li><a class="dropdown-item" href="../articles/targets.html">Using weft with targets</a></li>
     <li><a class="dropdown-item" href="../articles/languages.html">Python and Julia chunks</a></li>
     <li><a class="dropdown-item" href="../articles/named-values.html">Values by name</a></li>
+    <li><a class="dropdown-item" href="../articles/strings.html">weft in strings</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Checking</h6></li>
     <li><a class="dropdown-item" href="../articles/lints.html">The static lints</a></li>
@@ -82,12 +83,14 @@
     
 <p>This article is for authors whose prose cannot call R: a Quarto
 document on the Jupyter or Julia engine, a plain Pandoc document, or a
-chapter built from a values file. It assumes you know
+chapter built from a values file. It is also for knitr authors: in a
+knitr document a name reads R, as <code>`r x`</code> does; elsewhere
+code publishes it. It assumes you know
 <code><a href="../articles/values.html">vignette("values", package = "weft")</a></code> and
 <code><a href="../articles/wording.html">vignette("wording", package = "weft")</a></code>. After it you will be
-able to publish a value from R, Python or Julia, write it in a sentence
-by name, say what the resolver does with it, and know what fails and
-what is not built yet.</p>
+able to write a value in a sentence by name, publish it from Python,
+Julia or a pipeline, say what the resolver does with it, and know what
+fails and what is not built yet.</p>
 <p>None of the code in this article is run when the article is built.
 The output shown was produced by running it.</p>
 <div class="section level2">
@@ -95,9 +98,9 @@ The output shown was produced by running it.</p>
 </h2>
 <p>A named value is a code span that holds one name, directly followed
 by an attribute block with a weft class: <code>`depth`{.num}</code>.
-Code publishes a value under that name. When the document renders, a
-Pandoc filter replaces the span with the value, formatted by the
-class.</p>
+Where R runs, R reads the name; elsewhere code publishes a value under
+it. When the document renders, R or a Pandoc filter replaces the span
+with the value, formatted by the class.</p>
 <div class="sourceCode" id="cb1"><pre class="sourceCode markdown"><code class="sourceCode markdown"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a><span class="co">---</span></span>
 <span id="cb1-2"><a href="#cb1-2" tabindex="-1"></a><span class="an">title:</span><span class="co"> "Creek survey"</span></span>
 <span id="cb1-3"><a href="#cb1-3" tabindex="-1"></a><span class="co">---</span></span>
@@ -111,8 +114,9 @@ class.</p>
 <p>That document needs no R, no Python and no Julia. It renders as:</p>
 <pre class="text"><code>Mean depth was 3.14 m. One site read above the trigger.</code></pre>
 <p>The block in the middle is how code hands a value over. You rarely
-write one by hand: <code><a href="../reference/weft_put.html">weft_put()</a></code> in R, <code>put()</code> in
-Python and <code>@put</code> in Julia write it for you. A name is ASCII
+write one by hand: <code>put()</code> in Python, <code>@put</code> in
+Julia and <code><a href="../reference/weft_values_write.html">weft_values_write()</a></code> in R write it for you, and in
+a knitr document the hooks write what is needed. A name is ASCII
 letters, digits, <code>_</code> and <code>.</code>, starting with a
 letter or <code>_</code>, and at most 64 characters. A dot is part of
 the name: <code>n.sites</code> is one name, and there is no
@@ -135,27 +139,29 @@ string as it is.</p>
 <h3 id="when-to-write-a-name">When to write a name<a class="anchor" aria-label="anchor" href="#when-to-write-a-name"></a>
 </h3>
 <ul>
-<li>In a document that is not knit, write names. The document is on the
-Jupyter engine, the Julia engine, the markdown engine or plain Pandoc,
-so no R runs to evaluate an expression.</li>
 <li>In a knitr document (an <code>.Rmd</code>, or a <code>.qmd</code>
-with <code>engine: knitr</code>), keep writing R expressions. R values
-and spans stay R. Write a name where the hooks cannot reach: text a
-chunk prints with <code>results: asis</code>, a caption on a chunk that
-is cached or not evaluated, or a value from Python or Julia that must
-print exactly.</li>
+with <code>engine: knitr</code>), write names or R expressions as you
+like: <code>`x`{.num}</code> and <code>`r x`{.num}</code> print the
+same, except for objects of R itself (see “Names in a knitr document”).
+Write a name for a value used above the code that sets it, and in front
+matter.</li>
+<li>In a document that is not knit (the Jupyter engine, the Julia
+engine, the markdown engine or plain Pandoc), write names. No R runs
+there to evaluate an expression.</li>
 </ul>
-<p>A named value means the same in every document and on every
-engine.</p>
+<p>One name with one record prints one text in every document and on
+every engine, for the classes the filter implements. R carries more than
+the filter: a <code>units</code> quantity, a unit ladder, a dictionary
+entry and a project formatter print only where R reads the name; where
+the filter resolves the name they are a value error.</p>
 </div>
 </div>
 <div class="section level2">
-<h2 id="publishing-from-r">Publishing from R<a class="anchor" aria-label="anchor" href="#publishing-from-r"></a>
+<h2 id="names-in-a-knitr-document">Names in a knitr document<a class="anchor" aria-label="anchor" href="#names-in-a-knitr-document"></a>
 </h2>
-<p>In a knitr document you usually publish nothing. When the source
-holds a named value, weft publishes every name it uses that is bound in
-the knit and has changed, at the start of each block of prose and at the
-end of the document:</p>
+<p>In a knitr document R reads a named value, as <code>`r x`</code>
+reads an expression, with every formatter: units, the dictionary and
+project formatters work. You publish nothing:</p>
 <div class="sourceCode" id="cb3"><pre class="sourceCode markdown"><code class="sourceCode markdown"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a><span class="co">---</span></span>
 <span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a><span class="an">title:</span><span class="co"> "Creek survey"</span></span>
 <span id="cb3-3"><a href="#cb3-3" tabindex="-1"></a><span class="an">output:</span><span class="co"> md_document</span></span>
@@ -172,41 +178,42 @@ end of the document:</p>
 <span id="cb3-14"><a href="#cb3-14" tabindex="-1"></a></span>
 <span id="cb3-15"><a href="#cb3-15" tabindex="-1"></a>The worst reading was <span class="in">`worst`</span>{.num} NTU.</span>
 <span id="cb3-16"><a href="#cb3-16" tabindex="-1"></a><span class="co">[</span><span class="ot">No site | One site | # sites</span><span class="co">]</span>{n="n_high"} read high.</span></code></pre></div>
-<p>Automatic publishing applies only when the source holds at least one
-named value. A governor name alone, such as <code>if="rising"</code>,
-does not switch it on.</p>
-<p><code><a href="../reference/weft_put.html">weft_put()</a></code> publishes by hand. Use it for text a chunk
-prints with <code>results = "asis"</code>, for a value that carries a
-check, and for a chunk with no value of its own to show:</p>
-<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="../reference/weft_put.html">weft_put</a></span><span class="op">(</span>n_sites <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">turbidity</span><span class="op">)</span><span class="op">)</span>      <span class="co"># a name and a value</span></span>
-<span><span class="fu"><a href="../reference/weft_put.html">weft_put</a></span><span class="op">(</span><span class="va">worst</span>, <span class="va">n_high</span><span class="op">)</span>                    <span class="co"># variables, under their own names</span></span>
-<span><span class="fu"><a href="../reference/weft_put.html">weft_put</a></span><span class="op">(</span>limit <span class="op">=</span> <span class="fu"><a href="../reference/claim.html">claim</a></span><span class="op">(</span><span class="fl">50</span>, <span class="va">.</span> <span class="op">&gt;</span> <span class="fl">10</span><span class="op">)</span><span class="op">)</span>        <span class="co"># the check travels with the value</span></span></code></pre></div>
-<div class="sourceCode" id="cb5"><pre class="sourceCode markdown"><code class="sourceCode markdown"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a><span class="in">```{r, results = "asis"}</span></span>
-<span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a><span class="in">weft_put(n_sites = length(turbidity))</span></span>
-<span id="cb5-3"><a href="#cb5-3" tabindex="-1"></a><span class="in">cat("We sampled `n_sites`{.word} sites.\n")</span></span>
-<span id="cb5-4"><a href="#cb5-4" tabindex="-1"></a><span class="in">```</span></span></code></pre></div>
-<p>In a chunk with <code>results = "asis"</code> the block is written at
-once, so the text printed after it sees the name. Otherwise the names
-wait and go out before the next block of prose. A chunk with
-<code>include: false</code> therefore still publishes under knitr.</p>
-<p><code><a href="../reference/weft_put.html">weft_put()</a></code> takes named arguments, or bare variable
-names. It accepts a bool, a whole or decimal number, a string, a factor,
-a <code>Date</code>, an <code>integer64</code> or an atomic vector of
-these, up to 10,000 elements. <code>NA</code>, <code>NaN</code>,
-<code>Inf</code> and <code>NULL</code> publish as missing. A value with
-units is refused. Any other object, such as a data frame, a list, a
-complex number or a raw vector, publishes as an error that is reported
-where the name is used.</p>
-<p>A named vector of length 1 publishes as a list of one, with its name
-as the key, as a longer named vector does. Under a scalar class the
-filter prints a list of exactly one element as that element, so
+<p>R looks the name up in the knit’s environment and the environments it
+encloses, as far as the global environment, and stops there: a name is
+never read from base R, a package or a dataset. So
+<code>`pi`{.num}</code>, <code>`T`{.val}</code> and
+<code>`rivers`{.num}</code> are not read by name, while
+<code>`r pi`</code> still reads base R’s <code>pi</code>. To use an
+object a package exports, bind it in a chunk:
+<code>n &lt;- pkg::n</code>.</p>
+<p>A function is not a value. If <code>f</code> is a function in R,
+<code>`f`{.num}</code> is left for the filter, and so is a name R does
+not bind where the sentence stands. That is how a name used above its
+value works (see “A name used above its value” below).</p>
+<p>Front matter and a caption the hooks do not resolve (a chunk that is
+cached, not evaluated or not R) take the name’s last published value.
+The hooks publish what the filter needs for these and for a name R left,
+and nothing else: never a name in the governor of a span in prose, which
+R reads itself. So a document with no named value in front matter or in
+such a caption writes no <code>weft-values</code> block.</p>
+<p>A pipeline that feeds a document it never runs writes a values file
+with <code><a href="../reference/weft_values_write.html">weft_values_write()</a></code> (see “Values files” below). A
+named vector of length 1 publishes as a list of one, with its name as
+the key, as a longer named vector does. Under a scalar class the filter
+prints a list of exactly one element as that element, so
 <code>.num</code> works on it and <code>.pairs</code> keeps the
 name:</p>
-<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="../reference/weft_put.html">weft_put</a></span><span class="op">(</span>worst <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>Upper <span class="op">=</span> <span class="fl">12.6</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
-<div class="sourceCode" id="cb7"><pre class="sourceCode markdown"><code class="sourceCode markdown"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a>The worst reading was <span class="in">`worst`</span>{.pairs}.</span></code></pre></div>
+<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/weft_values_write.html">weft_values_write</a></span><span class="op">(</span><span class="st">"_weft/values/survey.json"</span>, worst <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>Upper <span class="op">=</span> <span class="fl">12.6</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<div class="sourceCode" id="cb5"><pre class="sourceCode markdown"><code class="sourceCode markdown"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a>The worst reading was <span class="in">`worst`</span>{.pairs}.</span></code></pre></div>
 <pre class="text"><code>The worst reading was Upper (12.6).</code></pre>
+<p>A values file accepts a bool, a whole or decimal number, a string, a
+factor, a <code>Date</code>, an <code>integer64</code> or an atomic
+vector of these, up to 10,000 elements. <code>NA</code>,
+<code>NaN</code>, <code>Inf</code> and <code>NULL</code> publish as
+missing. A value with units is refused. Any other object, such as a data
+frame, a list, a complex number or a raw vector, publishes as an error
+that is reported where the name is used.</p>
 </div>
 <div class="section level2">
 <h2 id="text-a-chunk-prints">Text a chunk prints<a class="anchor" aria-label="anchor" href="#text-a-chunk-prints"></a>
@@ -214,31 +221,41 @@ name:</p>
 <p>A chunk with <code>results = "asis"</code> that prints sentences, one
 per site or one per model, writes text that knitr’s hooks never see as
 prose. Typing the numbers into that text with <code><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste()</a></code> or
-<code><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf()</a></code> loses every check. There are two ways to keep
-them, and they print the same.</p>
-<p><strong><code><a href="../reference/weft.html">weft()</a></code></strong> resolves the markup in R, at
-once, and returns an object that prints as markdown in a knit (and as
-plain text anywhere else). Its constructs are R expressions, so units,
-the dictionary and project formatters all work:</p>
-<div class="sourceCode" id="cb9"><pre class="sourceCode markdown"><code class="sourceCode markdown"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a><span class="in">```{r, results = "asis"}</span></span>
-<span id="cb9-2"><a href="#cb9-2" tabindex="-1"></a><span class="in">weft("We sampled [a site | # sites]{n=\"n_sites\"}, mean `r mean_ntu`{.num} NTU.")</span></span>
-<span id="cb9-3"><a href="#cb9-3" tabindex="-1"></a><span class="in">```</span></span></code></pre></div>
-<p><strong>A named value</strong> leaves the markup for the filter.
-Publish the values first, then print text that names them:</p>
-<div class="sourceCode" id="cb10"><pre class="sourceCode markdown"><code class="sourceCode markdown"><span id="cb10-1"><a href="#cb10-1" tabindex="-1"></a><span class="in">```{r, results = "asis"}</span></span>
-<span id="cb10-2"><a href="#cb10-2" tabindex="-1"></a><span class="in">weft_put(n_sites, mean_ntu)</span></span>
-<span id="cb10-3"><a href="#cb10-3" tabindex="-1"></a><span class="in">cat("We sampled [a site | # sites]{n=\"n_sites\"}, mean `mean_ntu`{.num} NTU.\n")</span></span>
-<span id="cb10-4"><a href="#cb10-4" tabindex="-1"></a><span class="in">```</span></span></code></pre></div>
-<p>Both print:</p>
-<pre class="text"><code>We sampled 3 sites, mean 8.2 NTU.</code></pre>
+<code><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf()</a></code> loses every check. In R, pass the text through
+<code><a href="../reference/weft.html">weft()</a></code>. It resolves the markup where the call runs, reads
+each name there, and returns an object that prints as markdown in a knit
+(and as plain text anywhere else). Its constructs are R, so units, the
+dictionary and project formatters all work, and in a loop each line
+keeps its own values:</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode markdown"><code class="sourceCode markdown"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a><span class="in">```{r, results = "asis"}</span></span>
+<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a><span class="in">ntu &lt;- c(8.2, 7.9, 9.1)</span></span>
+<span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a><span class="in">for (n_sites in 2:4) {</span></span>
+<span id="cb7-4"><a href="#cb7-4" tabindex="-1"></a><span class="in">  mean_ntu &lt;- ntu[n_sites - 1]</span></span>
+<span id="cb7-5"><a href="#cb7-5" tabindex="-1"></a><span class="in">  cat(format(weft("We sampled `n_sites`{.word} sites, mean `mean_ntu`{.num} NTU."),</span></span>
+<span id="cb7-6"><a href="#cb7-6" tabindex="-1"></a><span class="in">             target = "markdown"), "\n")</span></span>
+<span id="cb7-7"><a href="#cb7-7" tabindex="-1"></a><span class="in">}</span></span>
+<span id="cb7-8"><a href="#cb7-8" tabindex="-1"></a><span class="in">```</span></span></code></pre></div>
+<p>It prints:</p>
+<pre class="text"><code>We sampled two sites, mean 8.2 NTU.
+We sampled three sites, mean 7.9 NTU.
+We sampled four sites, mean 9.1 NTU.</code></pre>
+<p>A named value in text that R prints without <code><a href="../reference/weft.html">weft()</a></code> is
+not read, and the hooks publish nothing for it, so the filter fails it
+with “no value” and the hint says to pass the text through
+<code><a href="../reference/weft.html">weft()</a></code>. The <code>string-markup</code> lint finds the
+literal case before the render (see “The lints”).</p>
 <p>Under <code><a href="../reference/weft.html">weft()</a></code> a failed check, a missing value or a value
 error is collected as it is in prose and marked with the chunk that
-printed it. A named value is checked by the filter, so its text keeps to
-the filter’s grammar (no units, no R expressions), but a check given to
-<code><a href="../reference/weft_put.html">weft_put()</a></code> travels with the value and counts each time the
-name is used. Use <code><a href="../reference/weft.html">weft()</a></code> for text that needs R; use a name
-when the same text also comes from Python or Julia, or from a values
-file.</p>
+printed it. A name that is not bound where <code><a href="../reference/weft.html">weft()</a></code> was
+called is a “no value” failure, and so is a function.</p>
+<p>From a Python or Julia chunk, publish first, in a chunk with
+<code>results: asis</code>, then print the text. The block is printed at
+once, so the text after it sees the name:</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode markdown"><code class="sourceCode markdown"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb9-2"><a href="#cb9-2" tabindex="-1"></a><span class="in">#| results: asis</span></span>
+<span id="cb9-3"><a href="#cb9-3" tabindex="-1"></a><span class="in">put(n_sites=len(sites))</span></span>
+<span id="cb9-4"><a href="#cb9-4" tabindex="-1"></a><span class="in">print("We sampled `n_sites`{.word} sites.")</span></span>
+<span id="cb9-5"><a href="#cb9-5" tabindex="-1"></a><span class="in">```</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="publishing-from-python">Publishing from Python<a class="anchor" aria-label="anchor" href="#publishing-from-python"></a>
@@ -247,28 +264,28 @@ file.</p>
 the Python Quarto uses. The distribution is <code>weft-prose</code>; the
 module is <code>weft</code>:</p>
 <pre><code>pip install "git+https://github.com/vorpalvorpal/weft#subdirectory=inst/python"</code></pre>
-<div class="sourceCode" id="cb13"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb13-1"><a href="#cb13-1" tabindex="-1"></a><span class="im">from</span> weft <span class="im">import</span> put, auto, claim</span></code></pre></div>
+<div class="sourceCode" id="cb11"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb11-1"><a href="#cb11-1" tabindex="-1"></a><span class="im">from</span> weft <span class="im">import</span> put, auto, claim</span></code></pre></div>
 <p><code>put()</code> publishes names. A cell that calls it shows
 nothing to the reader; the filter removes the block it prints. Hide the
 code with <code>echo: false</code>.</p>
-<div class="sourceCode" id="cb14"><pre class="sourceCode markdown"><code class="sourceCode markdown"><span id="cb14-1"><a href="#cb14-1" tabindex="-1"></a><span class="co">---</span></span>
-<span id="cb14-2"><a href="#cb14-2" tabindex="-1"></a><span class="an">title:</span><span class="co"> "Creek survey"</span></span>
-<span id="cb14-3"><a href="#cb14-3" tabindex="-1"></a><span class="an">jupyter:</span><span class="co"> python3</span></span>
-<span id="cb14-4"><a href="#cb14-4" tabindex="-1"></a><span class="co">---</span></span>
-<span id="cb14-5"><a href="#cb14-5" tabindex="-1"></a></span>
-<span id="cb14-6"><a href="#cb14-6" tabindex="-1"></a><span class="in">```{python}</span></span>
-<span id="cb14-7"><a href="#cb14-7" tabindex="-1"></a><span class="in">#| echo: false</span></span>
-<span id="cb14-8"><a href="#cb14-8" tabindex="-1"></a><span class="in">from decimal import Decimal</span></span>
-<span id="cb14-9"><a href="#cb14-9" tabindex="-1"></a><span class="in">from weft import put</span></span>
-<span id="cb14-10"><a href="#cb14-10" tabindex="-1"></a><span class="in">depth = 3.14159</span></span>
-<span id="cb14-11"><a href="#cb14-11" tabindex="-1"></a><span class="in">sites = ['Upper', 'Lower', 'Weir']</span></span>
-<span id="cb14-12"><a href="#cb14-12" tabindex="-1"></a><span class="in">big = 2**70</span></span>
-<span id="cb14-13"><a href="#cb14-13" tabindex="-1"></a><span class="in">price = Decimal('0.10')</span></span>
-<span id="cb14-14"><a href="#cb14-14" tabindex="-1"></a><span class="in">put(depth=depth, sites=sites, big=big, price=price)</span></span>
-<span id="cb14-15"><a href="#cb14-15" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb14-16"><a href="#cb14-16" tabindex="-1"></a></span>
-<span id="cb14-17"><a href="#cb14-17" tabindex="-1"></a>Mean depth was <span class="in">`depth`</span>{.num digits="2"} m at <span class="in">`sites`</span>{.and}.</span>
-<span id="cb14-18"><a href="#cb14-18" tabindex="-1"></a>The count was <span class="in">`big`</span>{.val} and the price <span class="in">`price`</span>{.num digits="2"}.</span></code></pre></div>
+<div class="sourceCode" id="cb12"><pre class="sourceCode markdown"><code class="sourceCode markdown"><span id="cb12-1"><a href="#cb12-1" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb12-2"><a href="#cb12-2" tabindex="-1"></a><span class="an">title:</span><span class="co"> "Creek survey"</span></span>
+<span id="cb12-3"><a href="#cb12-3" tabindex="-1"></a><span class="an">jupyter:</span><span class="co"> python3</span></span>
+<span id="cb12-4"><a href="#cb12-4" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb12-5"><a href="#cb12-5" tabindex="-1"></a></span>
+<span id="cb12-6"><a href="#cb12-6" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb12-7"><a href="#cb12-7" tabindex="-1"></a><span class="in">#| echo: false</span></span>
+<span id="cb12-8"><a href="#cb12-8" tabindex="-1"></a><span class="in">from decimal import Decimal</span></span>
+<span id="cb12-9"><a href="#cb12-9" tabindex="-1"></a><span class="in">from weft import put</span></span>
+<span id="cb12-10"><a href="#cb12-10" tabindex="-1"></a><span class="in">depth = 3.14159</span></span>
+<span id="cb12-11"><a href="#cb12-11" tabindex="-1"></a><span class="in">sites = ['Upper', 'Lower', 'Weir']</span></span>
+<span id="cb12-12"><a href="#cb12-12" tabindex="-1"></a><span class="in">big = 2**70</span></span>
+<span id="cb12-13"><a href="#cb12-13" tabindex="-1"></a><span class="in">price = Decimal('0.10')</span></span>
+<span id="cb12-14"><a href="#cb12-14" tabindex="-1"></a><span class="in">put(depth=depth, sites=sites, big=big, price=price)</span></span>
+<span id="cb12-15"><a href="#cb12-15" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb12-16"><a href="#cb12-16" tabindex="-1"></a></span>
+<span id="cb12-17"><a href="#cb12-17" tabindex="-1"></a>Mean depth was <span class="in">`depth`</span>{.num digits="2"} m at <span class="in">`sites`</span>{.and}.</span>
+<span id="cb12-18"><a href="#cb12-18" tabindex="-1"></a>The count was <span class="in">`big`</span>{.val} and the price <span class="in">`price`</span>{.num digits="2"}.</span></code></pre></div>
 <p>It renders as:</p>
 <pre class="text"><code>Mean depth was 3.14 m at Upper, Lower and Weir. The count was
 1180591620717411303424 and the price 0.10.</code></pre>
@@ -277,49 +294,52 @@ mix of the two are all accepted. A name that is not a name raises
 <code>PublishError</code>, and nothing is published from that call.</p>
 <p><code>auto()</code> publishes for you. Call it once, in an early
 cell:</p>
-<div class="sourceCode" id="cb16"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb16-1"><a href="#cb16-1" tabindex="-1"></a><span class="im">from</span> weft <span class="im">import</span> auto</span>
-<span id="cb16-2"><a href="#cb16-2" tabindex="-1"></a>auto()</span></code></pre></div>
+<div class="sourceCode" id="cb14"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb14-1"><a href="#cb14-1" tabindex="-1"></a><span class="im">from</span> weft <span class="im">import</span> auto</span>
+<span id="cb14-2"><a href="#cb14-2" tabindex="-1"></a>auto()</span></code></pre></div>
 <p>After each cell, <code>auto()</code> publishes the names the document
 uses that the cell changed. It reads the document’s source from Quarto’s
 environment, or from a path you give it:
 <code>auto("report.qmd")</code>. Call it in a cell that has output. A
 cell with <code>include: false</code> or <code>output: false</code>
 publishes nothing on this engine.</p>
-<p><code>auto()</code> has the same gate as R’s automatic publishing. It
-publishes only when the source holds at least one named value, and a
-governor name alone, such as <code>if="rising"</code>, does not switch
-it on. A list of more than 10,000 elements raises an error from
-<code>auto()</code>, as it does from <code>put()</code>; no error record
-is published.</p>
+<p>On the Jupyter engine <code>auto()</code> has a gate. It publishes
+only when the source holds at least one named value, and a governor name
+alone, such as <code>if="rising"</code>, does not switch it on. A list
+of more than 10,000 elements raises an error from <code>auto()</code>,
+as it does from <code>put()</code>; no error record is published.</p>
 <p>In a knitr document (an <code>.Rmd</code>, or a <code>.qmd</code>
 with <code>engine: knitr</code>), <code>put()</code> and
 <code>auto()</code> in a Python chunk, and <code>put</code> and
-<code>@put</code> in a Julia chunk, hand their names to R. R writes them
-as one block before the next block of prose, as <code><a href="../reference/weft_put.html">weft_put()</a></code>
-does, and nothing is printed in the chunk. A chunk with
+<code>@put</code> in a Julia chunk, hand their names to the hooks. The
+hooks write them as one block before the next block of prose, and
+nothing is printed in the chunk except by <code>put()</code> in a chunk
+with <code>results: asis</code>. A chunk with
 <code>include: false</code> still publishes. Under knitr,
-<code>auto()</code> publishes the names the source uses that are bound
-in Python’s <code>__main__</code>. Julia has no <code>auto()</code>.</p>
+<code>auto()</code> publishes, at the end of each Python chunk, the
+names R gives it that are bound in Python’s <code>__main__</code> and
+changed: the name of every named value in the source, and the names in a
+governor of a span in a Python or Julia chunk’s code or in a chunk’s
+options. Julia has no <code>auto()</code>.</p>
 </div>
 <div class="section level2">
 <h2 id="publishing-from-julia">Publishing from Julia<a class="anchor" aria-label="anchor" href="#publishing-from-julia"></a>
 </h2>
 <p>Julia has <code>put</code> and <code>@put</code>:</p>
-<div class="sourceCode" id="cb17"><pre class="sourceCode markdown"><code class="sourceCode markdown"><span id="cb17-1"><a href="#cb17-1" tabindex="-1"></a><span class="co">---</span></span>
-<span id="cb17-2"><a href="#cb17-2" tabindex="-1"></a><span class="an">title:</span><span class="co"> "Creek survey"</span></span>
-<span id="cb17-3"><a href="#cb17-3" tabindex="-1"></a><span class="an">engine:</span><span class="co"> julia</span></span>
-<span id="cb17-4"><a href="#cb17-4" tabindex="-1"></a><span class="co">---</span></span>
-<span id="cb17-5"><a href="#cb17-5" tabindex="-1"></a></span>
-<span id="cb17-6"><a href="#cb17-6" tabindex="-1"></a><span class="in">```{julia}</span></span>
-<span id="cb17-7"><a href="#cb17-7" tabindex="-1"></a><span class="in">#| echo: false</span></span>
-<span id="cb17-8"><a href="#cb17-8" tabindex="-1"></a><span class="in">using Weft</span></span>
-<span id="cb17-9"><a href="#cb17-9" tabindex="-1"></a><span class="in">depth = 3.14159</span></span>
-<span id="cb17-10"><a href="#cb17-10" tabindex="-1"></a><span class="in">n_high = 1</span></span>
-<span id="cb17-11"><a href="#cb17-11" tabindex="-1"></a><span class="in">@put depth n_high</span></span>
-<span id="cb17-12"><a href="#cb17-12" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb17-13"><a href="#cb17-13" tabindex="-1"></a></span>
-<span id="cb17-14"><a href="#cb17-14" tabindex="-1"></a>Mean depth was <span class="in">`depth`</span>{.num digits="2"} m.</span>
-<span id="cb17-15"><a href="#cb17-15" tabindex="-1"></a><span class="co">[</span><span class="ot">No site | One site | # sites</span><span class="co">]</span>{n="n_high"} read above the trigger.</span></code></pre></div>
+<div class="sourceCode" id="cb15"><pre class="sourceCode markdown"><code class="sourceCode markdown"><span id="cb15-1"><a href="#cb15-1" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb15-2"><a href="#cb15-2" tabindex="-1"></a><span class="an">title:</span><span class="co"> "Creek survey"</span></span>
+<span id="cb15-3"><a href="#cb15-3" tabindex="-1"></a><span class="an">engine:</span><span class="co"> julia</span></span>
+<span id="cb15-4"><a href="#cb15-4" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb15-5"><a href="#cb15-5" tabindex="-1"></a></span>
+<span id="cb15-6"><a href="#cb15-6" tabindex="-1"></a><span class="in">```{julia}</span></span>
+<span id="cb15-7"><a href="#cb15-7" tabindex="-1"></a><span class="in">#| echo: false</span></span>
+<span id="cb15-8"><a href="#cb15-8" tabindex="-1"></a><span class="in">using Weft</span></span>
+<span id="cb15-9"><a href="#cb15-9" tabindex="-1"></a><span class="in">depth = 3.14159</span></span>
+<span id="cb15-10"><a href="#cb15-10" tabindex="-1"></a><span class="in">n_high = 1</span></span>
+<span id="cb15-11"><a href="#cb15-11" tabindex="-1"></a><span class="in">@put depth n_high</span></span>
+<span id="cb15-12"><a href="#cb15-12" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb15-13"><a href="#cb15-13" tabindex="-1"></a></span>
+<span id="cb15-14"><a href="#cb15-14" tabindex="-1"></a>Mean depth was <span class="in">`depth`</span>{.num digits="2"} m.</span>
+<span id="cb15-15"><a href="#cb15-15" tabindex="-1"></a><span class="co">[</span><span class="ot">No site | One site | # sites</span><span class="co">]</span>{n="n_high"} read above the trigger.</span></code></pre></div>
 <p><code>@put a b</code> publishes each variable under its own name.
 <code>Weft.put(depth=3.14159)</code> and
 <code>Weft.put(:depth =&gt; 3.14159)</code> publish a name and a value.
@@ -358,15 +378,15 @@ knitr you need no pip install: R loads its own copy of the package from
 weft.</p>
 <p><strong>Julia.</strong> <code>using Weft</code> has to find the
 package. The line <code><a href="../reference/use_quarto.html">use_quarto()</a></code> prints is:</p>
-<div class="sourceCode" id="cb18"><pre class="sourceCode julia"><code class="sourceCode julia"><span id="cb18-1"><a href="#cb18-1" tabindex="-1"></a><span class="im">using</span> <span class="bu">Pkg;</span> Pkg.add(url = "https://github.com/vorpalvorpal/weft", subdir <span class="op">=</span> <span class="st">"inst/julia/Weft"</span>)</span></code></pre></div>
+<div class="sourceCode" id="cb16"><pre class="sourceCode julia"><code class="sourceCode julia"><span id="cb16-1"><a href="#cb16-1" tabindex="-1"></a><span class="im">using</span> <span class="bu">Pkg;</span> Pkg.add(url = "https://github.com/vorpalvorpal/weft", subdir <span class="op">=</span> <span class="st">"inst/julia/Weft"</span>)</span></code></pre></div>
 <p>Setting <code>JULIA_LOAD_PATH</code> in your shell does not help,
 because the notebook worker that Quarto starts does not inherit it. The
 <code>julia:</code> key in <code>_quarto.yml</code> does reach the
 worker. To use the copy that ships with the R package, point the worker
 at it:</p>
-<div class="sourceCode" id="cb19"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb19-1"><a href="#cb19-1" tabindex="-1"></a><span class="fu">engine</span><span class="kw">:</span><span class="at"> julia</span></span>
-<span id="cb19-2"><a href="#cb19-2" tabindex="-1"></a><span class="fu">julia</span><span class="kw">:</span></span>
-<span id="cb19-3"><a href="#cb19-3" tabindex="-1"></a><span class="at">  </span><span class="fu">env</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="st">"JULIA_LOAD_PATH=/path/to/library/weft/julia:"</span><span class="kw">]</span></span></code></pre></div>
+<div class="sourceCode" id="cb17"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb17-1"><a href="#cb17-1" tabindex="-1"></a><span class="fu">engine</span><span class="kw">:</span><span class="at"> julia</span></span>
+<span id="cb17-2"><a href="#cb17-2" tabindex="-1"></a><span class="fu">julia</span><span class="kw">:</span></span>
+<span id="cb17-3"><a href="#cb17-3" tabindex="-1"></a><span class="at">  </span><span class="fu">env</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="st">"JULIA_LOAD_PATH=/path/to/library/weft/julia:"</span><span class="kw">]</span></span></code></pre></div>
 <p>The path is <code>system.file("julia", package = "weft")</code> in R.
 The trailing separator (<code>:</code>, and <code>;</code> on Windows)
 keeps Julia’s own default load path. This is how weft’s own tests make
@@ -379,10 +399,12 @@ no R code.</p>
 <div class="section level2">
 <h2 id="what-the-filter-resolves">What the filter resolves<a class="anchor" aria-label="anchor" href="#what-the-filter-resolves"></a>
 </h2>
-<p><code>weft.lua</code> resolves named values wherever they are. In a
-document that is not knit it resolves every weft construct. In a knitr
-document it resolves named values and any span that reaches Pandoc still
-carrying a governor.</p>
+<p><code>weft.lua</code> resolves named values wherever R does not read
+them. In a document that is not knit it resolves every weft construct.
+In a knitr document it resolves the named values the hooks leave (front
+matter, a caption the hooks do not resolve, a name R does not bind where
+it stands) and any span that reaches Pandoc still carrying a
+governor.</p>
 <p>It implements the number, wording, collapse and text classes:
 <code>.num</code>, <code>.pct</code>, <code>.val</code>,
 <code>.sci</code>, <code>.p</code>, <code>.date</code>,
@@ -417,11 +439,11 @@ string in quotes such as <code>'north'</code> or <code>"north"</code>,
 with at least one side a name.</li>
 </ul>
 <p>Conditions are joined by commas, as on the R path.</p>
-<div class="sourceCode" id="cb20"><pre class="sourceCode markdown"><code class="sourceCode markdown"><span id="cb20-1"><a href="#cb20-1" tabindex="-1"></a><span class="co">[</span><span class="ot">above | within</span><span class="co">]</span>{if="worst &gt; limit"}</span>
-<span id="cb20-2"><a href="#cb20-2" tabindex="-1"></a><span class="co">[</span><span class="ot">a gap | no gap</span><span class="co">]</span>{if="n_gap &gt; 10, n_sites &gt;= 3"}</span>
-<span id="cb20-3"><a href="#cb20-3" tabindex="-1"></a><span class="co">[</span><span class="ot">north | south</span><span class="co">]</span>{if="region == 'north'"}</span>
-<span id="cb20-4"><a href="#cb20-4" tabindex="-1"></a><span class="co">[</span><span class="ot">the backlog cleared | the backlog grew</span><span class="co">]</span>{if="n_open &lt; 5, !paused"}</span>
-<span id="cb20-5"><a href="#cb20-5" tabindex="-1"></a><span class="co">[</span><span class="ot">before | after</span><span class="co">]</span>{if="sampled &lt; '2026-07-01'"}</span></code></pre></div>
+<div class="sourceCode" id="cb18"><pre class="sourceCode markdown"><code class="sourceCode markdown"><span id="cb18-1"><a href="#cb18-1" tabindex="-1"></a><span class="co">[</span><span class="ot">above | within</span><span class="co">]</span>{if="worst &gt; limit"}</span>
+<span id="cb18-2"><a href="#cb18-2" tabindex="-1"></a><span class="co">[</span><span class="ot">a gap | no gap</span><span class="co">]</span>{if="n_gap &gt; 10, n_sites &gt;= 3"}</span>
+<span id="cb18-3"><a href="#cb18-3" tabindex="-1"></a><span class="co">[</span><span class="ot">north | south</span><span class="co">]</span>{if="region == 'north'"}</span>
+<span id="cb18-4"><a href="#cb18-4" tabindex="-1"></a><span class="co">[</span><span class="ot">the backlog cleared | the backlog grew</span><span class="co">]</span>{if="n_open &lt; 5, !paused"}</span>
+<span id="cb18-5"><a href="#cb18-5" tabindex="-1"></a><span class="co">[</span><span class="ot">before | after</span><span class="co">]</span>{if="sampled &lt; '2026-07-01'"}</span></code></pre></div>
 <p><code>!</code> applies to one bool name only. <code>!paused</code> is
 true when <code>paused</code> is false. <code>!!a</code>,
 <code>!a == b</code> and <code>!(a)</code> are construct errors, because
@@ -481,8 +503,8 @@ rounding past 2^53.</li>
 <li>Order matters. A construct sees the latest value published above it.
 A name used above every publication of it takes the value published
 below, when there is exactly one (see “A name used above its value”
-below). Captions and the front-matter fields <code>title</code>,
-<code>subtitle</code>, <code>abstract</code> and
+below). Captions the hooks do not resolve and the front-matter fields
+<code>title</code>, <code>subtitle</code>, <code>abstract</code> and
 <code>description</code> see each name’s last published value, so a
 named value works in any caption on any chunk. A named value in another
 front-matter field is a failure that says the filter does not resolve
@@ -499,13 +521,13 @@ or a literal, with one of six operators: <code>&lt;</code>,
 <code>==</code> and <code>!=</code>. A bool name on its own, or with
 <code>!</code> before it, is a condition too. For anything richer,
 compute it in code and publish the answer as a bool:</p>
-<div class="sourceCode" id="cb21"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb21-1"><a href="#cb21-1" tabindex="-1"></a>put(all_rising<span class="op">=</span><span class="bu">all</span>(s <span class="op">&gt;</span> <span class="dv">0</span> <span class="cf">for</span> s <span class="kw">in</span> slopes), in_band<span class="op">=</span><span class="fl">6.5</span> <span class="op">&lt;=</span> do_mean <span class="op">&lt;=</span> <span class="fl">8.5</span>)</span></code></pre></div>
-<div class="sourceCode" id="cb22"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb19"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb19-1"><a href="#cb19-1" tabindex="-1"></a>put(all_rising<span class="op">=</span><span class="bu">all</span>(s <span class="op">&gt;</span> <span class="dv">0</span> <span class="cf">for</span> s <span class="kw">in</span> slopes), in_band<span class="op">=</span><span class="fl">6.5</span> <span class="op">&lt;=</span> do_mean <span class="op">&lt;=</span> <span class="fl">8.5</span>)</span></code></pre></div>
+<div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/weft_values_write.html">weft_values_write</a></span><span class="op">(</span><span class="st">"_weft/values/survey.json"</span>,</span>
 <span>                  all_rising <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/all.html" class="external-link">all</a></span><span class="op">(</span><span class="va">trend</span><span class="op">$</span><span class="va">slope</span> <span class="op">&gt;</span> <span class="fl">0</span><span class="op">)</span>,</span>
 <span>                  in_band <span class="op">=</span> <span class="fu"><a href="../reference/in_range.html">in_range</a></span><span class="op">(</span><span class="va">do_mean</span>, <span class="va">dict</span><span class="op">$</span><span class="va">do_band</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
-<div class="sourceCode" id="cb23"><pre class="sourceCode markdown"><code class="sourceCode markdown"><span id="cb23-1"><a href="#cb23-1" tabindex="-1"></a><span class="co">[</span><span class="ot">All</span><span class="co">]</span>{if="all_rising"} sites rose, and the mean was</span>
-<span id="cb23-2"><a href="#cb23-2" tabindex="-1"></a><span class="co">[</span><span class="ot">within | outside</span><span class="co">]</span>{if="in_band"} the band.</span></code></pre></div>
+<div class="sourceCode" id="cb21"><pre class="sourceCode markdown"><code class="sourceCode markdown"><span id="cb21-1"><a href="#cb21-1" tabindex="-1"></a><span class="co">[</span><span class="ot">All</span><span class="co">]</span>{if="all_rising"} sites rose, and the mean was</span>
+<span id="cb21-2"><a href="#cb21-2" tabindex="-1"></a><span class="co">[</span><span class="ot">within | outside</span><span class="co">]</span>{if="in_band"} the band.</span></code></pre></div>
 <p>The code that computes the bool is where the reasoning lives, and it
 can be read and tested there. In a knitr document none of this is
 needed: an <code>if</code> span takes any R expression.</p>
@@ -518,17 +540,19 @@ needed: an <code>if</code> span takes any R expression.</p>
 further down computes. A named value can be used above the code that
 publishes it, provided the name takes exactly one value in the
 document:</p>
-<div class="sourceCode" id="cb24"><pre class="sourceCode markdown"><code class="sourceCode markdown"><span id="cb24-1"><a href="#cb24-1" tabindex="-1"></a>In summary, <span class="in">`n_sites`</span>{.count} sites were sampled.</span>
-<span id="cb24-2"><a href="#cb24-2" tabindex="-1"></a></span>
-<span id="cb24-3"><a href="#cb24-3" tabindex="-1"></a><span class="in">```{r}</span></span>
-<span id="cb24-4"><a href="#cb24-4" tabindex="-1"></a><span class="in">n_sites &lt;- nrow(sites)</span></span>
-<span id="cb24-5"><a href="#cb24-5" tabindex="-1"></a><span class="in">```</span></span></code></pre></div>
-<p>The filter looks ahead, finds the one value published under
-<code>n_sites</code>, and prints it. This works on every engine, in
-knitr documents too. Several publications count as one value when they
-agree: a <code><a href="../reference/weft_put.html">weft_put()</a></code> in a loop that publishes the same value
-each time, or a values file and a block that agree. A missing value
-counts as a value.</p>
+<div class="sourceCode" id="cb22"><pre class="sourceCode markdown"><code class="sourceCode markdown"><span id="cb22-1"><a href="#cb22-1" tabindex="-1"></a>In summary, <span class="in">`n_sites`</span>{.count} sites were sampled.</span>
+<span id="cb22-2"><a href="#cb22-2" tabindex="-1"></a></span>
+<span id="cb22-3"><a href="#cb22-3" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb22-4"><a href="#cb22-4" tabindex="-1"></a><span class="in">n_sites &lt;- nrow(sites)</span></span>
+<span id="cb22-5"><a href="#cb22-5" tabindex="-1"></a><span class="in">```</span></span></code></pre></div>
+<p>In a knitr document R does not bind <code>n_sites</code> where the
+sentence stands, so the hooks leave it, publish it once the chunk has
+run, and the filter takes the value from below. The filter looks ahead,
+finds the one value published under <code>n_sites</code>, and prints it.
+This works on every engine. Several publications count as one value when
+they agree: a Python <code>put()</code> in a loop that publishes the
+same value each time, or a values file and a block that agree. A missing
+value counts as a value.</p>
 <p>When the document publishes different values under the name below the
 use, the filter cannot tell which one the sentence means, and the render
 fails:</p>
@@ -543,12 +567,11 @@ evaluated where it stands, before <code>n_sites</code> exists. When it
 fails with “object not found”, the hint says to write it as a named
 value instead.</p>
 <p>One trap is left under knitr. If you render with
-<code><a href="https://pkgs.rstudio.com/rmarkdown/reference/render.html" class="external-link">rmarkdown::render()</a></code> in an interactive session that still
-holds an old <code>n_sites</code> in the global environment, the hooks
-publish that old value at the first block of prose, so the sentence is
-no longer above every publication and prints the old value. Render in a
-fresh R session, as the Knit button and <code>quarto render</code>
-do.</p>
+<code><a href="https://pkgs.rstudio.com/rmarkdown/reference/render.html" class="external-link">rmarkdown::render()</a></code> in a session that still holds an old
+<code>n_sites</code>, R reads that old value above the chunk. When the
+document sets <code>n_sites</code> again below, weft fails the render
+and says so; render in a fresh session, as the Knit button and
+<code>quarto render</code> do.</p>
 </div>
 <div class="section level2">
 <h2 id="checks">Checks<a class="anchor" aria-label="anchor" href="#checks"></a>
@@ -558,26 +581,29 @@ do.</p>
 the check fails; a string that starts with a comparison operator applies
 to the value, and any other string is an expression in which
 <code>_</code> is the value:</p>
-<div class="sourceCode" id="cb26"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb26-1"><a href="#cb26-1" tabindex="-1"></a><span class="im">from</span> weft <span class="im">import</span> claim</span>
-<span id="cb26-2"><a href="#cb26-2" tabindex="-1"></a>n <span class="op">=</span> claim(n, <span class="st">"&gt; 10"</span>)</span>
-<span id="cb26-3"><a href="#cb26-3" tabindex="-1"></a>even <span class="op">=</span> claim(n, <span class="st">"_ % 2 == 0"</span>)</span>
-<span id="cb26-4"><a href="#cb26-4" tabindex="-1"></a>depth <span class="op">=</span> claim(depth, <span class="st">"&gt; 0"</span>, <span class="st">"&lt; 50"</span>, level<span class="op">=</span><span class="st">"warn"</span>)   <span class="co"># record, and go on</span></span></code></pre></div>
+<div class="sourceCode" id="cb24"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb24-1"><a href="#cb24-1" tabindex="-1"></a><span class="im">from</span> weft <span class="im">import</span> claim</span>
+<span id="cb24-2"><a href="#cb24-2" tabindex="-1"></a>n <span class="op">=</span> claim(n, <span class="st">"&gt; 10"</span>)</span>
+<span id="cb24-3"><a href="#cb24-3" tabindex="-1"></a>even <span class="op">=</span> claim(n, <span class="st">"_ % 2 == 0"</span>)</span>
+<span id="cb24-4"><a href="#cb24-4" tabindex="-1"></a>depth <span class="op">=</span> claim(depth, <span class="st">"&gt; 0"</span>, <span class="st">"&lt; 50"</span>, level<span class="op">=</span><span class="st">"warn"</span>)   <span class="co"># record, and go on</span></span></code></pre></div>
 <p>In Julia the check is an expression, and <code>_</code> stands for
 the value:</p>
-<div class="sourceCode" id="cb27"><pre class="sourceCode julia"><code class="sourceCode julia"><span id="cb27-1"><a href="#cb27-1" tabindex="-1"></a><span class="im">using</span> <span class="bu">Weft</span></span>
-<span id="cb27-2"><a href="#cb27-2" tabindex="-1"></a><span class="pp">@claim</span> n <span class="op">&gt;</span> <span class="fl">10</span></span>
-<span id="cb27-3"><a href="#cb27-3" tabindex="-1"></a><span class="pp">@claim</span> <span class="fu">mean</span>(d) (_ <span class="op">&gt;</span> <span class="fl">0.5</span>) (_ <span class="op">&lt;</span> <span class="fl">9</span>)</span></code></pre></div>
+<div class="sourceCode" id="cb25"><pre class="sourceCode julia"><code class="sourceCode julia"><span id="cb25-1"><a href="#cb25-1" tabindex="-1"></a><span class="im">using</span> <span class="bu">Weft</span></span>
+<span id="cb25-2"><a href="#cb25-2" tabindex="-1"></a><span class="pp">@claim</span> n <span class="op">&gt;</span> <span class="fl">10</span></span>
+<span id="cb25-3"><a href="#cb25-3" tabindex="-1"></a><span class="pp">@claim</span> <span class="fu">mean</span>(d) (_ <span class="op">&gt;</span> <span class="fl">0.5</span>) (_ <span class="op">&lt;</span> <span class="fl">9</span>)</span></code></pre></div>
 <p>A failure is recorded in a block, and the filter reports it with the
 cell’s label. In R chunk code, <code><a href="../reference/claim.html">claim()</a></code> is as it always was.
-<code><a href="../reference/claim.html">claim()</a></code> given directly to <code><a href="../reference/weft_put.html">weft_put()</a></code> is
-different: the check travels with the value, and counts each time the
-name is used in a sentence:</p>
-<div class="sourceCode" id="cb28"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="../reference/weft_put.html">weft_put</a></span><span class="op">(</span>worst <span class="op">=</span> <span class="fu"><a href="../reference/claim.html">claim</a></span><span class="op">(</span><span class="va">worst</span>, <span class="va">.</span> <span class="op">&lt;</span> <span class="fl">50</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+In a knitr document a check that should count where a value is used is
+written there, as a claim in the inline R or as a guard span:</p>
+<div class="sourceCode" id="cb26"><pre class="sourceCode markdown"><code class="sourceCode markdown"><span id="cb26-1"><a href="#cb26-1" tabindex="-1"></a>The worst reading was <span class="in">`r claim(worst, . &lt; 50)`</span>{.num} NTU.</span></code></pre></div>
+<p>A check can also travel with the value in a values file:
+<code><a href="../reference/claim.html">claim()</a></code> given directly to <code><a href="../reference/weft_values_write.html">weft_values_write()</a></code>
+is captured, and counts each time the name is used in a sentence:</p>
+<div class="sourceCode" id="cb27"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/weft_values_write.html">weft_values_write</a></span><span class="op">(</span><span class="st">"_weft/values/survey.json"</span>, worst <span class="op">=</span> <span class="fu"><a href="../reference/claim.html">claim</a></span><span class="op">(</span><span class="va">worst</span>, <span class="va">.</span> <span class="op">&lt;</span> <span class="fl">50</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 <p>A check in the sentence is a guard around the value.
 <code>[x]{if="worst &lt; 50"}</code> that is false fails the render, as
 any claim does:</p>
-<div class="sourceCode" id="cb29"><pre class="sourceCode markdown"><code class="sourceCode markdown"><span id="cb29-1"><a href="#cb29-1" tabindex="-1"></a>The worst reading was <span class="co">[</span><span class="ot">`worst`{.num}</span><span class="co">]</span>{if="worst &lt; 50"} NTU.</span></code></pre></div>
+<div class="sourceCode" id="cb28"><pre class="sourceCode markdown"><code class="sourceCode markdown"><span id="cb28-1"><a href="#cb28-1" tabindex="-1"></a>The worst reading was <span class="co">[</span><span class="ot">`worst`{.num}</span><span class="co">]</span>{if="worst &lt; 50"} NTU.</span></code></pre></div>
 <p>The detail line of the report names each value the guard read, as
 <code><a href="../reference/claim.html">claim()</a></code> names its value:
 <code>worst &lt; 50 was false (worst = 52.5)</code>. With two names it
@@ -631,8 +657,9 @@ is found too.</p>
 </h3>
 <p>A name published nowhere in the document:</p>
 <pre class="text"><code>no value is published under the name `depth` in this document (rule 1.12.7).
-Publish it in code in this document: weft_put(depth = ...) in R, put(depth=...) in
-Python, @put depth in Julia. A cell with include: false or output: false
+Publish it in code in this document: put(depth=...) in Python, @put depth in
+Julia, or a values file; under knitr, set it in an R chunk, and pass text an R
+chunk prints through weft(). A cell with include: false or output: false
 publishes nothing on the jupyter and julia engines.</code></pre>
 <p>A condition outside the grammar:</p>
 <pre class="text"><code>`worst + 1 &gt; 3` is not a name or one comparison of names, numbers and
@@ -653,12 +680,12 @@ reaches Pandoc. Publish in a cell that shows its output, and use
 <p>A pipeline can publish values for a document it never runs. Write a
 values file, then read it from the document at the point where the
 values should begin to count.</p>
-<div class="sourceCode" id="cb34"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb33"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/weft_values_write.html">weft_values_write</a></span><span class="op">(</span><span class="st">"_weft/values/survey.json"</span>, n <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">d</span><span class="op">)</span>, worst <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">max</a></span><span class="op">(</span><span class="va">d</span><span class="op">$</span><span class="va">ntu</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
-<div class="sourceCode" id="cb35"><pre class="sourceCode markdown"><code class="sourceCode markdown"><span id="cb35-1"><a href="#cb35-1" tabindex="-1"></a><span class="in">````{.weft-values file="_weft/values/survey.json"}</span></span>
-<span id="cb35-2"><a href="#cb35-2" tabindex="-1"></a><span class="in">````</span></span>
-<span id="cb35-3"><a href="#cb35-3" tabindex="-1"></a></span>
-<span id="cb35-4"><a href="#cb35-4" tabindex="-1"></a>Mean depth was <span class="in">`worst`</span>{.num} NTU at <span class="in">`n`</span>{.word} sites.</span></code></pre></div>
+<div class="sourceCode" id="cb34"><pre class="sourceCode markdown"><code class="sourceCode markdown"><span id="cb34-1"><a href="#cb34-1" tabindex="-1"></a><span class="in">````{.weft-values file="_weft/values/survey.json"}</span></span>
+<span id="cb34-2"><a href="#cb34-2" tabindex="-1"></a><span class="in">````</span></span>
+<span id="cb34-3"><a href="#cb34-3" tabindex="-1"></a></span>
+<span id="cb34-4"><a href="#cb34-4" tabindex="-1"></a>Mean depth was <span class="in">`worst`</span>{.num} NTU at <span class="in">`n`</span>{.word} sites.</span></code></pre></div>
 <p><code><a href="../reference/weft_values_write.html">weft_values_write()</a></code> works outside a knit and in a
 <code>targets</code> pipeline. The file is JSON, in the same form as the
 block. A relative path in the document is taken from the document’s
@@ -685,12 +712,14 @@ its hash.</p>
 </h2>
 <p>A named value works in any caption, on any chunk, and in the
 front-matter fields <code>title</code>, <code>subtitle</code>,
-<code>abstract</code> and <code>description</code>. The filter resolves
-them after the body, so each sees the last value published under the
-name.</p>
-<div class="sourceCode" id="cb36"><pre class="sourceCode markdown"><code class="sourceCode markdown"><span id="cb36-1"><a href="#cb36-1" tabindex="-1"></a><span class="co">---</span></span>
-<span id="cb36-2"><a href="#cb36-2" tabindex="-1"></a><span class="an">title:</span><span class="co"> "Turbidity at `n`{.word} sites"</span></span>
-<span id="cb36-3"><a href="#cb36-3" tabindex="-1"></a><span class="co">---</span></span></code></pre></div>
+<code>abstract</code> and <code>description</code>. In a caption the
+hooks resolve (an R chunk that runs and is not cached), R reads the name
+after the chunk, in the chunk’s environment. In any other caption, and
+in all front matter, the filter resolves the name after the body, so
+each sees the last value published under it.</p>
+<div class="sourceCode" id="cb35"><pre class="sourceCode markdown"><code class="sourceCode markdown"><span id="cb35-1"><a href="#cb35-1" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb35-2"><a href="#cb35-2" tabindex="-1"></a><span class="an">title:</span><span class="co"> "Turbidity at `n`{.word} sites"</span></span>
+<span id="cb35-3"><a href="#cb35-3" tabindex="-1"></a><span class="co">---</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="a-named-value-in-math-and-raw-latex">A named value in math and raw LaTeX<a class="anchor" aria-label="anchor" href="#a-named-value-in-math-and-raw-latex"></a>
@@ -701,18 +730,21 @@ keeps the backticks in the text of a <code>$...$</code> or
 and writes the TeX that a class block writes in math (see
 <code><a href="../articles/values.html">vignette("values")</a></code>, “Values in math and raw LaTeX”), not
 markdown:</p>
-<div class="sourceCode" id="cb37"><pre class="sourceCode markdown"><code class="sourceCode markdown"><span id="cb37-1"><a href="#cb37-1" tabindex="-1"></a><span class="in">````{.weft-values}</span></span>
-<span id="cb37-2"><a href="#cb37-2" tabindex="-1"></a><span class="in">{"weft":1,"values":{"share":{"t":"float","v":"0.123"},"volume":{"t":"float","v":"1234567"}}}</span></span>
-<span id="cb37-3"><a href="#cb37-3" tabindex="-1"></a><span class="in">````</span></span>
-<span id="cb37-4"><a href="#cb37-4" tabindex="-1"></a></span>
-<span id="cb37-5"><a href="#cb37-5" tabindex="-1"></a>The share was $s = <span class="in">`share`</span>{.pct}$ of the flow, and the volume</span>
-<span id="cb37-6"><a href="#cb37-6" tabindex="-1"></a></span>
-<span id="cb37-7"><a href="#cb37-7" tabindex="-1"></a>$$ V = <span class="in">`volume`</span>{.sci} $$</span></code></pre></div>
+<div class="sourceCode" id="cb36"><pre class="sourceCode markdown"><code class="sourceCode markdown"><span id="cb36-1"><a href="#cb36-1" tabindex="-1"></a><span class="in">````{.weft-values}</span></span>
+<span id="cb36-2"><a href="#cb36-2" tabindex="-1"></a><span class="in">{"weft":1,"values":{"share":{"t":"float","v":"0.123"},"volume":{"t":"float","v":"1234567"}}}</span></span>
+<span id="cb36-3"><a href="#cb36-3" tabindex="-1"></a><span class="in">````</span></span>
+<span id="cb36-4"><a href="#cb36-4" tabindex="-1"></a></span>
+<span id="cb36-5"><a href="#cb36-5" tabindex="-1"></a>The share was $s = <span class="in">`share`</span>{.pct}$ of the flow, and the volume</span>
+<span id="cb36-6"><a href="#cb36-6" tabindex="-1"></a></span>
+<span id="cb36-7"><a href="#cb36-7" tabindex="-1"></a>$$ V = <span class="in">`volume`</span>{.sci} $$</span></code></pre></div>
 <p>gives the formulas <code>s = 12.3\%</code> and
-<code>V = 1.2 \times 10^{6}</code>. The same holds in a math environment
-such as <code>align</code> and in raw LaTeX (a <code>{=latex}</code>
-fence, another <code>\begin{...}</code> environment, a code span
-followed by <code>{=latex}</code>), where the output is wrapped in
+<code>V = 1.2 \times 10^{6}</code>. In a knitr document R reads the name
+there, as it does in prose, so <code>share</code> and
+<code>volume</code> need no block when R binds them; the filter resolves
+the name only where R left it. The same holds in a math environment such
+as <code>align</code> and in raw LaTeX (a <code>{=latex}</code> fence,
+another <code>\begin{...}</code> environment, a code span followed by
+<code>{=latex}</code>), where the output is wrapped in
 <code>\ensuremath{...}</code>.</p>
 <p>The checks are those of math written with inline R: the classes that
 print words, emphasis or a list are a construct error, and so is a class
@@ -744,9 +776,29 @@ server. That ends any other Julia notebook open in that server, and the
 report says so.</p>
 </div>
 <div class="section level2">
+<h2 id="r-and-python-in-one-knitr-document">R and Python in one knitr document<a class="anchor" aria-label="anchor" href="#r-and-python-in-one-knitr-document"></a>
+</h2>
+<p>In a knitr document a Python or Julia chunk can publish a name that R
+also binds. The later wins where the sentence stands: R’s binding when
+its value changed after the guest published, else the published value. A
+scratch <code>n</code> set early in R does not shadow a
+<code>put(n=...)</code> made later in Python.</p>
+<p>The setting <code>names_from</code> says where a document’s named
+values come from. It goes in <code>_weft.yml</code> or under the
+document’s <code>weft:</code> key. The default is the engine’s language,
+<code>r</code>. With <code>names_from: python</code> (or
+<code>julia</code>) R reads no named value in prose or captions: every
+one is left for the filter, and Python fills it by <code>put()</code> or
+<code>auto()</code>. <code><a href="../reference/weft.html">weft()</a></code> always reads R. Governors
+(<code>if</code>, <code>n</code>, <code>sign</code>, <code>list</code>)
+stay R expressions under every setting; read a Python value there with
+<code>py$</code>. A value other than <code>r</code>, <code>python</code>
+or <code>julia</code> is a configuration error.</p>
+</div>
+<div class="section level2">
 <h2 id="the-lints">The lints<a class="anchor" aria-label="anchor" href="#the-lints"></a>
 </h2>
-<p>Three lints read named values, without rendering:</p>
+<p>Four lints read named values, without rendering:</p>
 <table class="table">
 <colgroup>
 <col width="25%">
@@ -766,10 +818,19 @@ report says so.</p>
 <td>2</td>
 <td>a name used in a sentence that no executed chunk, hand-written block
 or values file mentions</td>
-<td>publish it with <code><a href="../reference/weft_put.html">weft_put()</a></code>, <code>put()</code> or
+<td>set it in an R chunk, or publish it with <code>put()</code> or
 <code>@put</code>; the lint fires once per name, at its first use</td>
 </tr>
 <tr class="even">
+<td><code>string-markup</code></td>
+<td>2</td>
+<td>in a knitr document, a string in an R chunk that holds a named value
+or a span with <code>n</code>, <code>if</code>, <code>sign</code> or
+<code>list</code> and is not given to <code><a href="../reference/weft.html">weft()</a></code>
+</td>
+<td>give the string to <code><a href="../reference/weft.html">weft()</a></code> and print the object</td>
+</tr>
+<tr class="odd">
 <td><code>publish-hidden</code></td>
 <td>1</td>
 <td>a <code>put</code>, <code>weft.put</code>, <code>@put</code> or
@@ -777,7 +838,7 @@ or values file mentions</td>
 <code>output: false</code>, on the Jupyter or Julia engine</td>
 <td>publish in a cell that shows its output</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td><code>publish-hidden-auto</code></td>
 <td>2</td>
 <td>the same, for <code>auto()</code>
@@ -793,7 +854,9 @@ with no error: see Limits.</p>
 <p>A name can come from a helper script or a
 <code>from helpers import *</code>, which a search cannot see. That is
 why <code>named-unpublished</code> is tier 2: the render still fails
-loudly if the name is missing.</p>
+loudly if the name is missing. <code>string-markup</code> is tier 2 for
+a like reason: a string kept in a variable and given to
+<code><a href="../reference/weft.html">weft()</a></code> later reads as one that is not.</p>
 <p>The <code>engine</code> rule accepts a <code>.qmd</code> with no
 <code>engine: knitr</code> when every construct in it is a named value
 or a span in the filter’s grammar, and the filter is installed. It still
@@ -822,7 +885,14 @@ line.</li>
 <code>checked()</code> that makes a check count where the name is used.
 <code><a href="../reference/claim.html">claim()</a></code> from Python and Julia is checked where it
 runs.</li>
-<li>Units, the dictionary and project formatters stay in R.</li>
+<li>Units, the dictionary and project formatters work only where R reads
+the name; where the filter resolves it they are a value error.</li>
+<li>In a knitr document R’s binding counts as later than a guest’s
+publication only when its value changed. An R chunk that assigns a name
+the value it already had does not count, so a Python <code>put()</code>
+made between the two stands.</li>
+<li>R does not read a named value in a string given to Python’s
+<code>weft_str()</code>: its names are Python’s.</li>
 <li>The filter does not follow symbolic links when it reads a values
 file.</li>
 <li>Inline R used above the code that defines its value is not resolved

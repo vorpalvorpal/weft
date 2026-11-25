@@ -37,6 +37,7 @@ literals, or a bool name; the rest are listed under not read. Nothing in a docum
     <li><a class="dropdown-item" href="../articles/targets.html">Using weft with targets</a></li>
     <li><a class="dropdown-item" href="../articles/languages.html">Python and Julia chunks</a></li>
     <li><a class="dropdown-item" href="../articles/named-values.html">Values by name</a></li>
+    <li><a class="dropdown-item" href="../articles/strings.html">weft in strings</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Checking</h6></li>
     <li><a class="dropdown-item" href="../articles/lints.html">The static lints</a></li>
@@ -89,7 +90,7 @@ literals, or a bool name; the rest are listed under <code>not read</code>. Nothi
 
 
 <dt id="arg-files">files<a class="anchor" aria-label="anchor" href="#arg-files"></a></dt>
-<dd><p><code>NULL</code>, or documents (relative to the root or absolute under it) to report on.</p></dd>
+<dd><p><code>NULL</code>, or documents and scripts (relative to the root or absolute under it) to report on.</p></dd>
 
 
 <dt id="arg-repeats">repeats<a class="anchor" aria-label="anchor" href="#arg-repeats"></a></dt>
@@ -112,7 +113,9 @@ and <code>repeated</code>, and the attribute <code>notes</code>. Printing it sho
     </div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
-    <p>A value is <em>flagged</em> when two of its checks compare it with the same other operand under operators that
+    <p>The <code>.R</code> scripts of the project are read too, for the guards and the <code><a href="claim.html">claim()</a></code> calls inside the values of
+the literal strings they pass to <code><a href="weft.html">weft()</a></code> (see <code><a href="lints.html">lints()</a></code>); a <code><a href="claim.html">claim()</a></code> in a script's code is not read.</p>
+<p>A value is <em>flagged</em> when two of its checks compare it with the same other operand under operators that
 differ only in strictness (<code>operators</code>), or with different literals in one direction (<code>literals</code>). The
 report hints at checks made in <code>repeats</code> places or more with the same condition: check once, where the
 value is made.</p>

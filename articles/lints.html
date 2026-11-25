@@ -41,6 +41,7 @@
     <li><a class="dropdown-item" href="../articles/targets.html">Using weft with targets</a></li>
     <li><a class="dropdown-item" href="../articles/languages.html">Python and Julia chunks</a></li>
     <li><a class="dropdown-item" href="../articles/named-values.html">Values by name</a></li>
+    <li><a class="dropdown-item" href="../articles/strings.html">weft in strings</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Checking</h6></li>
     <li><a class="dropdown-item" href="../articles/lints.html">The static lints</a></li>
@@ -172,6 +173,7 @@ weft</td>
 <span><span class="co">#&gt; 37         ojs-value    2    file</span></span>
 <span><span class="co">#&gt; 38 named-unpublished    2    file</span></span>
 <span><span class="co">#&gt; 39    publish-hidden    1    file</span></span>
+<span><span class="co">#&gt; 40     string-markup    2    file</span></span>
 <span><span class="co">#&gt;                                                                   what</span></span>
 <span><span class="co">#&gt; 1  A number typed in prose, a caption, front matter, a string or math.</span></span>
 <span><span class="co">#&gt; 2                           An error the scanner finds in a construct.</span></span>
@@ -211,7 +213,8 @@ weft</td>
 <span><span class="co">#&gt; 36         A value read from Python or Julia that weft does not check.</span></span>
 <span><span class="co">#&gt; 37               An Observable value computed in the reader's browser.</span></span>
 <span><span class="co">#&gt; 38 A name used by a named value or filter span that nothing publishes.</span></span>
-<span><span class="co">#&gt; 39          A chunk that publishes values where its output is dropped.</span></span></code></pre></div>
+<span><span class="co">#&gt; 39          A chunk that publishes values where its output is dropped.</span></span>
+<span><span class="co">#&gt; 40         Weft markup in an R string that does not go through weft().</span></span></code></pre></div>
 <p>A rule’s <strong>scope</strong> is <code>file</code> when it reads
 one document at a time, and <code>project</code> when it reads them all,
 as cross-references do.</p>
@@ -605,6 +608,84 @@ meant for new material: <code><a href="../reference/changes.html">changes()</a><
 run them over the lines added since a commit.</p>
 </div>
 <div class="section level2">
+<h2 id="scripts">Scripts<a class="anchor" aria-label="anchor" href="#scripts"></a>
+</h2>
+<p>Plot titles and console text are written in scripts as often as in
+chunks, so <code><a href="../reference/lints.html">lints()</a></code> also reads the <code>.R</code> and
+<code>.r</code> files of the project, but only for the literal strings
+they pass to <code><a href="../reference/weft.html">weft()</a></code>. A call is <code>weft(...)</code>,
+<code>weft::weft(...)</code> or <code>weft:::weft(...)</code>, or the
+right-hand side of a pipe; the argument read is the one R matches to
+<code>x</code>: a string (a raw string too) or the literal elements of a
+<code><a href="https://rdrr.io/r/base/c.html" class="external-link">c()</a></code>. A computed argument (<code><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0()</a></code>,
+<code><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf()</a></code>, a name) is skipped. The code around the call is
+not read, nor are <code><a href="../reference/claim.html">claim()</a></code> calls, the phrases of
+<code><a href="../reference/lookup.html">lookup()</a></code> and <code><a href="../reference/lookup.html">brk()</a></code>, or strings given to other
+functions.</p>
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/files2.html" class="external-link">dir.create</a></span><span class="op">(</span><span class="st">"R"</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/writeLines.html" class="external-link">writeLines</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span></span>
+<span>  <span class="st">"library(ggplot2)"</span>,</span>
+<span>  <span class="st">"p &lt;- labs(title = weft(\"We found 12 sites\"))"</span><span class="op">)</span>, <span class="st">"R/plots.R"</span><span class="op">)</span></span>
+<span><span class="fu"><a href="../reference/lints.html">lints</a></span><span class="op">(</span><span class="op">)</span></span>
+<span><span class="co">#&gt; weft lints: 8 findings in 2 files (8 tier 1, 0 tier 2)</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; R/plots.R</span></span>
+<span><span class="co">#&gt;   2:34  numeral  "12" is a number typed in prose (rule 5.2.1).</span></span>
+<span><span class="co">#&gt;                  Write it as a value, put it in the dictionary, or mark it [12]{.weft-literal why="..."}.</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; survey.qmd</span></span>
+<span><span class="co">#&gt;   1:1    engine          survey.qmd holds weft constructs but is not marked `engine: knitr` and no document includes it (rule 5.8.9).</span></span>
+<span><span class="co">#&gt;                          Add `engine: knitr` to its front matter. Or write each value as a name, `x`{.num}, and publish it in code: then no knitr is needed (rule 1.12.8).</span></span>
+<span><span class="co">#&gt;   12:12  numeral         "14" is a number typed in prose (rule 5.2.1).</span></span>
+<span><span class="co">#&gt;                          Write it as a value, put it in the dictionary, or mark it [14]{.weft-literal why="..."}.</span></span>
+<span><span class="co">#&gt;   13:14  literal-value   `3 + 4` is made only of constants, so it is a number typed in the source (rule 5.6.1).</span></span>
+<span><span class="co">#&gt;                          Compute it, put it in the dictionary, or write [3 + 4]{.weft-literal why="..."}.</span></span>
+<span><span class="co">#&gt;   14:11  construct       A formatter on an `if` span is an error (rule 1.5.7): .num.</span></span>
+<span><span class="co">#&gt;   18:12  numeral         "2" after "Figure" is a typed cross-reference number; use @fig-&lt;label&gt; (rule 5.2.4).</span></span>
+<span><span class="co">#&gt;                          Write @fig-&lt;label&gt; and give the target that label.</span></span>
+<span><span class="co">#&gt;   20:4   section-anchor  The heading `Methods` has no `{#id}` (rule 5.8.1).</span></span>
+<span><span class="co">#&gt;                          Give it an id, for example `{#sec-name}`.</span></span>
+<span><span class="co">#&gt;   22:1   chunk-label     The r chunk `plot(1:3)` has no label (rule 5.8.1).</span></span>
+<span><span class="co">#&gt;                          Give the chunk a label, as `#| label: name`.</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/unlink.html" class="external-link">unlink</a></span><span class="op">(</span><span class="st">"R"</span>, recursive <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></code></pre></div>
+<p>The finding is placed at the character of the script that holds it,
+through escapes and raw strings. The rules that read scripts are the
+ones marked <code>scripts</code> in <code><a href="../reference/lint_rules.html">lint_rules()</a></code>:
+<code>numeral</code>, <code>construct</code>, <code>read</code>,
+<code>block-start</code>, <code>lone-bar</code>, <code>if-zero</code>,
+<code>name</code>, <code>inert-check</code>, <code>long-guard</code>,
+<code>claim-word</code>, <code>literal-value</code>,
+<code>value-constant</code> and <code>value-format</code>. The rules
+that read across documents (cross-references, citations, hygiene) read
+documents only.</p>
+<p>A script is left out when it is in a folder that starts with
+<code>.</code> or <code>_</code>, or in <code>renv</code>,
+<code>packrat</code>, <code>node_modules</code>, <code>_site</code>,
+<code>_book</code>, <code>_freeze</code> or <code>_extensions</code>, or
+when its own file name starts with <code>.</code>. The setting
+<code>scripts_skip</code> in <code>_weft.yml</code> names more: a name
+with no <code>/</code> is matched against each folder and the file name,
+and an entry with a <code>/</code> is a path from the folder that holds
+the <code>_weft.yml</code>. No wildcards: an entry with <code>*</code>
+or <code>?</code>, a leading <code>/</code> or a backslash is an error.
+Each script is judged by the <code>_weft.yml</code> nearest to it, so a
+nested project can read its own <code>tests</code> folder with its own
+<code>scripts_skip: []</code>. The setting is <code>[tests]</code>
+unless set, because test files hold typed numbers and broken markup on
+purpose; a list that you give replaces it, so keep <code>tests</code> in
+it, and <code>[]</code> reads every script. An empty or commented-out
+<code>scripts_skip:</code> (a null value) keeps the default. A script
+whose bytes do not hold <code>weft</code> is never read, one that is not
+valid UTF-8 gives the <code>read</code> finding, and one that does not
+parse as R gives a note and no findings. Naming a script that is left
+out, in <code>files</code> or as <code>path</code>, gives a note that
+says which rule left it out. <code>lints(reader = "pandoc")</code> reads
+scripts with weft’s reader too, since they need no Pandoc. The commit
+gate counts a script’s findings and constructs as it counts a
+document’s.</p>
+</div>
+<div class="section level2">
 <h2 id="settings">Settings<a class="anchor" aria-label="anchor" href="#settings"></a>
 </h2>
 <table class="table">
@@ -667,6 +748,12 @@ tools that <code>name</code> should accept</td>
 </td>
 </tr>
 <tr class="odd">
+<td><code>scripts_skip</code></td>
+<td><code>[tests]</code></td>
+<td>folders and files whose <code>.R</code> scripts are not read
+(project setting)</td>
+</tr>
+<tr class="even">
 <td><code>anchor_calls</code></td>
 <td><code>[]</code></td>
 <td>helper calls that define anchors, for <code>xref</code>,
@@ -685,10 +772,10 @@ committed before.</p>
 </h2>
 <p>A project that makes its tables or figures with a helper, such as
 <code>tbl(x, id = "depths")</code>, can tell the lints about it:</p>
-<div class="sourceCode" id="cb7"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a><span class="fu">anchor_calls</span><span class="kw">:</span></span>
-<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">fun</span><span class="kw">:</span><span class="at"> tbl</span></span>
-<span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a><span class="at">    </span><span class="fu">arg</span><span class="kw">:</span><span class="at"> id</span></span>
-<span id="cb7-4"><a href="#cb7-4" tabindex="-1"></a><span class="at">    </span><span class="fu">prefix</span><span class="kw">:</span><span class="at"> </span><span class="st">"tbl-"</span></span></code></pre></div>
+<div class="sourceCode" id="cb8"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb8-1"><a href="#cb8-1" tabindex="-1"></a><span class="fu">anchor_calls</span><span class="kw">:</span></span>
+<span id="cb8-2"><a href="#cb8-2" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">fun</span><span class="kw">:</span><span class="at"> tbl</span></span>
+<span id="cb8-3"><a href="#cb8-3" tabindex="-1"></a><span class="at">    </span><span class="fu">arg</span><span class="kw">:</span><span class="at"> id</span></span>
+<span id="cb8-4"><a href="#cb8-4" tabindex="-1"></a><span class="at">    </span><span class="fu">prefix</span><span class="kw">:</span><span class="at"> </span><span class="st">"tbl-"</span></span></code></pre></div>
 <p>A call of <code>tbl()</code> in an executed R chunk, bare or as
 <code>pkg::tbl()</code>, then defines the anchor
 <code>tbl-depths</code>, at the call’s line, for <code>xref</code>,

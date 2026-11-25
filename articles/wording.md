@@ -285,6 +285,10 @@ Inside quotes, `\"`, `\'` and `\|` stand for the character, which is how
 the visual editor writes a value when it saves; any other backslash is
 an error, and the fix is to bind the expression to a name in a chunk.
 
+A value that must start with a space is written with a backslash-space,
+as in `{.and last="\ plus "}`. A value that starts with a plain space is
+an error, because Pandoc does not read it as an attribute.
+
 In R code a raw string needs no escapes. A raw string ends at `)"`, so a
 value that ends in `)` takes single quotes (`{if='isTRUE(x)'}`).
 

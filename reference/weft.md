@@ -23,6 +23,9 @@ format(x, target = "plain", ...)
 print(x, ...)
 
 # S3 method for class 'weft'
+cli_format(x, style = NULL, ...)
+
+# S3 method for class 'weft'
 x[...]
 
 # S3 method for class 'weft'
@@ -36,6 +39,12 @@ c(...)
 
 # S3 method for class 'weft'
 x[i] <- value
+
+# S3 method for class 'weft'
+x[[i]] <- value
+
+# S3 method for class 'weft'
+is.na(x) <- value
 
 # S3 method for class 'weft'
 knit_print(x, options = NULL, inline = FALSE, ...)
@@ -59,7 +68,12 @@ knit_print(x, options = NULL, inline = FALSE, ...)
 - target:
 
   For [`format()`](https://rdrr.io/r/base/format.html): `"plain"` (the
-  default) or `"markdown"`.
+  default), `"markdown"` or `"ansi"` (the console form, see "In the
+  console and in cli").
+
+- style:
+
+  Not used (for `cli_format()`).
 
 - i:
 
@@ -88,9 +102,10 @@ A `weft` object of the same length and names as `x`.
 ## Details
 
 The result is a `weft` object, a character vector with two forms of each
-element. Its content is the **plain** text (Unicode, no markup: `m²`,
-`1.2 × 10⁻⁴`, emphasis without its marks, rule 1.4.24), so anything that
-reads a character vector ([`cat()`](https://rdrr.io/r/base/cat.html),
+element. Its content is the **plain** text (Unicode, no markup: `m^2`,
+`1.2 x 10^-4`, emphasis without its marks, rule 1.4.24), so anything
+that reads a character vector
+([`cat()`](https://rdrr.io/r/base/cat.html),
 [`nchar()`](https://rdrr.io/r/base/nchar.html),
 [`paste()`](https://rdrr.io/r/base/paste.html), a ggplot2 title) gets
 readable text. The attribute `markdown` holds the **markdown** text.
@@ -111,9 +126,49 @@ A caption option that R computes as a `weft` object
 (`fig.cap = weft(...)`, `#| fig-cap: !expr weft(...)`) is given to knitr
 as markdown (as plain text for `fig.alt`).
 `knitr::kable(caption = weft(...))` gets the plain text.
+
+The plain text of a `weft` object uses Unicode superscripts and the
+minus sign, which the [`pdf()`](https://rdrr.io/r/grDevices/pdf.html)
+device cannot draw: for a plot with weft text that is saved as PDF, use
+[`cairo_pdf()`](https://rdrr.io/r/grDevices/cairo.html) or a ragg
+device.
+
 [`cat()`](https://rdrr.io/r/base/cat.html) in a `results = "asis"` chunk
-writes plain text; to write markdown, print the object or use
-`cat(format(x, target = "markdown"))`.
+writes plain text; to write markdown, leave the object as a top-level
+value in a chunk (knitr then calls `knit_print()`) or use
+`cat(format(x, target = "markdown"))`; an explicit
+[`print()`](https://rdrr.io/r/base/print.html) writes plain text.
+
+## In the console and in cli
+
+The console form of a `weft` text is its plain text with emphasis in
+italic, strong emphasis in bold (both for `***`) and each failure marker
+in bold red; with the styles removed it is the plain text. A superscript
+or subscript with Unicode characters takes no style, and an element
+joined by [`c()`](https://rdrr.io/r/base/c.html) or `[<-`, or changed by
+a function, is plain. `format(x, target = "ansi")` gives it, and
+[`print()`](https://rdrr.io/r/base/print.html) writes it, but only where
+cli would write its own styles
+([`cli::num_ansi_colors()`](https://cli.r-lib.org/reference/num_ansi_colors.html);
+[`print()`](https://rdrr.io/r/base/print.html) asks about
+[`stdout()`](https://rdrr.io/r/base/showConnections.html), and about
+cli's own count as well under a sink): not under `NO_COLOR`, in a knit,
+into a sink or on a terminal without colour. `format(x)` and
+`as.character(x)` are always plain.
+
+In a cli message, `{.val {x}}` draws the console form, unquoted, in
+cli's value colour (`cli_format()`, which returns a bare character
+vector), and `{x}` gives the plain text. A `weft` object given to cli as
+a value is never read as a template, so braces in it are text; given as
+the template itself (`cli_inform(x)`) it is read by cli, which evaluates
+what is in braces, so pass it as `"{x}"`. Use `{.val {x}}` alone:
+`{.val text {x}}` pastes the value and quotes it. Markup is not written
+into a cli template: resolve it with `weft()` first.
+
+    w <- weft("Depth at *[one site | # sites]{n='k'}*: `r d`{.num unit='m'}")
+    cli::cli_inform("{.val {w}}")   # emphasis drawn, in the value colour
+    cli::cli_inform("Plotted {w}")  # plain text
+    msg <- cli::format_inline("{.val {w}}")
 
 During a knit with weft active a failed check, a missing value or a
 value error is collected as it is in prose (rules 2.4.1, 3.6.3) and
@@ -127,10 +182,19 @@ signalled at the call and the object is returned.
 
 Outside a knit, the configuration is that of the project root of the
 working directory (the nearest folder upward that holds `_weft.yml`,
-else `_quarto.yml`, else the working directory). It is read once and
-kept for the session, and read again when `_weft.yml` appears,
-disappears or changes size or modification time. A `_weft.yml` with an
-error is a `weft_config_error`.
+else `_quarto.yml` or `_quarto.yaml`, else the working directory). It is
+read once and kept for the session, and read again when `_weft.yml`
+appears, disappears or changes size or modification time. A `_weft.yml`
+with an error is a `weft_config_error`.
+
+A named value in the markup, `` `depth`{.num} ``, is read from `.envir`
+(rule 1.12.12): the call looks the name up in `.envir` and its enclosing
+environments as far as the global environment, never in base R, a
+namespace or an attached package, and prints it as `` `r depth`{.num} ``
+would. A name that is not bound there, or is bound to a function, is a
+"no value" failure; nothing is left for a filter, because the text goes
+to plots and consoles where none runs. In a loop, each call reads the
+names as they stand.
 
 Block-only constructs do not apply; each element is read as inline
 markup. Bare inline R in a string is evaluated as knitr evaluates it
@@ -158,6 +222,6 @@ vapply(titles, as.character, "")
 if (requireNamespace("ggplot2", quietly = TRUE)) {
   ggplot2::ggplot(data.frame(x = 1, y = 1), ggplot2::aes(x, y)) +
     ggplot2::geom_point() +
-    ggplot2::labs(title = weft("Rate of 1.2 &times; 10^-4^ m^2^"))
+    ggplot2::labs(title = weft("Rate of 1.2 &times; 10 per m^2^"))
 }
 ```

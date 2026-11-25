@@ -27,6 +27,7 @@
     <li><a class="dropdown-item" href="../articles/targets.html">Using weft with targets</a></li>
     <li><a class="dropdown-item" href="../articles/languages.html">Python and Julia chunks</a></li>
     <li><a class="dropdown-item" href="../articles/named-values.html">Values by name</a></li>
+    <li><a class="dropdown-item" href="../articles/strings.html">weft in strings</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Checking</h6></li>
     <li><a class="dropdown-item" href="../articles/lints.html">The static lints</a></li>
@@ -107,7 +108,7 @@
 
         <dt>
 
-          <code><a href="weft.html">weft()</a></code> <code><a href="weft.html">as.character(<i>&lt;weft&gt;</i>)</a></code> <code><a href="weft.html">format(<i>&lt;weft&gt;</i>)</a></code> <code><a href="weft.html">print(<i>&lt;weft&gt;</i>)</a></code> <code><a href="weft.html">`[`(<i>&lt;weft&gt;</i>)</a></code> <code><a href="weft.html">`[[`(<i>&lt;weft&gt;</i>)</a></code> <code><a href="weft.html">sort(<i>&lt;weft&gt;</i>)</a></code> <code><a href="weft.html">c(<i>&lt;weft&gt;</i>)</a></code> <code><a href="weft.html">`[&lt;-`(<i>&lt;weft&gt;</i>)</a></code> <code><a href="weft.html">knit_print(<i>&lt;weft&gt;</i>)</a></code>
+          <code><a href="weft.html">weft()</a></code> <code><a href="weft.html">as.character(<i>&lt;weft&gt;</i>)</a></code> <code><a href="weft.html">format(<i>&lt;weft&gt;</i>)</a></code> <code><a href="weft.html">print(<i>&lt;weft&gt;</i>)</a></code> <code><a href="weft.html">cli_format(<i>&lt;weft&gt;</i>)</a></code> <code><a href="weft.html">`[`(<i>&lt;weft&gt;</i>)</a></code> <code><a href="weft.html">`[[`(<i>&lt;weft&gt;</i>)</a></code> <code><a href="weft.html">sort(<i>&lt;weft&gt;</i>)</a></code> <code><a href="weft.html">c(<i>&lt;weft&gt;</i>)</a></code> <code><a href="weft.html">`[&lt;-`(<i>&lt;weft&gt;</i>)</a></code> <code><a href="weft.html">`[[&lt;-`(<i>&lt;weft&gt;</i>)</a></code> <code><a href="weft.html">`is.na&lt;-`(<i>&lt;weft&gt;</i>)</a></code> <code><a href="weft.html">knit_print(<i>&lt;weft&gt;</i>)</a></code>
 
         </dt>
         <dd>Resolve markup in a string</dd>
@@ -135,7 +136,7 @@
       </dl></div><div class="section level2">
       <h2 id="values-by-name">Values by name<a class="anchor" aria-label="anchor" href="#values-by-name"></a></h2>
 
-      <div class="section-desc"><p>Publish values under names, for prose that refers to them by name.</p></div>
+      <div class="section-desc"><p>Write a values file, for a document that runs no R.</p></div>
 
       <dl></dl></div><div class="section level2">
 
@@ -143,13 +144,6 @@
 
 
       <dl><dt>
-
-          <code><a href="weft_put.html">weft_put()</a></code>
-
-        </dt>
-        <dd>Publish values by name</dd>
-
-        <dt>
 
           <code><a href="weft_values_write.html">weft_values_write()</a></code>
 
@@ -325,7 +319,7 @@
           <code><a href="lints.html">print(<i>&lt;weft_findings&gt;</i>)</a></code> <code><a href="lints.html">lints()</a></code>
 
         </dt>
-        <dd>Lint a project's documents without running them</dd>
+        <dd>Lint a project's documents and scripts without running them</dd>
 
         <dt>
 

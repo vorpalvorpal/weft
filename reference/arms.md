@@ -1,10 +1,10 @@
 # List the arms of every governed span of a document
 
-Reads one or more `.qmd` or `.Rmd` files with the scanner and lists, for
-every `n`, `if`, `sign` and `list` span, each of its arms: the span's
-place, the key and its expression, the arm's role and the text the
-author wrote. The spans are those in prose, in captions, in front-matter
-fields and in literal
+Reads one or more `.qmd`, `.Rmd` or `.R` files with the scanner and
+lists, for every `n`, `if`, `sign` and `list` span, each of its arms:
+the span's place, the key and its expression, the arm's role and the
+text the author wrote. The spans are those in prose, in captions, in
+front-matter fields and in literal
 [`weft()`](https://vorpalvorpal.github.io/weft/reference/weft.md)
 strings. No R is run: the file is parsed, never evaluated, so an
 expression that stops, writes a file or names an unknown object does
@@ -20,7 +20,7 @@ arms(file)
 
 - file:
 
-  One path, or several, to documents.
+  One path, or several, to documents or scripts.
 
 ## Value
 
@@ -41,6 +41,16 @@ arm count is not one the key accepts is not listed; it is one of the
 errors. So is an `n` span with more than one arm in a document whose
 `lang` is not English, because weft ships no other plural rules (rules
 1.6.4, 1.6.5).
+
+A file whose name ends `.R` or `.r` is read as a script: its spans are
+those of the literal strings it passes to
+[`weft()`](https://vorpalvorpal.github.io/weft/reference/weft.md)
+(`weft(...)`, `weft::weft(...)`, or the right-hand side of a pipe, where
+the left-hand side is the `x` it passes unless an argument is named
+`x`), with the settings of its project and English plural rules, and
+context `"weft"`. The setting `scripts_skip` is not applied: a script
+that is named is read. A script that does not parse, or is not valid
+UTF-8, lists no spans and no errors.
 
 Only the spans of the files given are listed; a document that a chunk
 includes with `child=` is listed only when it is given too.

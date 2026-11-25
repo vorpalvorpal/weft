@@ -40,11 +40,14 @@ Format computed values, with or without units.
   [`as.character(`*`<weft>`*`)`](https://vorpalvorpal.github.io/weft/reference/weft.md)
   [`format(`*`<weft>`*`)`](https://vorpalvorpal.github.io/weft/reference/weft.md)
   [`print(`*`<weft>`*`)`](https://vorpalvorpal.github.io/weft/reference/weft.md)
+  [`cli_format(`*`<weft>`*`)`](https://vorpalvorpal.github.io/weft/reference/weft.md)
   [`` `[`( ``*`<weft>`*`)`](https://vorpalvorpal.github.io/weft/reference/weft.md)
   [`` `[[`( ``*`<weft>`*`)`](https://vorpalvorpal.github.io/weft/reference/weft.md)
   [`sort(`*`<weft>`*`)`](https://vorpalvorpal.github.io/weft/reference/weft.md)
   [`c(`*`<weft>`*`)`](https://vorpalvorpal.github.io/weft/reference/weft.md)
   [`` `[<-`( ``*`<weft>`*`)`](https://vorpalvorpal.github.io/weft/reference/weft.md)
+  [`` `[[<-`( ``*`<weft>`*`)`](https://vorpalvorpal.github.io/weft/reference/weft.md)
+  [`` `is.na<-`( ``*`<weft>`*`)`](https://vorpalvorpal.github.io/weft/reference/weft.md)
   [`knit_print(`*`<weft>`*`)`](https://vorpalvorpal.github.io/weft/reference/weft.md)
   : Resolve markup in a string
 - [`glue_vec()`](https://vorpalvorpal.github.io/weft/reference/glue_vec.md)
@@ -56,10 +59,8 @@ Format computed values, with or without units.
 
 ## Values by name
 
-Publish values under names, for prose that refers to them by name.
+Write a values file, for a document that runs no R.
 
-- [`weft_put()`](https://vorpalvorpal.github.io/weft/reference/weft_put.md)
-  : Publish values by name
 - [`weft_values_write()`](https://vorpalvorpal.github.io/weft/reference/weft_values_write.md)
   : Write a values file
 
@@ -148,7 +149,7 @@ See which arms a document can choose, and what the last knit did.
 
 - [`print(`*`<weft_findings>`*`)`](https://vorpalvorpal.github.io/weft/reference/lints.md)
   [`lints()`](https://vorpalvorpal.github.io/weft/reference/lints.md) :
-  Lint a project's documents without running them
+  Lint a project's documents and scripts without running them
 - [`checks()`](https://vorpalvorpal.github.io/weft/reference/checks.md)
   [`print(`*`<weft_checks>`*`)`](https://vorpalvorpal.github.io/weft/reference/checks.md)
   : Checks of one value, compared

@@ -39,6 +39,7 @@ Rscript -e 'weft::verify()' exits 1."></head><body>
     <li><a class="dropdown-item" href="../articles/targets.html">Using weft with targets</a></li>
     <li><a class="dropdown-item" href="../articles/languages.html">Python and Julia chunks</a></li>
     <li><a class="dropdown-item" href="../articles/named-values.html">Values by name</a></li>
+    <li><a class="dropdown-item" href="../articles/strings.html">weft in strings</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Checking</h6></li>
     <li><a class="dropdown-item" href="../articles/lints.html">The static lints</a></li>
@@ -88,9 +89,10 @@ report with a verdict. When it fails it signals a <code>weft_verify_error</code>
 
 
 <dl><dt id="arg-files">files<a class="anchor" aria-label="anchor" href="#arg-files"></a></dt>
-<dd><p><code>NULL</code> (every document of the project), or documents to verify (relative to
-the project root, or absolute under it). Only these are rendered, stamped, judged for
-ledgers and listed; the rules that read across files still read the whole project.</p></dd>
+<dd><p><code>NULL</code> (every document and script of the project), or documents and scripts to verify
+(relative to the project root, or absolute under it). Only these are rendered, stamped, judged for
+ledgers and listed (a script is only linted: see <code><a href="lints.html">lints()</a></code>); the rules that read across files still
+read the whole project.</p></dd>
 
 
 <dt id="arg-since">since<a class="anchor" aria-label="anchor" href="#arg-since"></a></dt>

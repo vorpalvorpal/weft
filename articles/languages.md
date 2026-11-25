@@ -347,7 +347,12 @@ Turbidity rose over the year.
 ```
 
 A check that fails inside it is collected, located by the chunk’s label,
-and fails the render once at the end.
+and fails the render once at the end. A named value in its markup is
+Python’s, published by `put()`: R does not read it, and the filter takes
+the published value. Outside a knit a bare name prints as written. For a
+document that mixes R and Python, see “R and Python in one knitr
+document” in
+[`vignette("named-values", package = "weft")`](https://vorpalvorpal.github.io/weft/articles/named-values.md).
 
 ## Captions
 

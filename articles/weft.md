@@ -244,6 +244,9 @@ claim(61, . < 50)
   Python and Julia values in prose.
 - [`vignette("named-values", package = "weft")`](https://vorpalvorpal.github.io/weft/articles/named-values.md):
   values by name, for documents whose prose cannot call R.
+- [`vignette("strings", package = "weft")`](https://vorpalvorpal.github.io/weft/articles/strings.md):
+  [`weft()`](https://vorpalvorpal.github.io/weft/reference/weft.md) in
+  plot titles, console messages and tables.
 - [`vignette("lints", package = "weft")`](https://vorpalvorpal.github.io/weft/articles/lints.md):
   the static checks.
 - [`vignette("gate", package = "weft")`](https://vorpalvorpal.github.io/weft/articles/gate.md):

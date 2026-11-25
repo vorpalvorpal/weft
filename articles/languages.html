@@ -41,6 +41,7 @@
     <li><a class="dropdown-item" href="../articles/targets.html">Using weft with targets</a></li>
     <li><a class="dropdown-item" href="../articles/languages.html">Python and Julia chunks</a></li>
     <li><a class="dropdown-item" href="../articles/named-values.html">Values by name</a></li>
+    <li><a class="dropdown-item" href="../articles/strings.html">weft in strings</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Checking</h6></li>
     <li><a class="dropdown-item" href="../articles/lints.html">The static lints</a></li>
@@ -459,7 +460,12 @@ expressions inside the markup are R, so they read Python values with
 <span id="cb14-4"><a href="#cb14-4" tabindex="-1"></a><span class="in">```</span></span></code></pre></div>
 <pre class="text"><code>Turbidity rose over the year.</code></pre>
 <p>A check that fails inside it is collected, located by the chunk’s
-label, and fails the render once at the end.</p>
+label, and fails the render once at the end. A named value in its markup
+is Python’s, published by <code>put()</code>: R does not read it, and
+the filter takes the published value. Outside a knit a bare name prints
+as written. For a document that mixes R and Python, see “R and Python in
+one knitr document” in
+<code><a href="../articles/named-values.html">vignette("named-values", package = "weft")</a></code>.</p>
 </div>
 <div class="section level2">
 <h2 id="captions">Captions<a class="anchor" aria-label="anchor" href="#captions"></a>

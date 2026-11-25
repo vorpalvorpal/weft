@@ -14,6 +14,8 @@
   chunks](https://vorpalvorpal.github.io/weft/articles/languages.md):
 - [Values by
   name](https://vorpalvorpal.github.io/weft/articles/named-values.md):
+- [weft in
+  strings](https://vorpalvorpal.github.io/weft/articles/strings.md):
 
 ### Checking
 

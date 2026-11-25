@@ -450,10 +450,10 @@ weft:
   digits: 2
 ```
 
-`draft`, `decisions` and `verify_skip` belong to the project and may
-only be set in `_weft.yml`. Never put a `weft:` key in `_quarto.yml`;
-the lint `config-place` finds one there. A misspelt key is kept, with a
-warning that names it.
+`draft`, `decisions`, `verify_skip` and `scripts_skip` belong to the
+project and may only be set in `_weft.yml`. Never put a `weft:` key in
+`_quarto.yml`; the lint `config-place` finds one there. A misspelt key
+is kept, with a warning that names it.
 
 | Setting | Default | What it does | Read more |
 |----|----|----|----|
@@ -490,6 +490,7 @@ warning that names it.
 | `ledger` | `true` | whether a render writes a ledger | `gate` |
 | `draft` | `false` | draft mode | `gate` |
 | `verify_skip` | none | parts [`verify()`](https://vorpalvorpal.github.io/weft/reference/verify.md) skips | `gate` |
+| `scripts_skip` | `[tests]` | folders and files whose `.R` scripts the lints and the gate do not read | `gate` |
 | `weft_version` |  | the version that set the project up; [`use_weft()`](https://vorpalvorpal.github.io/weft/reference/use_weft.md) maintains it |  |
 
 `severity` starts with patterns for a singular model fit and a

@@ -35,7 +35,7 @@ fmt_unit(x, unit_form = NULL, unit = NULL, target = "markdown")
 
   `"markdown"` (the default), `"tex"`, which writes the symbol or name
   as TeX for use inside math (rule 4.4.25), or `"plain"`, which writes
-  Unicode text with no markup (`m²`, rule 1.4.24); anything else is a
+  Unicode text with no markup (`m^2`, rule 1.4.24); anything else is a
   `weft_construct_error`.
 
 ## Value

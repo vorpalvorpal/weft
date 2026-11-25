@@ -41,6 +41,7 @@
     <li><a class="dropdown-item" href="../articles/targets.html">Using weft with targets</a></li>
     <li><a class="dropdown-item" href="../articles/languages.html">Python and Julia chunks</a></li>
     <li><a class="dropdown-item" href="../articles/named-values.html">Values by name</a></li>
+    <li><a class="dropdown-item" href="../articles/strings.html">weft in strings</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Checking</h6></li>
     <li><a class="dropdown-item" href="../articles/lints.html">The static lints</a></li>
@@ -585,9 +586,9 @@ of them for itself under a <code>weft:</code> key in its front
 matter:</p>
 <div class="sourceCode" id="cb15"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb15-1"><a href="#cb15-1" tabindex="-1"></a><span class="fu">weft</span><span class="kw">:</span></span>
 <span id="cb15-2"><a href="#cb15-2" tabindex="-1"></a><span class="at">  </span><span class="fu">digits</span><span class="kw">:</span><span class="at"> </span><span class="dv">2</span></span></code></pre></div>
-<p><code>draft</code>, <code>decisions</code> and
-<code>verify_skip</code> belong to the project and may only be set in
-<code>_weft.yml</code>. Never put a <code>weft:</code> key in
+<p><code>draft</code>, <code>decisions</code>, <code>verify_skip</code>
+and <code>scripts_skip</code> belong to the project and may only be set
+in <code>_weft.yml</code>. Never put a <code>weft:</code> key in
 <code>_quarto.yml</code>; the lint <code>config-place</code> finds one
 there. A misspelt key is kept, with a warning that names it.</p>
 <table class="table">
@@ -830,6 +831,13 @@ the rendered prose</td>
 <td><code>gate</code></td>
 </tr>
 <tr class="even">
+<td><code>scripts_skip</code></td>
+<td><code>[tests]</code></td>
+<td>folders and files whose <code>.R</code> scripts the lints and the
+gate do not read</td>
+<td><code>gate</code></td>
+</tr>
+<tr class="odd">
 <td><code>weft_version</code></td>
 <td></td>
 <td>the version that set the project up; <code><a href="../reference/use_weft.html">use_weft()</a></code>

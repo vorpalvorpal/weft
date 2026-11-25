@@ -10,6 +10,7 @@
 <url><loc>https://vorpalvorpal.github.io/weft/articles/lints.html</loc></url>
 <url><loc>https://vorpalvorpal.github.io/weft/articles/named-values.html</loc></url>
 <url><loc>https://vorpalvorpal.github.io/weft/articles/setup.html</loc></url>
+<url><loc>https://vorpalvorpal.github.io/weft/articles/strings.html</loc></url>
 <url><loc>https://vorpalvorpal.github.io/weft/articles/targets.html</loc></url>
 <url><loc>https://vorpalvorpal.github.io/weft/articles/units.html</loc></url>
 <url><loc>https://vorpalvorpal.github.io/weft/articles/values.html</loc></url>
@@ -62,7 +63,6 @@
 <url><loc>https://vorpalvorpal.github.io/weft/reference/weft-package.html</loc></url>
 <url><loc>https://vorpalvorpal.github.io/weft/reference/weft.html</loc></url>
 <url><loc>https://vorpalvorpal.github.io/weft/reference/weft_dict.html</loc></url>
-<url><loc>https://vorpalvorpal.github.io/weft/reference/weft_put.html</loc></url>
 <url><loc>https://vorpalvorpal.github.io/weft/reference/weft_setup.html</loc></url>
 <url><loc>https://vorpalvorpal.github.io/weft/reference/weft_values_write.html</loc></url>
 <url><loc>https://vorpalvorpal.github.io/weft/reference/weft_year.html</loc></url>
