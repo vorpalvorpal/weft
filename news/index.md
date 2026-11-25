@@ -2,6 +2,17 @@
 
 ## weft (development version)
 
+- **Behaviour change:** weft now needs the units package at 1.0-1.7 or
+  later (`Remotes: r-quantities/units`; CRAN has 1.0-1). weft redefines
+  a database unit (`gal` as the US gallon) with
+  `units::install_unit(override = TRUE)` and undoes it with
+  `remove_unit()`, which restores the database meaning, and no longer
+  reads the units package’s unexported functions. A definition that the
+  units package refuses is reported in its new wording. The units
+  package now accepts a second symbol for a unit, but weft still refuses
+  an `is` that is exactly another unit (a project row or a default row,
+  or a database unit that has no symbol or a non-ASCII one, like
+  `1 degree`); weft checks this itself, before installing anything.
 - Some error messages are reworded so that the lint and the render say
   the same thing for the same mistake (two classes from one group,
   `digits` with `sigfig`, `digits` or `sigfig` on `.date`, `.usym` with

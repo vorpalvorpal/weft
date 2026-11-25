@@ -112,7 +112,7 @@
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># install.packages("remotes")</span></span>
 <span><span class="fu">remotes</span><span class="fu">::</span><span class="fu">install_github</span><span class="op">(</span><span class="st">"vorpalvorpal/weft"</span><span class="op">)</span></span></code></pre></div>
-<p>weft uses the units package, which needs the udunits-2 library. The CRAN binaries for macOS and Windows include it. On Linux, install your distribution’s udunits-2 development package first (for example <code>libudunits2-dev</code> on Debian and Ubuntu).</p>
+<p>weft uses the units package, version 1.0-1.7 or later, which is on GitHub and not yet on CRAN (<code>Remotes:</code> in <code>DESCRIPTION</code> points to it, so <code>remotes::install_github()</code> installs it; with an older units, install <code>r-quantities/units</code> first). The package needs the udunits-2 library. The CRAN binaries for macOS and Windows include it. On Linux, install your distribution’s udunits-2 development package first (for example <code>libudunits2-dev</code> on Debian and Ubuntu).</p>
 </div>
 <div class="section level2">
 <h2 id="the-main-ideas">The main ideas<a class="anchor" aria-label="anchor" href="#the-main-ideas"></a>
