@@ -168,7 +168,9 @@ local({
     m <- gregexpr(paste0("(?s)\\]\\{(?:=[[:space:]]*(?:", qv, ")|[^}])*\\}"), text, perl = TRUE)[[1]]
     if (m[1] < 0) return(FALSE)
     for (blk in regmatches(text, list(m))[[1]]) {
-      kv <- gregexpr(paste0("(?s)(?<![A-Za-z0-9_.-])(n|if|sign|list)[[:space:]]*=[[:space:]]*",
+      # a governor key inside another key's quoted value is no key: `=` and a quoted value are skipped
+      kv <- gregexpr(paste0("(?s)=[[:space:]]*(?:", qv, ")(*SKIP)(*FAIL)|",
+                            "(?<![A-Za-z0-9_.-])(n|if|sign|list)[[:space:]]*=[[:space:]]*",
                             "(?:", qv, "|(?:[^[:space:]}\"'\\\\]|\\\\\\|)+)"),
                      blk, perl = TRUE, ignore.case = TRUE)[[1]]
       if (kv[1] < 0) next

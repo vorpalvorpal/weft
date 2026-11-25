@@ -212,13 +212,13 @@ local function block_end(text, s)
   return nil
 end
 
--- quoted values emptied, one left-to-right pass: a `\` and the character after it go together (rule 1.2.3), so
+-- quoted values (a quote opens only directly after `=`, as block_end() reads) emptied, one left-to-right pass: a `\` and the character after it go together (rule 1.2.3), so
 -- `\"` does not close a value and text inside one cannot pass for a key
 local function strip_quoted(s)
   local out, i, n = {}, 1, #s
   while i <= n do
     local c = s:sub(i, i)
-    if c == '"' or c == "'" then
+    if (c == '"' or c == "'") and i > 1 and s:sub(i - 1, i - 1) == "=" then
       local j = i + 1
       while j <= n and s:sub(j, j) ~= c do
         if s:sub(j, j) == "\\" then j = j + 1 end

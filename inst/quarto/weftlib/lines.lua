@@ -136,36 +136,66 @@ function M:find(needle, ok)
   return self:locate(s)
 end
 
+-- Whether a code point (the start of a UTF-8 character) is a letter or digit, as far as the backslash rule
+-- needs it: Pandoc keeps a `\` before a Unicode letter or digit. The non-ASCII punctuation, symbol and
+-- space blocks are listed; every other non-ASCII character counts as a letter.
+local function alnum_cp(cp)
+  if cp < 0x80 then return false end
+  if cp == 0xAA or cp == 0xB5 or cp == 0xBA or cp == 0xB2 or cp == 0xB3 or cp == 0xB9
+     or (cp >= 0xBC and cp <= 0xBE) then return true end
+  if cp <= 0xBF or cp == 0xD7 or cp == 0xF7 then return false end
+  if cp >= 0x2000 and cp <= 0x206F then return false end
+  if cp >= 0x2190 and cp <= 0x2BFF then return false end
+  if cp >= 0x3000 and cp <= 0x303F then return false end
+  if cp >= 0xFE00 and cp <= 0xFE0F then return false end
+  if cp >= 0xFF00 and cp <= 0xFF0F then return false end
+  return true
+end
+
 -- The value written after `=` at `pos`, as Pandoc reads it (not weft's subset, so that a document weft would
 -- refuse still gets its lines, rule 2.13.6): quoted in `"` or `'`, or bare up to white space or `}`; a `\`
--- before a character that is not an ASCII letter or digit is that character (a whole UTF-8 character), a
--- `\` before a letter or digit stays, a line break in a quoted value is a space. Character references are
--- not decoded. Returns the value and the position after it, or nil.
-local function read_value(text, pos)
+-- before a character that is not a letter or digit (Unicode ones included) is that character (a whole UTF-8
+-- character), a `\` before a letter or digit stays, and so does a `\` before a line break; a line break in a
+-- quoted value is a space, and `strip` spaces of the next line are dropped (a list item's content indent).
+-- Character references are not decoded. Returns the value and the position after it, or nil.
+local function read_value(text, pos, strip)
+  strip = strip or 0
   local q = text:sub(pos, pos)
   local out, i = {}, pos
   local quoted = q == '"' or q == "'"
   if quoted then i = i + 1 end
+  local function brk(n)
+    out[#out + 1] = " "
+    i = i + n
+    local k = 0
+    while k < strip and text:sub(i, i) == " " do i = i + 1; k = k + 1 end
+  end
   while i <= #text do
     local c = text:sub(i, i)
     if c == "\\" and i < #text then
       local nx = text:sub(i + 1, i + 1)
-      if nx:match("[A-Za-z0-9]") then
+      if nx == "\n" or nx == "\r" then
+        out[#out + 1] = c
+        i = i + 1
+      elseif nx:match("[A-Za-z0-9]") then
         out[#out + 1] = c .. nx
         i = i + 2
       else
         local ch = text:match("^[\0-\x7F\xC2-\xFD][\x80-\xBF]*", i + 1) or nx
-        out[#out + 1] = (ch == "\n" or ch == "\r") and " " or ch
+        local cp = utf8.codepoint(ch, 1, 1, true)
+        if #ch > 1 and cp and alnum_cp(cp) then
+          out[#out + 1] = c .. ch
+        else
+          out[#out + 1] = ch
+        end
         i = i + 1 + #ch
       end
     elseif quoted and c == q then
       return table.concat(out), i + 1
     elseif quoted and c == "\r" and text:sub(i + 1, i + 1) == "\n" then
-      out[#out + 1] = " "
-      i = i + 2
+      brk(2)
     elseif quoted and c == "\n" then
-      out[#out + 1] = " "
-      i = i + 1
+      brk(1)
     elseif not quoted and c:match("[ \t\r\n}]") then
       break
     else
@@ -176,6 +206,18 @@ local function read_value(text, pos)
   if quoted then return nil end
   if #out == 0 then return nil end
   return table.concat(out), i
+end
+
+-- How the line holding `pos` starts: "bq" (after indentation, `>`), "li" and the content indent of a list
+-- item, or "" (R2).
+local function line_context(text, pos)
+  local k = pos
+  while k > 1 and text:sub(k - 1, k - 1) ~= "\n" do k = k - 1 end
+  local pre = text:sub(k, pos - 1)
+  if pre:match("^[ \t]*>") then return "bq", 0 end
+  local m = pre:match("^ *[-+*] +") or pre:match("^ *%d+[.)] +")
+  if m then return "li", #m end
+  return "", 0
 end
 
 -- The file index and line of the next occurrence of `KEY=` that follows `{`, a space, a tab or a line break
@@ -190,7 +232,11 @@ function M:find_attr(key, value)
     if not s then return nil end
     local prev = s > 1 and self.text:sub(s - 1, s - 1) or ""
     if prev == "{" or prev == " " or prev == "\t" or prev == "\n" or prev == "\r" then
-      local v, after = read_value(self.text, e + 1)
+      local kind, indent = line_context(self.text, s)
+      local v, after
+      v, after = read_value(self.text, e + 1, kind == "li" and indent or 0)
+      -- a quoted value that crosses a line break in a block quote is a construct error: no line
+      if v ~= nil and kind == "bq" and self.text:sub(e + 1, after - 1):find("\n", 1, true) then v = nil end
       if v ~= nil and v == value then
         self.cursor[id] = after
         return self:locate(s)
