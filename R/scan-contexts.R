@@ -684,54 +684,92 @@ scan_chunk_captions <- function(lines, ch, label, hdr, optblk, optinfo, doc_exec
 
 # ---- weft() strings ----------------------------------------------------------
 
-# The calls to `weft()` in parse data, as `weft(...)` or `weft::weft(...)` (ST1): the id of each call's
-# expression.
+# The calls to `weft()` in parse data, as `weft(...)` or `weft::weft(...)` (ST1), and `x %>% weft` with no
+# parentheses (K3): the id of each call's expression (of the symbol's, for the last). The function position
+# is exactly the symbol `weft` or `weft::weft` (K2): `obj$weft()` is not one.
 weft_calls <- function(pd) {
   fn <- pd[pd$token == "SYMBOL_FUNCTION_CALL" & pd$text == "weft", , drop = FALSE]
   out <- integer()
   for (id in fn$id) {
     fexpr <- pd$parent[pd$id == id]            # the expr that names the function
     sib <- pd[pd$parent == fexpr, , drop = FALSE]
-    pk <- sib$text[sib$token == "SYMBOL_PACKAGE"]
-    if (length(pk) && !identical(pk[1L], "weft")) next
+    if (nrow(sib) == 3L) {
+      sib <- sib[order(sib$line1, sib$col1), , drop = FALSE]
+      ok <- sib$token[1L] == "SYMBOL_PACKAGE" && sib$token[2L] %in% c("NS_GET", "NS_GET_INT") &&
+        identical(sib$text[1L], "weft")
+      if (!ok) next
+    } else if (nrow(sib) != 1L) next
     call_id <- pd$parent[pd$id == fexpr]       # the call
     if (!length(call_id) || call_id == 0L || !any(pd$parent == call_id & pd$token == "'('")) next
+    kids <- pd[pd$parent == call_id, , drop = FALSE]
+    kids <- kids[order(kids$line1, kids$col1), , drop = FALSE]
+    if (kids$id[1L] != fexpr) next
     out <- c(out, call_id)
+  }
+  # `x %>% weft`: the symbol is the right-hand side of a magrittr pipe
+  sym <- pd[pd$token == "SYMBOL" & pd$text == "weft", , drop = FALSE]
+  for (id in sym$id) {
+    e <- pd$parent[pd$id == id]
+    if (!length(e) || e == 0L || sum(pd$parent == e) != 1L) next
+    if (!is.na(pipe_lhs(pd, e, "%>%"))) out <- c(out, e)
   }
   out
 }
 
+# The left-hand side of the pipe whose right-hand side is expression `id`, for the operators `ops`; NA
+# when `id` is not one.
+pipe_lhs <- function(pd, id, ops = c("|>", "%>%")) {
+  pe <- pd$parent[pd$id == id]
+  if (!length(pe) || pe == 0L) return(NA_integer_)
+  sib <- pd[pd$parent == pe, , drop = FALSE]
+  sib <- sib[order(sib$line1, sib$col1), , drop = FALSE]
+  at <- match(id, sib$id)
+  if (!is.na(at) && at == 3L && nrow(sib) == 3L && sib$token[2L] %in% c("PIPE", "SPECIAL") &&
+      sib$text[2L] %in% ops && sib$token[1L] == "expr") return(sib$id[1L])
+  NA_integer_
+}
+
 # The expression a call passes as `x` (ST2, C6): the argument named `x`, else the first given without a
-# name, else, for the right-hand side of `|>` or `%>%`, the left-hand side. NA when there is none.
+# name. On the right of a pipe the left-hand side is `x` unless an argument is named `x`; the placeholder
+# (`_` of `|>`, `.` of `%>%`) as an argument puts it where it stands (K3). NA when there is none.
 weft_call_arg <- function(pd, call_id) {
   kids <- pd[pd$parent == call_id, , drop = FALSE]
   kids <- kids[order(kids$line1, kids$col1), , drop = FALSE]
-  after <- kids[seq_len(nrow(kids)) > which(kids$token == "'('")[1L], , drop = FALSE]
+  op <- which(kids$token == "'('")[1L]
+  lhs <- pipe_lhs(pd, call_id)
+  if (is.na(op)) return(lhs)                   # `x %>% weft`
+  pipe_op <- ""
+  if (!is.na(lhs)) {
+    pe <- pd$parent[pd$id == call_id]
+    sib <- pd[pd$parent == pe, , drop = FALSE]
+    sib <- sib[order(sib$line1, sib$col1), , drop = FALSE]
+    pipe_op <- sib$text[2L]
+  }
+  after <- kids[seq_len(nrow(kids)) > op, , drop = FALSE]
+  args <- list()
   name <- NA_character_
-  first <- NA_integer_
   for (k in seq_len(nrow(after))) {
     tk <- after$token[k]
     if (tk == "SYMBOL_SUB") {
       name <- after$text[k]
     } else if (tk == "expr") {
-      if (identical(name, "x")) return(after$id[k])
-      if (is.na(name) && is.na(first)) first <- after$id[k]
+      ch <- pd[pd$parent == after$id[k], , drop = FALSE]
+      mark <- nrow(ch) == 1L && ((pipe_op == "|>" && ch$token == "PLACEHOLDER") ||
+                                   (pipe_op == "%>%" && ch$token == "SYMBOL" && ch$text == "."))
+      args[[length(args) + 1L]] <- list(name = name, id = after$id[k], mark = mark)
       name <- NA_character_
     } else if (tk == "','") {
       name <- NA_character_
     }
   }
-  if (!is.na(first)) return(first)
-  # no argument of the call is `x` and none is unnamed: a pipe supplies it
-  pe <- pd$parent[pd$id == call_id]
-  if (length(pe) && pe != 0L) {
-    sib <- pd[pd$parent == pe, , drop = FALSE]
-    sib <- sib[order(sib$line1, sib$col1), , drop = FALSE]
-    at <- match(call_id, sib$id)
-    if (!is.na(at) && at >= 3L && sib$token[at - 1L] %in% c("PIPE", "SPECIAL") &&
-        sib$text[at - 1L] %in% c("|>", "%>%") && sib$token[at - 2L] == "expr") return(sib$id[at - 2L])
-  }
-  NA_integer_
+  nm <- vapply(args, function(a) a$name, "")
+  pick <- which(nm == "x")[1L]
+  if (is.na(pick)) pick <- which(is.na(nm))[1L]
+  anymark <- any(vapply(args, function(a) a$mark, NA))
+  if (is.na(lhs)) return(if (is.na(pick)) NA_integer_ else args[[pick]]$id)
+  if (!anymark) return(if (!is.na(pick) && identical(nm[pick], "x")) args[[pick]]$id else lhs)
+  if (is.na(pick)) return(NA_integer_)
+  if (args[[pick]]$mark) lhs else args[[pick]]$id
 }
 
 # ---- (the strings given to weft()) ----
@@ -855,6 +893,13 @@ scan_weft_code <- function(code, first, label, file, config, dq = NULL, ls = NUL
     r$fstart <- map_offsets(r$start, off)
     r$fend <- map_offsets(r$end, off)
     r$fblock <- map_offsets(r$block_start, off)
+    # a row's line is the source line of its first character, not a count of the newlines the value holds
+    # (an escaped `\n` is not a source line) (K1)
+    rawpos <- if (lit$open[q] > 1L) seq_len(nchar(val)) else lit_offsets(lit$raw[q], 1)
+    if (length(rawpos) == nchar(val)) {
+      nl <- c(0L, cumsum(strsplit(lit$raw[q], "")[[1L]] == "\n"))
+      r$line <- as.integer(line + ifelse(is.na(r$start), 0L, nl[rawpos[pmax(r$start, 1L)]]))
+    }
     # a character that cannot be placed takes the place of the literal's first character (C11)
     r$fstart[is.na(r$fstart)] <- tokstart
     r$fend[is.na(r$fend)] <- r$fstart[is.na(r$fend)]
