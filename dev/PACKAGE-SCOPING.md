@@ -372,13 +372,14 @@ markdown and, optionally, tex (rule 1.4.8)." When it lists more than
 in `targets:`, so its function `%s` must take an argument `target` (rule
 1.4.8)." When it lists `markdown` only, the call is as before, with the value
 and the options. A later registration of the same class replaces `targets` as a
-whole.
+whole. Under the plain target (1.4.24) a project formatter is called as for
+markdown and its text is read as 1.4.24 says; `targets:` does not list `plain`.
 
 **1.4.9** A value that is a `units` object prints with its unit (4.4.8). No
 formatter supplies a unit of its own.
 
 **1.4.10** Formatter output is markdown, as stock knitr's inline output is,
-except inside math and raw LaTeX (1.4.23). Text that comes from data is not
+except inside math and raw LaTeX (1.4.23) and under the plain target (1.4.24). Text that comes from data is not
 escaped. A vector that no collapse class
 joins prints its elements joined with ", ", as stock knitr prints an inline
 vector.
@@ -669,7 +670,7 @@ The marks and forms under `tex`:
   valid TeX, and in raw LaTeX it is inside the `\ensuremath{...}` as well.
 - The ledger (7.1) records the TeX exactly as written, wrapper included, as the
   entry's `text`. Its `context` is `math` for math and `tex` for raw LaTeX; a
-  caption, front matter or a `weft_str()` string keeps its own context. The key
+  caption, front matter or a `weft()` string keeps its own context. The key
   is unchanged.
 - A construct in math or raw LaTeX is never a sentence start (5.10.1), and no
   unit typed after it is checked (4.4.24).
@@ -692,6 +693,64 @@ Examples, default settings, under `tex`:
 With `decimal_mark: ","` and `big_mark: "."`, 1234567.89 under `.num` prints
 `1.234.567{,}9`; with `big_mark: " "`, `1\,234\,567.9`; with `big_mark: "'"`,
 `1\text{'}234\text{'}567.9`.
+
+**1.4.24** Under the target `plain` a formatter writes Unicode text with no
+markup, for places that print none: a plot's labels, the console, a log. The
+plain text is the markdown text read as follows, so the two never disagree:
+
+- **PL1** Escape: `\` followed by an ASCII punctuation character
+  (`` !"#$%&'()*+,-./:;<=>?@[\]^_`{|}~ ``) is that character, as text, and no
+  other rule sees it. `\` followed by a newline is a newline. Any other `\` is
+  text.
+- **PL2** Code span: a run of n backticks, then text, then the next run of
+  exactly n backticks. A code run of its content, verbatim (no rule applies
+  inside); when the content both begins and ends with a space and is not all
+  spaces, one space is removed from each end. A code span directly followed by
+  `{`, up to the `}` that closes an attribute block (PL9), is kept as written,
+  block included (a named value left for the filter). A backtick run with no
+  closing run is text.
+- **PL3** Math: `$$...$$`, or `$...$` where the opening `$` is not followed by
+  white space and the closing `$` is not preceded by white space nor followed by
+  a digit. Kept as written, delimiters included; no rule applies inside.
+- **PL4** An HTML comment `<!--...-->` is removed.
+- **PL5** `<sup>...</sup>` and `<sub>...</sub>` (lower case, no attributes): a
+  superscript or subscript run of the content, which is read by these rules. Any
+  other tag is text.
+- **PL6** An entity: `&amp;` `&lt;` `&gt;` `&quot;` `&apos;` `&nbsp;` (U+00A0)
+  `&times;` `&minus;` `&infin;` `&plusmn;` `&deg;` `&middot;` `&ndash;`
+  `&mdash;` `&hellip;` `&micro;`, and `&#N;` or `&#xH;` for a code point, are
+  that character. Any other `&` is text.
+- **PL7** Superscript `^...^` and subscript `~...~` (a `~~` is text): the
+  content is not empty and holds no unescaped space, tab or newline and no
+  unescaped closing delimiter (Pandoc's rule). A superscript or subscript run of
+  the content, read by these rules.
+- **PL8** Emphasis: `***...***` (strong emphasis), `**...**` and `__...__`
+  (strong), `*...*` and `_..._` (emphasis). An opening run is not followed by
+  white space; its closing run is the first run of the same character and length
+  after it that is not preceded by white space. For `_`, the opening run is not
+  preceded by a letter or digit and the closing run is not followed by one (so
+  `snake_case_name` is text). The content is not empty and is read by these
+  rules. A run with no closing run is text (`5 * 3 and 2 * 4` is text; `2*3*4`
+  is emphasis, as Pandoc reads it).
+- **PL9** Span: `[`, text, `]` directly followed by an attribute block `{...}`
+  (the block as the scanner reads it, so a quoted value may hold `}`). A span run
+  of the content, read by these rules, with the attributes. Brackets not directly
+  followed by `{` are text: links (`[a](u)`), citations (`[@smith2020]`), `[1]`.
+- **PL10** Everything else is text as written: the minus sign U+2212, the
+  no-break space U+00A0, thin spaces, `·`, `×`, newlines, list markers and the
+  markers of 2.6.8.
+- **PL11** Plain rendering of runs: text and code as their text; math as
+  written; emphasis, strong and span as their content (attributes dropped); a
+  superscript as Unicode superscripts when every character of its rendered
+  content has one, else `^(content)`; a subscript likewise, else `_(content)`.
+  Superscripts: `0`-`9`, `+`, `-` and U+2212 (both `⁻`), `=`, `(` `)`, `n`, `i`.
+  Subscripts: `0`-`9`, `+`, `-` and U+2212 (both `₋`), `=`, `(` `)`.
+
+So `.sci` prints `1.2 × 10⁻⁴`, a unit `m²` or `s⁻¹`; emphasis and the attributes
+of a span go; a list keeps its lines; the minus sign, the no-break space and the
+markers of 2.6.8 stay; a formula keeps its TeX as written. Every class has a
+plain form. The plain form of a `weft()` string is read the same way, the
+author's text included: a literal `*`, `_`, `^` or `~` is kept with a backslash.
 
 ### 1.5 Governed spans
 
@@ -862,7 +921,7 @@ empty, one space beside it is removed, so the author writes ordinary spacing
 outside the span. Arms are still trimmed (1.5.12).
 
 - A space on both sides: the one before the span is removed.
-- At the start of a block, or of a `weft_str()` string, a caption or a
+- At the start of a block, or of a `weft()` string, a caption or a
   front-matter field, and followed by a space: that space is removed. The
   start of a block includes the text after a list, heading, quote or
   ordered-list marker, so the marker keeps its space.
@@ -1167,9 +1226,10 @@ abstract: |
 ---
 ````
 
-**1.10.10** `weft_str()` renders a markup string in R code (§3.6). Text that a
-chunk prints with `results: asis` is not prose the hooks see; it goes through
-`weft_str()`.
+**1.10.10** `weft()` resolves markup in R code (§3.6). Text that a chunk prints
+with `results: asis` is not prose the hooks see; it goes through `weft()`: the
+chunk prints the object, and knitr writes its markdown. A caption option that R
+computes as a `weft` object is written in its markdown form.
 
 **1.10.11** In a book or a website project, a construct in a document's
 `title`, in either metadata block, is a construct error found from the source.
@@ -1516,7 +1576,7 @@ it (1.12.7).
 
 **2.4.1** A failed check is collected, and the value returned, when the
 `claim()` call is evaluated in inline R during a knit, in a construct or a
-bare value: in prose, in a caption, or in a string given to `weft_str()`. With
+bare value: in prose, in a caption, or in a string given to `weft()`. With
 the setting `chunk_claims: collect` it is collected in chunk code too (2.4.4).
 
 **2.4.2** Everywhere else a failed check stops at once, unless it is a warned
@@ -1601,8 +1661,8 @@ are listed first. An R error after a guest claim was collected is wrapped as
 before, and its count includes the guest claims.
 
 **2.4.6** A check given `level = "warn"` (3.1.11) neither collects a failure
-nor stops, in any context. In a knit, in prose, a caption, a `weft_str()`
-string or chunk code, the value is returned and prints as if the check had
+nor stops, in any context. In a knit, in prose, a caption, a `weft()` string
+or chunk code, the value is returned and prints as if the check had
 passed, no marker is left, and the failed check is recorded as a warning
 (2.6.10). Outside a knit it signals a warning.
 
@@ -1763,7 +1823,7 @@ here (2.6.10).
 marker is left in the text, and the `document` hook fails the render once,
 listing every failure (tier 1). A failure with no line of its own is located
 by its chunk label instead: one in chunk code (2.4.4), in a caption (with the
-option, 2.3.2), or in a `weft_str()` string (2.6.8).
+option, 2.3.2), or in a `weft()` string (2.6.8).
 
 ```
 weft: 2 claims failed
@@ -1813,9 +1873,10 @@ printed for a construct that failed. It is plain ASCII with no markdown in it:
 | an error that depends on the value (5.3.2) | `<<weft: value error, line 412>>` | in place of the construct |
 | a construct error, in draft mode (9.4.3) | `<<weft: construct error, line 412>>` | in place of the construct |
 
-A string rendered by `weft_str()` has no line, and its marker names the chunk:
-`<<weft: failed claim, chunk fig-depth>>`. The marker is the same in draft
-mode. Every marker can be found by searching for `<<weft:`.
+A string given to `weft()` has no line, and its marker names the chunk:
+`<<weft: failed claim, chunk fig-depth>>`; called from inline R in prose it
+names the line. The marker is the same in draft mode and in every target of the
+string. Every marker can be found by searching for `<<weft:`.
 
 **2.6.9** Three other kinds of failure are collected as a failed check is,
 each with its marker, and fail the render at the end with the rest: an
@@ -1867,8 +1928,8 @@ only. Under a ladder (4.4.23) the advice is the ladder with that unit put first
 (4.4.13). weft does not rescale by itself.
 
 Outside a knit, `fmt_num(0.04)` returns "0.0" and signals a `warning()` of
-class `weft_zero_warning`. `weft_str()` outside a knit signals the same
-warning and returns the text.
+class `weft_zero_warning`. `weft()` outside a knit signals the same
+warning and returns its object.
 
 **2.6.12** A unit warning (4.4.10, 4.4.24) is a warned check of kind "unit
 warning", recorded as 2.6.10 records one: it is reported at the end of the
@@ -1916,7 +1977,7 @@ evaluated and logged with its line. It never appears in the document.
 and check the cached values. A cached chunk replays the constructs it recorded
 into the ledger, as it replays its conditions (7.4.1). Stage 1 refuses a
 caption construct in a cached chunk, so what is replayed is the chunk's
-`weft_str()` strings.
+`weft()` strings.
 
 **2.9.2** A document served from Quarto's `freeze` is not executed, and none
 of its checks run. Every executed document writes a stamp. After an ordinary
@@ -1949,7 +2010,7 @@ inside math and raw LaTeX, and gives each row the place it stands in (1.4.23,
 **2.10.2** The scanner is the single source of what the constructs are and
 where: at knit time over each prose block, and statically over the source
 file, its captions in chunk options and the literal strings passed to
-`weft_str()`. The lints, the gate, the ledger, `arms()` and the
+`weft()`. The lints, the gate, the ledger, `arms()` and the
 end-of-document check all take from it what the constructs are and where.
 
 **2.10.3** The static lints tell prose from code, math, links and raw content
@@ -2007,7 +2068,7 @@ its R values and spans are not evaluated (9.2.8, 5.8 rule 9).
 string, a chain of them (`py$cfg$depth`), the same with `reticulate::py`, or
 `py_value(...)` and `weft::py_value(...)`. In an expression weft evaluates (a
 value, a bare value, a governor, a caption construct on an R chunk, a
-`weft_str()` string) every guest read is read by §1.11, whole, from its first
+`weft()` string) every guest read is read by §1.11, whole, from its first
 step to its last, not by reticulate's conversion. What R then does with the R
 form is R's: `py$x[1]`, `length(py$sites)`, `py$slope > 0`. `py` is Python's
 main module unless the expression's environment binds `py` to something
@@ -2081,7 +2142,8 @@ the R form: `{if="length(py$x) > 0"}` with an empty list takes the false arm.
 `fmt_ol`, `fmt_dl`, `fmt_a`, `fmt_cap`, `fmt_strong`, `fmt_em`, `plural`,
 `ci`, `pm`, `about`, `of_n` and `weft_str`. Arguments, positional and
 keyword, are read by §1.11; each function returns the text the R function
-returns, one string as a `str` and several as a `list` of `str`. A refused
+returns, one string as a `str` and several as a `list` of `str`. `weft_str` calls R's
+`weft()` (3.6) and returns its markdown. A refused
 argument raises a Python exception whose message names it ("Argument 1 of
 fmt_num()", "Argument `digits` of fmt_num()"), and so does an R error. `u`,
 `fmt_unit`, `lookup`, `brk`, `glue_vec` and the dictionary functions are not
@@ -2090,7 +2152,7 @@ loaded; it warns once per R session.
 
 **2.12.9** Text a Python chunk prints with `results: asis` is not resolved,
 and the check filter catches what is left (2.5). `weft_str()` from the
-module resolves it, as 3.6 says, a failed check in it located by the chunk's
+module resolves it, as 3.6.8 says, a failed check in it located by the chunk's
 label.
 
 **2.12.10** A warning Python shows, and an error a chunk with `error: true`
@@ -2555,7 +2617,7 @@ writes them, and allows the same counts (§1.6):
 as a span's does, with the unit of a quantity (4.4.4).
 
 **3.2.3** `if` and `sign` spans have no function. In R code an `if` is R's
-own, and a `sign` span is written as markup in a `weft_str()` string.
+own, and a `sign` span is written as markup in a `weft()` string.
 
 **3.2.4** From a Python chunk the function forms are a module (2.12.8).
 
@@ -2694,17 +2756,22 @@ the path of the YAML file the table is read from. It registers nothing.
 default. `"markdown"` is every output before 1.4.23, byte for byte, and the
 result carries no new attribute. `target = "tex"` writes the forms of 1.4.23 and
 4.4.25, for text that goes into math or raw LaTeX from code: a chunk that
-builds a table of formulas, or an expression passed to `weft_str()`.
+builds a table of formulas. `target = "plain"` writes the forms of 1.4.24, for a
+sink that prints no markdown: a ggplot2 scale's labels, a console message.
 
 ```r
 fmt_num(-1234567.89, target = "tex")      # -1{,}234{,}567.9
 fmt_pct(0.123, target = "tex")            # 12.3\%
 fmt_num(u(5, mg/L), target = "tex")       # 5\,\text{mg/L}
+fmt_sci(0.000123, target = "plain")       # 1.2 × 10⁻⁴
+fmt_num(u(5, m^2), target = "plain")      # 5 m² (a no-break space)
+scale_y_continuous(labels = \(b) fmt_num(b, target = "plain"))
 ```
 
-- A `target` that is not `"markdown"` or `"tex"` is a `weft_construct_error`:
-  "`target` must be \"markdown\" or \"tex\"; got %s." Here `%s` is the value in
-  double quotes, or `something else` when it is not one string.
+- A `target` that is not `"markdown"`, `"tex"` or `"plain"` is a
+  `weft_construct_error`: "`target` must be \"markdown\", \"tex\" or \"plain\";
+  got %s." Here `%s` is the value in double quotes, or `something else` when it
+  is not one string.
 - A function of a class that has no TeX form (`fmt_word()`, `fmt_count()`,
   `fmt_ord()`, `fmt_no()`, `fmt_date()`, `fmt_a()`, `fmt_cap()`, `fmt_em()`,
   `fmt_strong()`, `fmt_and()`, `fmt_or()`, `fmt_pairs()`, `fmt_ul()`,
@@ -2716,9 +2783,15 @@ fmt_num(u(5, mg/L), target = "tex")       # 5\,\text{mg/L}
   reaches a markdown result without being formatted again from its raw value (a
   pass-through, a text class, a collapse), it is a `weft_value_error`: "This
   text was formatted for TeX (target = \"tex\") and would print here as
-  markdown. Format the number again, without `target` (rule 3.4.11)."
+  markdown. Format the number again, without `target` (rule 3.4.11)." Reaching
+  a plain result, the error says: "This text was formatted for TeX (target =
+  \"tex\") and would print here as plain text. Format the number again, with
+  target = \"plain\" (rule 3.4.11)."
+- A result made under `"plain"` has the attribute `target = "plain"`, keeps its
+  printed record, and its `unit` attribute holds the plain symbol or name. Given
+  to another formatter it is treated as a markdown text.
 - `fmt_unit()` takes `target` too: `fmt_unit(u(5, mg/L), target = "tex")` is
-  `\text{mg/L}`.
+  `\text{mg/L}`; `fmt_unit(u(1, m^2), target = "plain")` is `m²`.
 - In a knit weft passes `target = "tex"` itself, for a construct in math or raw
   LaTeX (1.4.23). A bare `fmt_num(x)` in math is a bare value and writes
   markdown there; the lint `value-format` (5.6.4) says so.
@@ -2786,25 +2859,98 @@ message says to pass the numbers or to format the parts with `fmt_num()`:
 weft does not guess where the unit goes. A ratio, with no unit left, is a
 number to them.
 
-### 3.6 `weft_str()`
+### 3.6 `weft()`
 
-**3.6.1** `weft_str()` renders a markup string, for the text slots no chunk
-option reaches: `ggplot2::labs()`, a `gt` footnote or column label,
-`knitr::kable(caption = )`, text printed with `results: asis`. Text a chunk
-prints has two routes to typed but checked values, which print the same: the
-markup in a string given to `weft_str()`, and a named value (1.12.1) whose value
-the chunk publishes with `weft_put()` (3.8.1, 1.12.8).
+**3.6.1** `weft(x, .envir = parent.frame())` resolves weft markup in R code, for
+the text slots no chunk option reaches: a plot's title and labels, a console or
+log message, a table's caption, text printed with `results: asis`. Each element
+of `x` is a block of prose; `x` is a character vector (a factor is read as its
+labels). The result is a `weft` object of the same length, with the names of
+`x`. An `NA` element stays `NA` and is never a failure. A `weft` object given as
+`x` is returned unchanged. Errors, both `weft_construct_error`: `x` of any other
+type: "`weft()` takes a character vector of markup."; `.envir` not an
+environment: "`.envir` must be an environment." Text a chunk prints has two
+routes to typed but checked values, which print the same: the markup in a string
+given to `weft()`, and a named value (1.12.1) whose value the chunk publishes
+with `weft_put()` (3.8.1, 1.12.8).
 
-**3.6.2** The lints read a literal string passed to `weft_str()` as prose.
+**3.6.2** Every value, bare value, governor, claim and guard in the markup is
+evaluated during the call, in `.envir`. The object holds what they printed, so
+changing a variable after the call changes nothing, and objects made in a loop
+each keep their own iteration's values. The functions inline code calls by name
+(`claim`, `weft_put`, `plural`, `glue_vec`, `u`, `dict_glossary`, `py_value`,
+`jl_value` and every `fmt_*`) are visible to the markup even when weft is not
+attached; a function of the same name that `.envir` can see wins. Bare inline R
+is evaluated as knitr evaluates it (1.1.8).
 
-**3.6.3** A string given to `weft_str()` is prose wherever it is called from.
-During a knit, a failed check in it is collected as one in a paragraph is
-(2.4.1). Outside a knit it stops at once. It reads the configuration as a knit
-does: a configuration error is raised, and it never prints with half a
-configuration.
+**3.6.3** A `weft` object is a character vector of class `c("weft",
+"character")` whose content is the plain text of each element (1.4.24) and whose
+attribute `markdown` holds the markdown.
 
-**3.6.4** From a Python chunk, `weft_str()` is in the module (2.12.8). The
-expressions in its markup are R.
+| Call | Gives |
+|---|---|
+| `as.character(x)` | plain; a bare character vector, names kept, `NA` kept |
+| `format(x)`, `format(x, target = "plain")` | plain; names kept; `NA` is `"NA"` |
+| `format(x, target = "markdown")` | markdown; names kept; `NA` is `"NA"` |
+| `format(x, target = other)` | `weft_construct_error`: "`target` must be \"plain\" or \"markdown\"; got %s." |
+| `print(x)` | each element's plain text on its own line; `<weft[0]>` for length 0 |
+| `knitr::knit_print(x, inline = TRUE)` | the markdown elements joined by `", "` |
+| `knitr::knit_print(x)` | the markdown elements joined by a blank line |
+
+`length()`, `names()`, `is.na()`, `nchar()`, `==`, `grepl()`, `cat()` and
+`writeLines()` act on the plain text. `paste()`, `sprintf("%s", )`, `toString()`,
+`message()` and `glue::glue()` call `as.character()`. `x[i]`, `x[[i]]` and
+`rev(x)` give a `weft` object holding those elements; `rep()`, `unique()` and
+`sort()` give a plain character vector. `c()` and `[<-` take `weft` objects (both
+forms) and character vectors (text as it is: not markup, not evaluated; plain and
+markdown are both the string); anything else is a `weft_construct_error`: "A weft
+text can be combined only with weft texts and character vectors; got a %s." An
+element changed by a function that kept the attributes (`substr()`, `toupper()`)
+has its plain text as its markdown form. A `weft` object used as a value inside
+`weft()` markup, or passed to an `fmt_*()`, contributes its markdown text.
+
+**3.6.4** In a knit, `knitr::knit_print()` writes the markdown. A caption option
+that R computes (`#| fig-cap: !expr weft(...)`, `fig.cap = weft(...)`) and that
+evaluates to a `weft` object is given to knitr as its markdown for `fig.cap`,
+`fig.scap`, `fig.subcap` and `tbl-cap`, and as its plain text for `fig.alt`.
+`cat(weft(...))` in a `results: asis` chunk writes plain text; to write markdown,
+print the object or `cat(format(x, target = "markdown"))`.
+`knitr::kable(caption = weft(...))` gets the plain text. A ggplot2 title keeps
+the object and draws its plain text. A formula in the markup keeps its TeX in the
+plain form (1.4.24): a plot that needs one uses plotmath.
+
+**3.6.5** A string given to `weft()` is prose wherever it is called from. During
+a knit with weft's hooks installed, a failed check, a missing value, a value
+error or an unknown citation key in it is collected as one in a paragraph is
+(2.4.1), and the object holds its marker (2.6.8); a construct error stops the
+render, except in draft mode, where it is a marker. Elsewhere (outside a knit, or
+in a knit where the hooks were never installed) the first failure stops at once
+with its class (`weft_claim_failed`, `weft_no_value`, `weft_value_error`,
+`weft_construct_error`), the message beginning `weft: a weft() string: ` outside
+a knit and `weft: chunk LABEL: ` in a knit; draft mode has no effect there.
+Warnings are signalled at the call and the object is returned. A failure is
+located by its chunk label, or by the line of the inline R that called `weft()`.
+It reads the configuration as a knit does: a configuration error is raised, and
+it never prints with half a configuration.
+
+**3.6.6** Outside a knit with weft's hooks, `weft()` reads the configuration of
+the project root of the working directory (the nearest folder upward that holds
+`_weft.yml`, else `_quarto.yml` or `_quarto.yaml`, else the working directory). It
+is read once and kept for the session, and read again when `_weft.yml` there
+appears, disappears or changes size or modification time. A read that fails keeps
+nothing, so every call fails until the file is fixed. The language is English and
+draft mode is off. The `fmt_*()` functions and the phrase functions take the same
+configuration outside a knit, so one script prints one value one way.
+
+**3.6.7** The lints read a literal string passed to `weft()` as prose (5.1.3): the
+argument R matches to `x` (named `x`, else the first argument without a name), one
+string or `c()` of strings, in the code of an R chunk that runs, as `weft(...)` or
+`weft::weft(...)`. A caption option written as R code that calls `weft()` is read
+the same way, and is not a caption string. The context of what is found there is
+`weft`.
+
+**3.6.8** From a Python chunk, `weft_str()` is in the module (2.12.8). It calls
+`weft()` and returns the markdown as a `str`. The expressions in its markup are R.
 
 ### 3.7 `arms()` and `rehearse()`
 
@@ -2821,7 +2967,7 @@ rehearse("daily.qmd", cases = list(
 `if`, `sign` or `list`), its expression, its file and line, and the text of
 each arm. A span nested in an
 arm is listed under that arm. It takes the spans from the scanner (2.10.2),
-in prose, captions, front-matter fields and literal `weft_str()` strings, and
+in prose, captions, front-matter fields and literal `weft()` strings, and
 runs no R.
 
 **3.7.2** `rehearse(file, cases = )` renders the document once for each named
@@ -4542,7 +4688,7 @@ returns a data frame of findings, and is an entry in the gate (§6) or in
 `verify()` (§8). A finding has the file, the line and column where its text
 starts, the last line it covers, the rule id, the tier, the number of the
 rule in this chapter, the context it was found in (prose, caption, front
-matter, `weft_str()` string, phrase, chunk or project), the text the gate
+matter, `weft()` string, phrase, chunk or project), the text the gate
 counts (6.2.3), a message that ends with the rule number, and a hint. Rows
 that agree in file, line, column, rule, text and message are one.
 `lint_rules()` lists the ids, rule numbers, tiers and scopes (`file` or
@@ -4558,7 +4704,7 @@ tables of 5.3.3, 5.8 and 5.11 are the ones `lint_rules()` cites.
 | 3 | human read | a ranked worklist; never adjudicated |
 
 **5.1.3** The lints read the prose of each source file, the captions written
-in chunk options, the literal strings passed to `weft_str()`, and the
+in chunk options, the literal strings passed to `weft()` (3.6.7), and the
 front-matter fields of 1.10.7 in every metadata block (2.10.6). A file that is
 not UTF-8 gives one finding, `read` (tier 1), and no other.
 
@@ -4606,7 +4752,7 @@ key; the lints read the YAML and install no units.
 
 **5.2.1** Every numeral in prose is a value, or sits inside a `cite` span or a
 `.weft-literal` span or block. The rule is `numeral`. It reads the body, the
-captions, the fields of 1.10.7, the strings of `weft_str()` and the phrases
+captions, the fields of 1.10.7, the strings of `weft()` and the phrases
 of 5.1.6, and reports each numeral with its position.
 
 **5.2.2** A numeral is judged at character level, word by word. A word whose
@@ -4858,7 +5004,7 @@ under the default of 5.5.5. The first word of a sentence is the first run of
 letters in it. The sentence of a finding is shown without a blockquote's `>`
 markers, and the last sentence of a list item ends at the item. The rule is `claim-word`, and it gives one finding per
 sentence, naming its claim words. It reads prose, captions, front matter and
-`weft_str()` strings, and not phrases (5.1.6). A sentence has a value when a
+`weft()` strings, and not phrases (5.1.6). A sentence has a value when a
 value, a bare value, an `n`, a `sign` or a `list` span starts inside it; an
 `if` guard or a `cite` span is not a value. Number words ("one", "two") and
 the bare comparatives ("more", "less", "above", "below") are not claim words:
@@ -6774,7 +6920,7 @@ to double quotes with `\"` (`{if='tier == "sev"'}` comes back as
 as Pandoc does, so a save in the editor changes the spelling and never the
 meaning: the ledger and `changes()` key on the value read, which is the same.
 weft accepts only part of what Pandoc reads because weft reads the source
-before Pandoc does (the hooks, the lints, `weft_str()`) and the filter reads
+before Pandoc does (the hooks, the lints, `weft()`) and the filter reads
 Pandoc's tree; a block read two ways would mean two things in one project.
 Pandoc also takes a `\` before any character that is not a letter or digit,
 decodes character references in quoted values, and reads quotes in a bare
@@ -7131,6 +7277,16 @@ that a function written for markdown does not put markdown into a formula; the
 one function serves every target through its `target` argument.
 
 
+**1.4.24** A plot, a console and a log print no markdown, and in them `10^−4^` and
+`**` show as typed (tested on 19 Nov). The plain form is read from the markdown,
+not written by a second set of formatters, because the author's text in a
+`weft()` string is markdown too and needs reading anyway; one reader keeps the
+markdown exactly as it was and the two forms from ever disagreeing about a value.
+The reader follows Pandoc on the forms weft writes, so data text, which is not
+escaped (1.4.10), reads the same in both. Lists keep their lines instead of being
+refused, as under TeX, because a string is rendered at its sink, long after the
+call that made it.
+
 **1.8.12** A pointer on a claim that never runs supports nothing, so it is not
 collected; the claims rule (6.3.1) and this rule now agree on which chunks do
 not run. A pointer prints nothing; recording it in the ledger would only
@@ -7333,10 +7489,16 @@ setting of the function, like the default digits, and a project that treats
 it as a stipulation passes it from its dictionary. `ci()` writes "to" so that
 a dash never sits beside a minus sign.
 
-**3.6.1, 3.6.3** A plot title, a table footnote and a `kable()` caption are
-prose that no chunk option reaches. A string is prose whoever calls the
-function, so a caption built in R fails the same way as one written in a chunk
-option.
+**3.6** A plot title, a table footnote and a `kable()` caption are prose that no
+chunk option reaches. `weft()` evaluates at the call because a template
+evaluated at the sink reads each variable when the plot is drawn: three titles
+built in a loop all showed the last site (tested, 19 Nov). It returns an object,
+not text, because only the sink knows its target: a plot wants plain text, a knit
+markdown. The object's content is the plain text so that a function that does not
+know the class (`cat()`, `nchar()`) still gets readable text. The configuration
+is kept per project because reading it was most of the 10 ms a call cost. A
+string is prose whoever calls the function, so a caption built in R fails the
+same way as one written in a chunk option.
 
 **3.2.3** A function for each governor would be a second syntax to keep in
 step with the first. The markup already works in a string.
@@ -7377,7 +7539,8 @@ case in a heading ("Length (metres)").
 once, and a class with no TeX form is refused by name rather than printing
 markdown into a formula. It is last so that a call written before it is
 unchanged. A text made for TeX is marked, because printed in a paragraph it
-would show TeX source.
+would show TeX source. `plain` is on the same argument so that a formatter can
+label a ggplot2 scale.
 
 **3.5.3** A 90% interval printed without its level reads as 95%, so the short
 form with a `level` is an error. Under `pct` every number takes "%", because
