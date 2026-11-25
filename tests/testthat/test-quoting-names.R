@@ -65,8 +65,8 @@ test_that("T5, C7, Python: weft._source_names gives the same set as the R extrac
 
 test_that("T5, C7, knit: a name governed by a single-quoted n is published when the chunk binds it", {
   res <- b6_knit(c(
-    "```{r calc, include=FALSE}", "kq <- 3L", "unused_q <- 1", "```", "",
-    "Found [one | many]{n='kq'} sites."
+    "```{r calc, include=FALSE}", "kq <- 3L", "other_q <- 2L", "unused_q <- 1", "```", "",
+    "Found [one | many]{n='kq'} sites, of `other_q`{.num}."
   ))
   b6_expect_knitted(res)
   published <- unlist(b6_block_names(res$blocks))
