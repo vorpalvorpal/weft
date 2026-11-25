@@ -783,3 +783,33 @@ this entry. Documents on knitr are unaffected, since named values were
 added beside the hooks and change nothing for a document with none. To
 change one ruling, change its rule in the spec and its test, not the
 others.
+
+## Weft everywhere (2026-11-25, Robin)
+
+- **Quoting is loosened everywhere.** A value is read as a strict subset
+  of Pandoc's reading: double-quoted, single-quoted or unquoted, with
+  `\"`, `\'` and `\|` as escapes. Other backslashes stay an error.
+  Alternative: relax only in strings; refused, since the same text must
+  work in prose and in a string. An adversarial review found no blocker:
+  nothing valid today changes meaning, and `expr_key()` gives one key for
+  either quote style, so an editor requote is not a change.
+- **`weft()` evaluates at the call and renders at the sink.** Alternative:
+  a template that keeps its environment and evaluates at the sink;
+  refused, since it reads each variable at drawing time (titles built in a
+  loop all showed the last value).
+- **A bare name reads R wherever R runs** (`weft()` strings and knitr
+  prose), with every R formatter. Alternatives: strings only (the same
+  text would print differently in a string and in prose); filter limits
+  everywhere (strings would lose units). Named arguments to `weft()` were
+  refused: they replace `r ` with `, age = x`.
+- **`weft_put()` leaves R's API; `put()` and `@put` stay.** Removing the
+  guest publishers would print a stale value in a printed loop and in a
+  hidden Jupyter cell, and Julia has no post-cell hook.
+- **Later replaces** (rule 1.12.7 kept). Alternative: an error for two
+  sources that disagree; refused, since scratch names reused in R and
+  Python would fail often.
+- **Automatic publishing publishes only names the filter will resolve.**
+  The review found `{if="nchar(secret) > 0"}` wrote the secret into the
+  values block.
+
+The plan is `dev/plan-weft-everywhere.md`.

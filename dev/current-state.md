@@ -484,7 +484,15 @@ or hold); no answer yet.
   findings 1, 2, 7, 21; `claim-word` noise; the alias-policy tests left by the units switch (done 2026-11-25);
   Windows CI; the questions listed under "Position after stage 7".
 
-## Goal noted: weft everywhere (14 Nov, from Robin; design open)
+## Weft everywhere: approved and in progress (25 Nov)
+
+The plan and Robin's rulings are in `dev/plan-weft-everywhere.md`; the
+section below is the earlier note it replaces. Packages in order: Q
+(loosened quoting, `dev/design-quoting.md`), E1 (`weft()` and the plain
+target), E2 (bare names read R; `weft_put()` leaves R's API), E3 (console
+and ANSI), E4 (static side, `.R` files), E5 (docs).
+
+## Goal noted: weft everywhere (14 Nov, from Robin; superseded 25 Nov)
 
 Robin's goal: weft markup should be usable everywhere text is produced,
 not only in the prose of a Quarto or R Markdown document. Places raised
