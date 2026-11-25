@@ -144,18 +144,28 @@ are not rows.
 **1.2.1** `{ATTRS}` is Pandoc's attribute syntax: an optional `#id`, classes,
 and `key=value` pairs, in any order.
 
-**1.2.2** A value is double-quoted or unquoted. An R string inside a value
-uses single quotes: `{if="tier == 'sev'"}`.
+**1.2.2** A value is written in double quotes, in single quotes, or bare.
+`{if="tier == 'sev'"}`, `{if='tier == "sev"'}` and `{if="tier == \"sev\""}`
+are the same block. A bare value holds no white space, no `}`, no quote and
+no `\` but `\|`: `{n=k}`, `{digits=2}`.
 
-**1.2.3** In the block of a weft construct, a single-quoted value, or a `"` or
-a `\` inside any value, is a construct error (§5.3), except `\|` in the value of
-`unit`, which is read as `|` (4.4.23). The message says to bind
-the expression to a name in a chunk.
+**1.2.3** weft reads a value as Pandoc reads it, and accepts only part of
+what Pandoc accepts, so that a block weft reads means the same to Pandoc.
+In a quoted value `\"`, `\'` and `\|` stand for `"`, `'` and `|`, a quote of
+the other kind needs no escape, and a line break reads as one space. In a
+bare value `\|` stands for `|`. In the block of a weft construct these are
+construct errors (§5.3): any other `\` in a value; a `"`, `'` or `\` in a
+bare value, but for `\|`; a character reference (`&amp;`, `&#39;`) in a
+quoted value. The message for a `\` says to bind the expression to a name in
+a chunk.
 
-**1.2.9** A `"` inside a double-quoted value ends the value early, and what is
-left is no longer an attribute block. So braces that directly follow a bracket
-or inline code, do not parse as an attribute block, and contain a weft key in
-any letter case (1.2.10) followed by `=`, are the same construct error.
+**1.2.9** An unescaped quote of a value's own kind ends the value early, and
+what is left is no longer an attribute block. So braces that directly follow
+a bracket or inline code, do not parse as an attribute block, and contain a
+key of 1.2.5 (`label`, `why` and `decision` included) in any letter case
+followed by `=`, are a construct error that names the cause. The same holds
+on the opening line of a fenced div that holds `.weft-literal`, `why` or
+`decision`.
 
 **1.2.4** Meaning never depends on the order in which things are written
 inside the block.
@@ -780,8 +790,9 @@ site[s | | s]{n="k"}             an empty "one" arm: "sites", "site", "sites"
 ```
 
 **1.5.13** Inside a pipe-table cell the arm separator must be written `\|`.
-An unescaped one is a construct error. So must the `|` of a ladder in `unit`
-(4.4.23), in a value or in a span: `` `r x`{unit="mm\|m\|km"} ``.
+An unescaped one is a construct error. So must a `|` in any attribute value
+of a construct in the cell, such as the ladder of `unit` (4.4.23):
+`` `r x`{unit="mm\|m\|km"} ``, `[a \| b]{if="p \|\| q"}`.
 
 **1.5.14** A `|` or a `#` inside math, a code span, a link target or raw
 content within an arm is neither a separator nor a placeholder.
@@ -1020,9 +1031,9 @@ before the `@` are a prefix: `cite="smith2020 and @jones2019"` prints
 **1.8.7** Text classes and pass-through attributes on a `cite` span act on
 its prose. A formatter class on one is a construct error.
 
-**1.8.8** A citation that the quoting rule (1.2.3) cannot hold (a prefix or
-locator that needs a backslash, a key that contains `"`) is written as an
-ordinary Pandoc citation after a bare-form span.
+**1.8.8** A citation that a value cannot hold, a prefix or locator that needs a
+`\` (1.2.3), is written as an ordinary Pandoc citation after a bare-form
+span.
 
 **1.8.9** A literal with no source is marked with `.weft-literal` and a `why`,
 inline or as a block.
@@ -1253,12 +1264,14 @@ inline R is a construct error.
 **1.12.4** In a construct the filter resolves (2.13.2), a condition is a
 name whose value is a bool, `!` directly before such a name, or one comparison
 `a OP b` with `OP` one of `< <= > >= == !=` and each side a name, a number
-literal or a single-quoted string, at least one a name. `!` applies to a name
+literal or a string literal in single or double quotes (`'sev'`, `"sev"`), at least one a
+name. `!` applies to a name
 only: `!a == b`, `!!a`, `!(a)` and `!3` are construct errors, because R reads
 `!a > b` as `!(a > b)` and Julia as `(!a) > b`. `!a` on a value that is not a
 bool is a value error (1.11.8). Spaces around `OP` are optional. A number
 literal matches `-?[0-9]+(\.[0-9]+)?([eE][+-]?[0-9]+)?`: no `+`, no leading
-`.`, no `_`, no hex, no `L`. A string literal holds no `'` and no `\`.
+`.`, no `_`, no hex, no `L`. A string literal holds no `\` and not the quote that delimits it: `"it's"` and
+`'say "hi"'` are literals.
 Conditions are joined by commas (1.5.4); a comma inside a string literal
 does not split. An empty part is a construct error. Anything else is a
 construct error that quotes the part and says to bind the value to a name in
@@ -2115,7 +2128,8 @@ key of a dictionary (a `String` key, else a `Symbol` key) or else a field or
 property. Only the last value is read by §1.11, so a dictionary may sit on
 the path. The value is read inside Julia, never by JuliaCall's conversion.
 There is no `jl` object, and weft rewrites no expression. In an attribute
-value the argument takes single quotes: `{if="jl_value('ok')"}`. A step that
+value the argument takes the quote the value does not use: `{if="jl_value('ok')"}` or
+`{if='jl_value("ok")'}`. A step that
 is not one non-empty string is an error: "jl_value() takes names as
 strings: jl_value("n")." 2.12.6 applies to it as to a guest read.
 
@@ -2252,8 +2266,11 @@ filter.
 (at most 8 deep) and its chunk-option lines for the construct's text, in
 order: for a construct, the next occurrence after the previous occurrence of
 the same text. Fenced code is blanked except its `#|` lines, and HTML
-comments are blanked. A span whose attribute value holds an escaped bar (`\|`, as a
-pipe-table cell needs) is searched for in the form the tree holds. Text a chunk
+comments are blanked. A span is found by its governor key as written and its value,
+and a `.weft-literal` by its `decision`: an occurrence is `KEY=` after a `{`
+or white space whose value, read as Pandoc reads it, is the tree's value,
+in any quotes and with any escapes (1.2.3). For a span, the same text is the
+same key and value. Text a chunk
 printed has no line, and if that text also appears later in the source it takes
 the later line: this is a limit. A
 block's own check with no line and no enclosing cell shows the file only.
@@ -2323,7 +2340,8 @@ bound in the knit's environment (found without inheritance) and has changed,
 at the start of each block of prose and at the end of the document, and
 `weft_put()` publishes explicitly (3.8). The names a source names are every
 `` `NAME`{ `` and every name in the value of an `n`, `if`, `sign` or `list`
-key, read from the file and the files it includes (at most 8 deep).
+key, written in any form of 1.2.2 and read by 1.2.3, outside string literals
+in either quote, read from the file and the files it includes (at most 8 deep).
 Automatic publishing applies only when the source holds at least one named
 value: a governor name alone does not switch it on. This gate is the same for
 R and for Python's `auto()` (3.8.7). A value that cannot be published is published as an error record, so
@@ -4088,10 +4106,9 @@ weft never picks a unit the author did not name (4.4.14).
   `unit =` (`unit = c("mm", "m", "km")`). Each item is one rung and holds no `|`.
   A one-item list is the rung.
 - In a pipe-table cell the separator is written `\|` (1.5.13): `` `r x`{unit="mm\|m\|km"} ``.
-  weft reads `\|` as `|` in `unit`, in a table or not, and in no other value; a
-  `\` elsewhere stays the error of 1.2.3. An unescaped `|` in `unit` in a
-  pipe-table cell is a construct error. The `|` of a ladder does not change a
-  span's arm count.
+  weft reads `\|` as `|` in every value (1.2.3). An unescaped `|` in a value in a
+  pipe-table cell is a construct error (1.5.13). The `|` of a ladder does not
+  change a span's arm count.
 - The order is the author's preference, not sorted. Ascending (`mm|m|km`) is the
   usual form, and weft does not require it: `u(0.05, m)` prints "50 mm" under
   `mm|cm|m` and "5 cm" under `cm|mm|m`.
@@ -4664,8 +4681,10 @@ A line inside a span that Pandoc cuts a paragraph at is a separate rule,
 - more than one of `n`, `if`, `sign`, `list`, `cite` in one block; any of
   them on a value (1.1.5, 1.3.3)
 - a code span that opens with `r` and a line break (5.3.4)
-- a single-quoted value, or a `"` or `\` inside a value (1.2.3, 1.2.9), but
-  for `\|` in `unit`
+- in a value, a `\` that does not escape `"`, `'` or `|`; a `"`, `'` or `\` in
+  a bare value, but for `\|`; a character reference in a quoted value (1.2.3)
+- braces after a bracket, inline code or a `.weft-literal` div's colons that do
+  not parse and hold a key of 1.2.5 (1.2.9)
 - a key written twice in one block, in any letter case (1.2.10)
 - an `#id` on a text span (1.1.9)
 - an inline expression, or the value of `n`, `if`, `sign` or `list`, that
@@ -4700,8 +4719,8 @@ A line inside a span that Pandoc cuts a paragraph at is a separate rule,
 - a weft key on a link (`[a](u){if="x"}`), or an attribute block on inline R
   inside a link target
 - an unescaped arm separator in a pipe-table cell (1.5.13)
-- an empty or repeated rung in `unit`; an unescaped `|` in `unit` in a pipe-table
-  cell (1.5.13, 4.4.23)
+- an empty or repeated rung in `unit` (4.4.23); an unescaped `|` in any value of
+  a construct in a pipe-table cell (1.5.13)
 - `n="."` outside an `n`, `list` or `sign` span (1.7.2)
 - a duplicate id; a back-reference to an id that is unknown or defined later
   (1.7.5, 1.7.10)
@@ -6733,13 +6752,33 @@ to format (5.2.1), so it is left to the warning. On a plain bracket an `#id`
 is an anchor; on a text span it would be dropped from the output (1.2.8), and
 the anchor lost without a word.
 
-**1.2.2, 1.2.3** Pandoc's markdown writer, and so the visual editor, rewrites
-every value to double quotes. `{if='tier == "sev"'}` comes back from a save
-as `{if="tier == \"sev\""}` (§18): a backslash and an inner double quote,
-which weft's scanner would then have to unescape exactly as Pandoc does. One
-written form that survives a save unchanged is the rule: double quotes, or
-none, with nothing inside to unescape. An expression that needs a double
-quote or a backslash is bound to a name in a chunk, which also keeps it short.
+**1.2.2, 1.2.3, 1.2.9** Markup is written in documents and inside strings:
+R string literals, raw strings (`r"( ... )"`), plot labels built in code. A
+rule of double quotes only makes every R string inside a value take single
+quotes, leaves no way to write an apostrophe in a single-quoted `why`, and
+leaves no quote to wrap the whole string with. Pandoc reads double, single
+and bare values, and its writer, so the visual editor, rewrites every value
+to double quotes with `\"` (`{if='tier == "sev"'}` comes back as
+`{if="tier == \"sev\""}`, §18). weft reads each of these forms and unescapes
+as Pandoc does, so a save in the editor changes the spelling and never the
+meaning: the ledger and `changes()` key on the value read, which is the same.
+weft accepts only part of what Pandoc reads because weft reads the source
+before Pandoc does (the hooks, the lints, `weft_str()`) and the filter reads
+Pandoc's tree; a block read two ways would mean two things in one project.
+Pandoc also takes a `\` before any character that is not a letter or digit,
+decodes character references in quoted values, and reads quotes in a bare
+value. weft refuses these: none is needed to write an expression or a
+reason, a refusal is loud where a misreading is silent, and decoding
+references would put Pandoc's entity table in every reader. A bare value
+with an escape is a trap besides: a construct in a YAML double-quoted string
+reaches the scanner with YAML's `\"` still in it (`{if=\"flag\"}`), and a
+bare value read with escapes would test the string `"flag"` statically while
+the render evaluates `flag`. A line break reads as a space because an
+editor's re-wrap may put one inside a long value. `commonmark_x` reads
+neither single quotes nor `\"`, but weft's lints mask constructs before
+Pandoc reads the text, so this does not reach them. The broken-block error
+covers `label`, `why` and `decision` because an apostrophe in a single-quoted
+`why` ends it, and the span would then print as text with no error.
 
 **1.2.4** Pandoc's markdown writer, and therefore the visual editor, rewrites
 a block to id, then classes, then keys, with every value double-quoted. Order
@@ -6910,6 +6949,9 @@ position-tracking reader (the lints) and by the visual editor, and their
 pipe-table parsers split a row on every unescaped `|` before any span exists, and
 they split one inside a span's attribute block too, so a ladder's `|` is written
 `\|` there, which Pandoc reads back as `|`.
+Now that `\|` reads as `|` in every value
+(1.2.3), the same holds for a `|` in any value of a construct in a cell, not
+only a ladder's.
 
 **1.5.16** An arm written for a case that did not happen may not be
 computable in the case that did.
@@ -7071,6 +7113,12 @@ collected; the claims rule (6.3.1) and this rule now agree on which chunks do
 not run. A pointer prints nothing; recording it in the ledger would only
 churn it. Scanning comments for decision ids would make weft keep a register
 convention, which §16 leaves to the project.
+
+**1.12.4** A string literal takes either quote so
+that one sentence means the same under the filter and under the hooks, where
+R reads both: `{if='tier == "sev"'}` is the natural form inside a
+single-quoted value. A literal holds no `\` and not its own quote, so the
+condition has no escapes of its own on top of the attribute's.
 
 **1.12.7** A name that takes several values below its use is an error, not a
 warning: a warning would print a value the sentence may not mean, which is the
@@ -8139,7 +8187,7 @@ and Quarto 1.11.9 (Pandoc 3.10). "Both" means under `quarto render` and under
 `rmarkdown::render()`.
 
 **The stand-in is not the rules.** It differs from Part 1 in four ways: it
-accepts single-quoted values (rule 1.2.3 makes them an error), it runs
+reads a quoted value without escapes (rule 1.2.3 reads `\"`, `\'` and `\|`), it runs
 formatters left to right (rule 1.4.1 fixes four stages), it passes ids through
 to the output (rule 1.2.8 does not), and a failed check in a caption stops the
 render (rule 2.3.3 collects it). A row below is evidence for the mechanism it
@@ -8234,7 +8282,8 @@ The forms the writer produced (check, 2026-11-11):
 | An unknown key: Pandoc warns ("citation … not found"), exits 0 and prints "(key?)"; with no bibliography there is no warning at all; Typst fails the render | both |
 | `@{key with spaces}` resolves in a bibliography and is left as literal text by Pandoc | both |
 | A `"` inside a double-quoted value ends the value, and the block becomes prose with no error | both |
-| Not writable under the quoting rule: a prefix or locator needing a backslash; a key containing `"`. `&quot;` works in a prefix or locator, not in a key | both |
+| Not writable as a value: a prefix or locator needing a backslash (1.2.3). Pandoc decodes `&quot;` in a quoted value; weft refuses a character reference (1.2.3) | both |
+| check, 2026-11-25: Pandoc 3.8.3 reads `\` before any character that is not a letter or digit as that character, in quoted and bare values, and keeps a `\` before a letter or digit; decodes character references in a quoted value only; reads a line break in a quoted value as a space; reads `{k=x"y}`, `{k="x".c}` and `{k="m\"}` (as the bare value `"m"`) as spans and `{k=' x'}` as text; its writer writes `\` as `\\`, `"` as `\"` and `\|` as `|` | Pandoc |
 | With no hooks, `why` on a span or div reaches HTML as an attribute (`data-why`) and is invisible in docx, Typst and LaTeX | Pandoc |
 | The hook removes `why` and leaves the class, for a span and for a div: nested in a div, a list or a block quote; with its two fences in different text blocks; with a comma, apostrophe, `#`, `\|` or brackets in the `why` | both (html, docx, Typst) |
 
@@ -8362,7 +8411,7 @@ has a quoted value, and rejects a key written before a class and an unquoted
 **Rules the stand-in does not implement.** None of these has run in any
 form:
 
-- the single-quote and escape errors (1.2.3); ids kept out of the output
+- the quoting and escape rules (1.2.3); ids kept out of the output
   (1.2.8); keys matched in any letter case (1.2.10)
 - text spans (1.1.9)
 - the order of reading `|` and `#` in an arm, and three in a row (1.5.12),
@@ -8594,8 +8643,9 @@ and `dict_local$`. Then the lints, each against a fixture pair.
   and `##` saved as `\##`.
 - **Attribute forms.** Each fixture is also run with its attribute blocks
   reordered, unquoted, and with the first letter of each key capitalised, and
-  must render the same text (1.2.10). With its values single-quoted it must
-  give the construct error of 1.2.3.
+  must render the same text (1.2.10). With its values single-quoted, and as
+  Pandoc's writer writes them (double quotes, `\"`), it must render the same
+  text (1.2.3).
 - **Text spans.** `[results]{.strong}`, and the same with each text class,
   prints the class's effect; `[1234]{.num}` passes through and is listed by
   5.3.3; `.Num` on a construct is listed with `.num` as the nearest name.

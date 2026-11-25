@@ -34,8 +34,8 @@ as a raw vector and ends R on a \code{missing}. A \code{Bool}, an integer, a flo
 anything else are refused with a \code{weft_guest_value_error} that says what to
 do. \code{missing}, \code{nothing}, NaN and infinities are \code{NA}.
 
-In an attribute value the argument takes single quotes:
-\verb{\{if="jl_value('ok')"\}}. When Julia is not running, \code{jl_value()} starts it
+In an attribute value the argument takes the quote the value does not use:
+\verb{\{if="jl_value('ok')"\}} or \verb{\{if='jl_value("ok")'\}}. When Julia is not running, \code{jl_value()} starts it
 with \code{JuliaCall::julia_setup()} and defines weft's one module, \code{WeftGuest},
 in Julia's \code{Main}. weft never installs Julia or a Julia package.
 }

@@ -534,9 +534,8 @@ Mean depth was 3.1 m at Upper, Lower and Weir. Turbidity rose over the
 year. Mean turbidity was Upper (1.3) and Lower (3.4) NTU.
 ```
 
-Inside an attribute value, write the name in single quotes:
-`{if="jl_value('rising')"}`. A double quote escaped as `\"` ends the
-attribute value, so the block does not parse.
+Inside an attribute value, write the name in the quote the value does not use:
+`{if="jl_value('rising')"}` or `{if='jl_value("rising")'}`.
 
 `jl_value()` means the same in prose, in an R chunk and at the console. It
 starts Julia when Julia is not yet running. It reads the value inside Julia
