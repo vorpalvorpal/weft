@@ -996,8 +996,8 @@ build_blocks <- function(S) {
 
 # ---- reading a document ------------------------------------------------------------------------
 
-read_source <- function(path, root, cfg) {
-  if (is_script_path(path)) return(read_script_source(path, root, cfg))
+read_source <- function(path, root, cfg, bytes = NULL) {
+  if (is_script_path(path)) return(read_script_source(path, root, cfg, bytes))
   rel <- lint_rel_path(path, root)
   ext <- sub("^.*\\.", "", basename(path))
   text <- read_source_text_or_null(path)
@@ -1212,12 +1212,13 @@ bytes_mention_weft <- function(bytes) {
 # What reading a script's `weft()` literals gives (C3, C4): `status` is "invalid" (not text), "skip" (no
 # `weft` in its bytes, or no literal), "noparse", or "ok", with the text, lines, line starts, the literals and
 # the scanner's rows (an empty table when none of them holds a construct).
-script_scan <- function(path, rel, cfg) {
+script_scan <- function(path, rel, cfg, bytes = NULL) {
   none <- function(status) list(status = status, text = "", lines = character(), ls = numeric(), lit = NULL,
                                 rows = NULL)
-  bytes <- read_source_bytes(path)
+  if (is.null(bytes)) bytes <- read_source_bytes(path)
   if (!bytes_mention_weft(bytes)) return(none("skip"))
-  text <- read_source_text_or_null(path)
+  # the bytes already read are the text's: the file is read once (K14)
+  text <- tryCatch(read_source_text(path, bytes = bytes), weft_encoding_error = function(e) NULL)
   if (is.null(text)) return(none("invalid"))
   lines <- split_source_lines(text)
   p <- tryCatch(parse(text = lines, keep.source = TRUE), error = function(e) NULL)
@@ -1240,16 +1241,18 @@ script_scan <- function(path, rel, cfg) {
 # prose mask that is their pieces, and no chunks, metadata or blocks of its own. One that does not mention
 # `weft`, or does not parse, has `skip` set (the second also `noparse`) and no rows; one that is not text is
 # `invalid`.
-read_script_source <- function(path, root, cfg) {
+script_stub <- function(rel, path, cfg, status) {
+  structure(list(file = rel, path = path, ext = sub("^.*\\.", "", basename(path)), script = TRUE, cfg = cfg,
+                 text = "", lines = character(), line_start = numeric(), rows = NULL, chunks = NULL,
+                 invalid = status == "invalid", skip = status != "invalid", noparse = status == "noparse"),
+            class = "weft_source")
+}
+
+read_script_source <- function(path, root, cfg, bytes = NULL) {
   rel <- lint_rel_path(path, root)
   ext <- sub("^.*\\.", "", basename(path))
-  sc <- script_scan(path, rel, cfg)
-  if (sc$status != "ok") {
-    return(structure(list(file = rel, path = path, ext = ext, script = TRUE, cfg = cfg, text = "",
-                          lines = character(), line_start = numeric(), rows = NULL, chunks = NULL,
-                          invalid = sc$status == "invalid", skip = sc$status != "invalid",
-                          noparse = sc$status == "noparse"), class = "weft_source"))
-  }
+  sc <- script_scan(path, rel, cfg, bytes)
+  if (sc$status != "ok") return(script_stub(rel, path, cfg, sc$status))
   lines <- sc$lines
   lit <- sc$lit
   nl <- length(lines)

@@ -32,10 +32,11 @@ arm_roles <- function(key, narms) {
 #'
 #' A file whose name ends `.R` or `.r` is read as a script: its spans are those
 #' of the literal strings it passes to `weft()` (`weft(...)`, `weft::weft(...)`,
-#' or the right-hand side of a pipe), with the settings of its project and
+#' or the right-hand side of a pipe, where the left-hand side is the `x` it
+#' passes unless an argument is named `x`), with the settings of its project and
 #' English plural rules, and context `"weft"`. The setting `scripts_skip` is not
-#' applied: a script that is named is read. A script that does not parse lists
-#' no spans and no errors.
+#' applied: a script that is named is read. A script that does not parse, or is
+#' not valid UTF-8, lists no spans and no errors.
 #'
 #' Only the spans of the files given are listed; a document that a chunk
 #' includes with `child=` is listed only when it is given too.

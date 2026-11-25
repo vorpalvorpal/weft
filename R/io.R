@@ -23,8 +23,8 @@ read_source_bytes <- function(path) {
 # kept as it is (it is only a missing "\n"). `class` is put before
 # `weft_encoding_error` on that error, for a caller whose own condition class
 # the reader of that file has always had (`weft_dict_error`, `weft_config_error`).
-read_source_text <- function(path, class = NULL) {
-  bytes <- read_source_bytes(path)
+read_source_text <- function(path, class = NULL, bytes = NULL) {
+  if (is.null(bytes)) bytes <- read_source_bytes(path)
   if (any(bytes == as.raw(0L))) {
     weft_abort(sprintf("%s holds a NUL byte, so it is not text; save the file as UTF-8.", path),
                c(class, "weft_encoding_error"))

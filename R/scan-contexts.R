@@ -711,14 +711,14 @@ weft_calls <- function(pd) {
   for (id in sym$id) {
     e <- pd$parent[pd$id == id]
     if (!length(e) || e == 0L || sum(pd$parent == e) != 1L) next
-    if (!is.na(pipe_lhs(pd, e, "%>%"))) out <- c(out, e)
+    if (!is.na(weft_pipe_lhs(pd, e, "%>%"))) out <- c(out, e)
   }
   out
 }
 
 # The left-hand side of the pipe whose right-hand side is expression `id`, for the operators `ops`; NA
 # when `id` is not one.
-pipe_lhs <- function(pd, id, ops = c("|>", "%>%")) {
+weft_pipe_lhs <- function(pd, id, ops = c("|>", "%>%")) {
   pe <- pd$parent[pd$id == id]
   if (!length(pe) || pe == 0L) return(NA_integer_)
   sib <- pd[pd$parent == pe, , drop = FALSE]
@@ -736,7 +736,7 @@ weft_call_arg <- function(pd, call_id) {
   kids <- pd[pd$parent == call_id, , drop = FALSE]
   kids <- kids[order(kids$line1, kids$col1), , drop = FALSE]
   op <- which(kids$token == "'('")[1L]
-  lhs <- pipe_lhs(pd, call_id)
+  lhs <- weft_pipe_lhs(pd, call_id)
   if (is.na(op)) return(lhs)                   # `x %>% weft`
   pipe_op <- ""
   if (!is.na(lhs)) {

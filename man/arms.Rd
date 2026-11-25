@@ -37,10 +37,11 @@ English, because weft ships no other plural rules (rules 1.6.4, 1.6.5).
 
 A file whose name ends \code{.R} or \code{.r} is read as a script: its spans are those
 of the literal strings it passes to \code{weft()} (\code{weft(...)}, \code{weft::weft(...)},
-or the right-hand side of a pipe), with the settings of its project and
+or the right-hand side of a pipe, where the left-hand side is the \code{x} it
+passes unless an argument is named \code{x}), with the settings of its project and
 English plural rules, and context \code{"weft"}. The setting \code{scripts_skip} is not
-applied: a script that is named is read. A script that does not parse lists
-no spans and no errors.
+applied: a script that is named is read. A script that does not parse, or is
+not valid UTF-8, lists no spans and no errors.
 
 Only the spans of the files given are listed; a document that a chunk
 includes with \verb{child=} is listed only when it is given too.

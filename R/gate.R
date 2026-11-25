@@ -153,6 +153,7 @@ gate_side_keys <- function(g, s, vers) {
   big <- e$content & !is.na(sz) & sz > GATE_MAX_BYTES
   e$ok <- e$content & !big
   e$doc <- e$ok & is_doc_path(e$rel)
+  e$doc[e$doc] <- gate_script_read(g, e[e$doc, , drop = FALSE])
   cfgb <- function(name) {
     i <- match(name, e$rel)
     if (is.na(i)) "" else e$blob[i]
@@ -174,6 +175,55 @@ gate_side_keys <- function(g, s, vers) {
   s$docs <- docs
   s$proj_key <- gate_key("proj", vers, full, pathhash)
   s
+}
+
+# Which of the document entries `e` (relative paths and blobs of one side) the lints read: every document,
+# and a script only when its own settings root's `scripts_skip` does not leave it out and its bytes hold
+# `weft` (K13), so a script that adds nothing to the findings or the counts has no cache entry.
+gate_script_read <- function(g, e) {
+  keep <- rep(TRUE, nrow(e))
+  scr <- which(is_script_path(e$rel))
+  if (!length(scr)) return(keep)
+  all_yml <- grep("(^|/)_weft\\.yml$", e$rel)
+  # the `scripts_skip` of each `_weft.yml` of the side: read from its blob, the default when it does not read
+  skips <- list()
+  if (length(all_yml)) {
+    bl <- git_blobs(g$top, e$blob[all_yml])
+    for (j in all_yml) {
+      b <- bl[[e$blob[j]]]
+      y <- if (length(b)) tryCatch(yaml_read_text(rawToChar(b)), error = function(err) NULL) else NULL
+      v <- scripts_skip_list(if (is.list(y)) y$scripts_skip else NULL)
+      key <- sub("/?_weft\\.yml$", "", e$rel[j])
+      skips[[if (nzchar(key)) key else "."]] <- if (is.null(v)) "tests" else v
+    }
+  }
+  has_yml <- names(skips)
+  read <- logical(length(scr))
+  for (k in seq_along(scr)) {
+    rel <- e$rel[scr[k]]
+    d <- dirname(rel)
+    sr <- ""
+    while (!identical(d, ".") && nzchar(d)) {
+      if (d %in% has_yml) {
+        sr <- d
+        break
+      }
+      d <- dirname(d)
+    }
+    key <- if (nzchar(sr)) sr else "."
+    sk <- if (key %in% has_yml) skips[[key]] else "tests"
+    inner <- if (nzchar(sr)) substring(rel, nchar(sr) + 2L) else rel
+    read[k] <- !script_skipped(inner, sk)
+  }
+  if (any(read)) {
+    bl <- git_blobs(g$top, e$blob[scr[read]])
+    read[read] <- vapply(e$blob[scr[read]], function(b) {
+      x <- bl[[b]]
+      length(x) > 0L && bytes_mention_weft(x)
+    }, NA)
+  }
+  keep[scr] <- read
+  keep
 }
 
 # ---- reading a side, through the cache ----------------------------------------------------------------------

@@ -391,7 +391,14 @@ lint_read <- function(path, root, cfg) {
 # One document, read with its own settings.
 lint_open <- function(root, rel) {
   path <- file.path(root, rel)
+  bytes <- NULL
+  if (is_script_path(rel)) {
+    # a script whose bytes do not hold `weft` is judged before any settings are read (K14), and is read once
+    bytes <- read_source_bytes(path)
+    if (!bytes_mention_weft(bytes)) return(script_stub(rel, path, NULL, "skip"))
+  }
   cfg <- lint_config(settings_root(root, rel), if (is_script_path(rel)) list() else doc_front(path))
+  if (!is.null(bytes) && is.null(weft_env$lint_reader)) return(read_source(path, root, cfg, bytes))
   lint_read(path, root, cfg)
 }
 
@@ -434,10 +441,12 @@ new_lint_ctx <- function(root, files, md_files, report, tier, rules, reader) {
 #' read scripts are those with `scripts` `TRUE` in [lint_rules()]; the project
 #' rules read documents only. A script is left out when it is in a folder
 #' whose name starts with `.` or `_`, or in `renv`, `packrat`, `node_modules`,
-#' `_site`, `_book`, `_freeze` or `_extensions`, or when it matches the setting
-#' `scripts_skip` of `_weft.yml`: a list of folder or file names, or paths from
-#' the project root. Its default is `[tests]`, and a list that is given
-#' replaces it, so keep `tests` in it. A script whose bytes do not hold `weft`
+#' `_site`, `_book`, `_freeze` or `_extensions`, when its file name starts with
+#' `.`, or when it matches the setting `scripts_skip` of the `_weft.yml` nearest
+#' to it: a list of folder or file names, or paths from that folder, with no
+#' wildcards. Its default is `[tests]`, `[]` reads every script, and a list that
+#' is given replaces the default, so keep `tests` in it. A skipped or excluded
+#' script named in `files` or as `path` gives a note. A script whose bytes do not hold `weft`
 #' is not read, one that is not valid UTF-8 gives the `read` finding, and one
 #' that does not parse as R gives a note and no findings.
 #'

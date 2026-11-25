@@ -57,10 +57,12 @@ elements of a \code{c()}. The code around the call is not read, and neither are
 read scripts are those with \code{scripts} \code{TRUE} in \code{\link[=lint_rules]{lint_rules()}}; the project
 rules read documents only. A script is left out when it is in a folder
 whose name starts with \code{.} or \verb{_}, or in \code{renv}, \code{packrat}, \code{node_modules},
-\verb{_site}, \verb{_book}, \verb{_freeze} or \verb{_extensions}, or when it matches the setting
-\code{scripts_skip} of \verb{_weft.yml}: a list of folder or file names, or paths from
-the project root. Its default is \verb{[tests]}, and a list that is given
-replaces it, so keep \code{tests} in it. A script whose bytes do not hold \code{weft}
+\verb{_site}, \verb{_book}, \verb{_freeze} or \verb{_extensions}, when its file name starts with
+\code{.}, or when it matches the setting \code{scripts_skip} of the \verb{_weft.yml} nearest
+to it: a list of folder or file names, or paths from that folder, with no
+wildcards. Its default is \verb{[tests]}, \verb{[]} reads every script, and a list that
+is given replaces the default, so keep \code{tests} in it. A skipped or excluded
+script named in \code{files} or as \code{path} gives a note. A script whose bytes do not hold \code{weft}
 is not read, one that is not valid UTF-8 gives the \code{read} finding, and one
 that does not parse as R gives a note and no findings.
 }
