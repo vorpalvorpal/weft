@@ -348,7 +348,7 @@ weft("The peak was `r claim(peak, . < 50)`{.num} NTU.")
 
 A script can catch a failure by its class:
 
-```{r}
+```{r catch-class}
 title <- tryCatch(
   weft("The peak was `r claim(peak, . < 50)`{.num} NTU."),
   weft_claim_failed = function(e) {
