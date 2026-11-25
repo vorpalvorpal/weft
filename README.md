@@ -101,11 +101,12 @@ as `` `r jl_value("depth")`{.num} ``. weft reads each value itself and
 refuses one that R cannot hold exactly. See
 [Python and Julia chunks](https://vorpalvorpal.github.io/weft/articles/languages.html).
 
-**Values by name.** A document that is not knit, such as a Quarto `.qmd` on
-the Jupyter or Julia engine, has no R to evaluate prose. Write the value as a
-name, `` `depth`{.num} ``, publish it from R (`weft_put()`), Python
-(`put()`) or Julia (`@put`), and a Pandoc filter fills it in. The same
-filter resolves conditions on names, wording, checks and values files. See
+**Values by name.** In a knitr document a name such as `` `depth`{.num} ``
+reads R, as `` `r depth` `` does. A document that is not knit, such as a Quarto
+`.qmd` on the Jupyter or Julia engine, has no R: publish the value from Python
+(`put()`), Julia (`@put`) or a pipeline's values file (`weft_values_write()`),
+and a Pandoc filter fills it in. The same filter resolves conditions on names,
+wording, checks and values files. See
 [Values by name](https://vorpalvorpal.github.io/weft/articles/named-values.html).
 
 **Lints.** `lints()` reads a project's documents without running them and

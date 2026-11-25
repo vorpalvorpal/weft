@@ -100,6 +100,15 @@ directory (the nearest folder upward that holds \verb{_weft.yml}, else
 session, and read again when \verb{_weft.yml} appears, disappears or changes size
 or modification time. A \verb{_weft.yml} with an error is a \code{weft_config_error}.
 
+A named value in the markup, \verb{`depth`\{.num\}}, is read from \code{.envir}
+(rule 1.12.12): the call looks the name up in \code{.envir} and its enclosing
+environments as far as the global environment, never in base R, a
+namespace or an attached package, and prints it as \verb{`r depth`\{.num\}}
+would. A name that is not bound there, or is bound to a function, is a "no
+value" failure; nothing is left for a filter, because the text goes to
+plots and consoles where none runs. In a loop, each call reads the names as
+they stand.
+
 Block-only constructs do not apply; each element is read as inline markup.
 Bare inline R in a string is evaluated as knitr evaluates it (rule 1.1.8).
 The functions inline code calls by name (\code{claim()}, \code{plural()}, the

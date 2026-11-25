@@ -86,18 +86,14 @@ In prose: `` `r claim(max(turbidity), . < u(50, NTU))`{.num} ``.
 
 ## Named values
 
-A value with a name is published to the prose: a bare name in the inline block
-reads it.
-
-```r
-weft_put(n_sites = length(turbidity))
-weft_put(worst, n_high)
-```
+In a knitr document a name in the inline block reads R: `` `worst`{.num} ``
+prints what `` `r worst`{.num} `` prints. In a document that is not knit, code
+publishes it: `put()` in Python, `@put` in Julia. Text an R chunk prints goes
+through `weft()`.
 
 ```markdown
 The worst reading was `worst`{.num} NTU.
 ```
-`weft_put()` in R, `put()` in Python and `@put` in Julia publish by hand.
 
 ## A literal that must stay
 
