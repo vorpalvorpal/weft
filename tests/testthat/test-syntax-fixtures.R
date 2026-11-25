@@ -110,7 +110,7 @@ collapse_rows <- list(
   ok("1.4.3: .or", r"---(`r sites`{.or})---", "A, B or C"),
   ok("1.4.7: sep", r"---(`r sites`{.and sep="; "})---", "A; B and C"),
   ok("1.4.7: last", r"---(`r sites`{.and last="\ plus "})---", "A, B plus C"),
-  ok("1.4.7: sep and last", r"---(`r sites`{.or sep=" / " last=" / "})---", "A / B / C"),
+  ok("1.4.7: sep and last", r"---(`r sites`{.or sep="\ / " last="\ / "})---", "A / B / C"),
   ok("1.4.1: stage i then iii", r"---(`r nums`{.num .and})---", "1.2, 3 and 4.5"),
   ok("1.4.1 + 1.4.7: digits reaches every element", r"---(`r nums`{.num digits="2" .and})---", "1.20, 3.00 and 4.50"),
   ok("1.4.1: stage ii then iii", r"---(`r c(1, 2, 3)`{.word .and})---", "one, two and three"),
@@ -125,7 +125,7 @@ stage_rows <- c(
   perm_rows("1.4.1: .pct .and in every order", r"---(`r c(0.12, 0.5)`{%s})---", c(".pct", ".and"), "12% and 50%"),
   perm_rows("1.2.4: a renderer key anywhere in the block", r"---(`r x`{%s})---", c(".num", 'digits="2"', ".strong"), "**1.20**"),
   perm_rows("1.2.4 + 1.5.7: formatter, governor key, text class", r"---([# site | # sites]{%s})---", c(".word", 'n="k"', ".strong"), "**three sites**"),
-  perm_rows("1.2.4: .and with sep and last", r"---(`r sites`{%s})---", c(".and", 'sep="; "', 'last=" or "'), "A; B or C")
+  perm_rows("1.2.4: .and with sep and last", r"---(`r sites`{%s})---", c(".and", 'sep="; "', 'last="\\ or "'), "A; B or C")
 )
 
 attribute_rows <- list(

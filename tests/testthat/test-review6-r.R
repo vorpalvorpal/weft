@@ -46,7 +46,7 @@ test_that("review-6 #2: the construct lint reports it, once, at the line of the 
   }
 })
 
-test_that("review-6 #2 control: a trailing space stays legal, and a leading space in a knitr document is the hooks' (they read the source)", {
+test_that("review-6 #2 control: a trailing space stays legal, and a leading space is an error in a knitr document too (review-q R3)", {
   for (src in c("A [one | many]{n=\"k \"} B.", "A [one | many]{if=\"ok \"} B.", "A [one | many]{if=\"ok\"} B.")) {
     lines <- w6d_doc(c("Intro.", "", src))
     r <- sp2_rows(w6d_scan(lines))
@@ -55,7 +55,8 @@ test_that("review-6 #2 control: a trailing space stays legal, and a leading spac
     expect_identical(nrow(w6d_find(lines, "construct")), 0L, label = src)
   }
   rmd <- w6d_scan(c("Intro.", "", "A [one | many]{if=\" ok\"} B."), name = "a.Rmd")
-  expect_true(all(is.na(rmd$error)))
+  expect_false(all(is.na(rmd$error)))
+  expect_true(any(grepl("starts with white space", rmd$error, fixed = TRUE)))
 })
 
 test_that("review-6 #2 control: the single-quoted form `{if=' ok'}` is the 1.12.6 leading-space error, as the double-quoted form is (package Q, D12)", {

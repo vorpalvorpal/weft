@@ -125,7 +125,7 @@ test_that("2h 1.5.13: a table cell with a unit of one rung needs no escape (cont
 # ---- a \ elsewhere stays the 1.2.3 error (controls) -------------------------------------------------------------------
 
 test_that("2h 1.2.3 control: a \\ elsewhere in unit stays an error", {
-  for (bad in c("m\\x", "m\\\\km", "mm\\ m", "\\m")) {
+  for (bad in c("m\\x", "m\\\\km", "\\m")) {
     e <- h2_scan_errs(sprintf("`r x`{unit=\"%s\"}", bad))
     expect_gte(length(e), 1L, label = bad)
     expect_match(e[1], "rule 1.2.3", fixed = TRUE, label = bad)

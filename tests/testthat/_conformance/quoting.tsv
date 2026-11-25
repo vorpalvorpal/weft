@@ -21,7 +21,7 @@ R&amp;D	M3
 '{x}'	ok	{x}
 "a\\b"	M1	
 "a\db"	M1	
-'a\%20b'	M1	
+'a\%20b'	ok	a%20b
 "a\%0Ab"	M1	
 "a\}b"	M1	
 a"b	M2	

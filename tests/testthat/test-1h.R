@@ -101,7 +101,7 @@ test_that("1h list: trunc on the span shortens the list", {
 })
 
 test_that("1h list: sep and last on the span", {
-  expect_identical(hs("[None | # was | # were]{list=\"v\" sep=\"; \" last=\" & \"}", v = c("a", "b", "c")),
+  expect_identical(hs("[None | # was | # were]{list=\"v\" sep=\"; \" last=\"\\ & \"}", v = c("a", "b", "c")),
                    "a; b & c were")
   expect_identical(hs("[None | # was | # were]{list=\"v\" sep=\"; \"}", v = c("a", "b", "c")),
                    "a; b and c were")

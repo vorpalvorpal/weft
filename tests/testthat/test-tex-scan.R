@@ -422,7 +422,7 @@ TX_BAD <- list(
   list(src = "`r v`{.ol}",    want = function(p) e97(".ol", p)),
   list(src = "`r v`{.dl}",    want = function(p) e97(".dl", p)),
   list(src = "`r v`{sep=\"; \"}",     want = function(p) e97("sep", p)),
-  list(src = "`r v`{last=\" or \"}",  want = function(p) e97("last", p)),
+  list(src = "`r v`{last=\"\\ or \"}",  want = function(p) e97("last", p)),
   list(src = "`r v`{trunc=\"3\"}",    want = function(p) e97("trunc", p)),
   list(src = "`r v`{.and none=\"x\"}", want = function(p) c(e97(".and", p), e97("none", p))),
   list(src = "`r v`{.plain}", want = function(p) e98(".plain", p)),

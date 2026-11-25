@@ -47,6 +47,8 @@ weft_test_lib <- function() {
     file.path(R.home("bin"), "R"),
     c("CMD", "INSTALL", "--no-docs", "--no-multiarch", "--no-test-load",
       paste0("--library=", shQuote(lib)), shQuote(weft_pkg_root())),
+    # the session's libraries, so the install sees the same dependencies
+    env = paste0("R_LIBS=", shQuote(paste(.libPaths(), collapse = .Platform$path.sep))),
     stdout = TRUE, stderr = TRUE
   ))
   if (!dir.exists(file.path(lib, "weft"))) {
