@@ -276,15 +276,23 @@ escapes and raw strings. The rules that read scripts are the ones marked
 across documents (cross-references, citations, hygiene) read documents only.
 
 A script is left out when it is in a folder that starts with `.` or `_`, or in
-`renv`, `packrat`, `node_modules`, `_site`, `_book`, `_freeze` or `_extensions`.
+`renv`, `packrat`, `node_modules`, `_site`, `_book`, `_freeze` or `_extensions`,
+or when its own file name starts with `.`.
 The setting `scripts_skip` in `_weft.yml` names more: a name with no `/` is
 matched against each folder and the file name, and an entry with a `/` is a path
-from the project root. It is `[tests]` unless set, because test files hold typed
-numbers and broken markup on purpose, and a list that you give replaces it, so
-keep `tests` in it. A script whose bytes do not hold `weft` is never read, one
-that is not UTF-8 gives the `read` finding, and one that does not parse as R gives
-a note and no findings. The commit gate counts a script's findings and
-constructs as it counts a document's.
+from the folder that holds the `_weft.yml`. No wildcards: an entry with `*` or `?`,
+a leading `/` or a backslash is an error. Each script is judged by the `_weft.yml`
+nearest to it, so a nested project can read its own `tests` folder with its own
+`scripts_skip: []`. The setting is `[tests]` unless set, because test files hold
+typed numbers and broken markup on purpose; a list that you give replaces it, so
+keep `tests` in it, and `[]` reads every script. An empty or commented-out
+`scripts_skip:` (a null value) keeps the default. A script whose bytes do not hold
+`weft` is never read, one that is not valid UTF-8 gives the `read` finding, and
+one that does not parse as R gives a note and no findings. Naming a script that is
+left out, in `files` or as `path`, gives a note that says which rule left it out.
+`lints(reader = "pandoc")` reads scripts with weft's reader too, since they need no
+Pandoc. The commit gate counts a script's findings and constructs as it counts a
+document's.
 
 ## Settings
 

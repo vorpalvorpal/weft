@@ -78,9 +78,12 @@ document's front matter where `_weft.yml` exists, and the `config-place`
 lint finds it). Its value is a list of strings; the default is
 `[tests]`. An entry with no `/` is a name: a script is skipped when that
 name is one of the folders on its path or its file name. An entry with a `/`
-is a path from the project root (a leading `./` and a trailing `/` are
-dropped): the script at that path, or every script under that folder. No
-globs. Giving the setting replaces the default: `scripts_skip: [scratch]`
+is a path from the folder of the script's own settings root (the nearest
+`_weft.yml`, the project root when none lies below; K4), a leading `./` and
+a trailing `/` dropped: the script at that path, or every script under that
+folder. No globs: an entry with `*`, `?`, a leading `/` or a backslash is
+M1 (K11). A null value (`scripts_skip:` with nothing after it, `~`) is the
+default `[tests]` (K5). Giving the setting replaces the default: `scripts_skip: [scratch]`
 reads `tests/`. `scripts_skip: []` reads every script. A value that is not a
 list of non-empty strings (or one string, read as a list of one) is a
 `weft_config_error`, M1.
@@ -108,10 +111,16 @@ A comment is not code (`# weft("...")` is not read, nor a roxygen
 `#' @examples` line).
 
 **C6** The argument read is the one R matches to `x`: the argument named
-exactly `x`; else the first argument without a name (E1 ST2). When the call
-is the right-hand side of `|>` or `%>%` and has no argument named `x` and
-none without a name, the left-hand side is the argument (5.1.4: a pipe is
-read as the call it makes).
+exactly `x`; else the first argument without a name (E1 ST2). On the right
+of `|>` or `%>%` the left-hand side is `x` unless an argument is named `x`
+(K3): `"a" |> weft(e)` is `weft("a", e)`. The placeholder puts the
+left-hand side where it stands: `x = _` of the native pipe, and `.` as an
+argument of `%>%` (`weft(., e)`); an argument that is a placeholder and
+not the one matched to `x` takes the left-hand side away from `x`. A
+magrittr pipe into `weft` with no parentheses (`"a" %>% weft`) is read
+too. The function position is exactly the symbol `weft` or `weft::weft` /
+`weft:::weft` (K2): `obj$weft(...)` and `x@weft(...)` are not calls
+(5.1.4: a pipe is read as the call it makes).
 
 **C7** What is read in the argument:
 

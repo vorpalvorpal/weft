@@ -3045,8 +3045,10 @@ configuration outside a knit, so one script prints one value one way.
 the code of an R chunk that runs, in R code in a caption option
 (`!expr weft(...)`, `fig.cap = weft(...)`), and in the scripts of the project
 (5.1.9). A call is `weft(...)`, `weft::weft(...)` or `weft:::weft(...)`, and the
-right-hand side of a pipe. The argument read is the one R matches to `x` (named
-`x`, else the first without a name, else a pipe's left-hand side). It is a
+right-hand side of a pipe (`x %>% weft` too). The argument read is the one R matches to `x` (named
+`x`, else the first without a name; on the right of a pipe the left-hand side
+is `x` unless an argument is named `x`, and `_` of `|>` or `.` of `%>%` as an
+argument puts it where it stands). `obj$weft()` is not a call. It is a
 string literal in any form R writes, `r"(...)"` included, or `c()` of strings,
 whose literal elements are read whatever the others are. A computed argument
 (`paste0()`, `sprintf()`, a name) is not read. A caption option written as R
@@ -4895,16 +4897,22 @@ key; the lints read the YAML and install no units. The scripts of the project
 
 **5.1.9** A script is an `.R` or `.r` file under the root, outside the folders
 5.1.8 leaves out (a dot-folder, `renv`, `packrat`, `node_modules`, `_site`,
-`_book`, `_freeze`, `_extensions`, a `_` folder) and outside `scripts_skip`
-(9.1.4), which is `[tests]` unless set. A script whose bytes do not hold `weft`
-is not read. In a script the lints read the literal strings passed to `weft()`,
+`_book`, `_freeze`, `_extensions`, a `_` folder), not a file whose name starts
+with `.`, and outside `scripts_skip` (9.1.4), which is `[tests]` unless set.
+Each script is judged by the `scripts_skip` of its own settings root (the nearest
+`_weft.yml`), with its path from that folder. A script whose bytes do not hold
+`weft` is not read, whatever its encoding; neither it nor a skipped script is
+counted in `n_files`. Scripts are read whatever `reader` is. A script named in
+`files` or as `path` that is left out gives a note in `lints()`, `checks()` and
+`verify()`. In a script the lints read the literal strings passed to `weft()`,
 as 3.6.7 says, and nothing else: not the code around them, its `claim()` calls
 or its phrases (5.1.6). The rules that read them are `numeral`, `construct`,
 `read`, `block-start`, `lone-bar`, `if-zero`, `name`, `inert-check`,
 `long-guard`, `claim-word`, `literal-value`, `value-constant` and
 `value-format`; the project rules read documents only. A finding is placed at
 the character of the script that holds it, through escapes and raw strings. A
-script that does not parse as R is not read, and `lints()` says so in a note. A
+script that does not parse as R is not read, and `lints()` and `checks()` say so
+in a note; one that is not valid UTF-8 gives the `read` finding. A
 script has no front matter: its settings are its project's, and its language
 English.
 
@@ -6385,7 +6393,10 @@ tier-1 rules (`lint_rules()` lists them); an id that is not a rule is an
 error that offers the nearest, and a tier-2 id is an error, since tier 2 blocks
 nothing. `verify_skip` takes some of `lints`, `decisions`, `render` and
 `ledger`. `scripts_skip` takes a list of names (no `/`, matched against each
-folder and the file name) and paths from the root; given, it replaces `[tests]`.
+folder and the file name) and paths from the folder of the settings root that
+holds it, no wildcards (`*`, `?`), no leading `/` and no backslash; given, it
+replaces `[tests]`, `[]` reads every script, and a null value (an emptied or
+commented-out list) keeps `[tests]`.
 `weft_version` is one string; `null` and an absent key both mean no
 record.
 

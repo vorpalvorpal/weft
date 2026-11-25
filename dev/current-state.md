@@ -580,3 +580,8 @@ above); the default `skills` folders of `use_agent_docs()`. Deferred by Robin: W
 for named values in Jupyter and Julia documents. Done 2026-11-25: the `units`
 switch (the alias-policy tests remain). At the next release: bump the version and
 run `dev/make-skill-folder.R`.
+
+Known limitation, package E4 review K10 (2026-11-26): the phrase literals of
+`lookup()` and `brk()` in R chunks keep the old column handling (`chunk_literals(which =
+"phrase")`): they do not share the one `weft()` reader, so a phrase after a tab or an
+escaped newline may sit a column or a line off. Left out of the fix round on purpose.
