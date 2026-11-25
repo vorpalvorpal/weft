@@ -116,10 +116,11 @@ git_blobs <- function(top, blobs) {
 
 # ---- classifying a project's side (G6-G8) -------------------------------------------------------------
 
-# a document of L3's file set, by its path relative to the project root
-is_doc_path <- function(rel) grepl(DOC_EXT_RE, rel) & doc_path_ok(rel, "lint")
+# a document of L3's file set, or a script (C17: the gate reads both as content; which scripts a side skips is
+# its own `scripts_skip`, read when the side is linted), by its path relative to the project root
+is_doc_path <- function(rel) (grepl(DOC_EXT_RE, rel) | grepl(SCRIPT_EXT_RE, rel)) & doc_path_ok(rel, "lint")
 
-is_content_path <- function(rel) grepl(GATE_CONTENT_RE, rel) | basename(rel) == ".Rprofile"
+is_content_path <- function(rel) grepl(GATE_CONTENT_RE, rel) | basename(rel) == ".Rprofile" | is_doc_path(rel)
 
 # The folders of a project's targets store: `_targets`, or `_targets.yaml`'s `main: store:`.
 store_dirs <- function(top, ent) {

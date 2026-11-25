@@ -242,6 +242,8 @@ gate_materialise <- function(g, e, root) {
 # The working constructs and the checks of documents read with the default settings, or NULL when one cannot
 # be read.
 gate_fallback_constructs <- function(rels, root) {
+  # the default `scripts_skip` stands in for the setting that did not read
+  rels <- rels[!(is_script_path(rels) & script_skipped(rels, "tests"))]
   rows <- lapply(rels, function(rel) {
     tryCatch({
       src <- read_source(file.path(root, rel), root, default_config())
@@ -307,12 +309,15 @@ gate_side_results <- function(g, s, p, ids) {
     out <- tryCatch({
       lroot <- normalizePath(find_project_root(root), winslash = "/", mustWork = FALSE)
       all_files <- lint_files_under(lroot)
+      # the scripts this side reads: its own `scripts_skip` (C17)
+      all_scripts <- project_script_paths(lroot, lint_config(lroot)$scripts_skip)
       tab <- lint_rule_table()
       want <- c(if (length(miss)) ids$file, if (need_proj) ids$project)
       sel <- tab[tab$tier == 1L & tab$id %in% want, , drop = FALSE]
       # the file rules read the missing documents; the project rules read all of them and keep every finding
       res <- lint_run(lroot, all_files, if (need_proj) all_files else intersect(all_files, miss), sel, 1,
-                      want, "weft", file_report = intersect(all_files, miss))
+                      want, "weft", file_report = intersect(all_files, miss),
+                      scripts = if (length(miss)) intersect(all_scripts, miss) else character())
       is_proj <- res$rule %in% ids$project
       list(file = if (length(miss)) res[!is_proj, , drop = FALSE], proj = if (need_proj) res[is_proj, , drop = FALSE])
     }, weft_config_error = function(e) e)
