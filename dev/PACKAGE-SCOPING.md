@@ -3038,12 +3038,17 @@ nothing, so every call fails until the file is fixed. The language is English an
 draft mode is off. The `fmt_*()` functions and the phrase functions take the same
 configuration outside a knit, so one script prints one value one way.
 
-**3.6.7** The lints read a literal string passed to `weft()` as prose (5.1.3): the
-argument R matches to `x` (named `x`, else the first argument without a name), one
-string or `c()` of strings, in the code of an R chunk that runs, as `weft(...)` or
-`weft::weft(...)`. A caption option written as R code that calls `weft()` is read
-the same way, and is not a caption string. The context of what is found there is
-`weft`.
+**3.6.7** The lints read a literal string passed to `weft()` as prose (5.1.3), in
+the code of an R chunk that runs, in R code in a caption option
+(`!expr weft(...)`, `fig.cap = weft(...)`), and in the scripts of the project
+(5.1.9). A call is `weft(...)`, `weft::weft(...)` or `weft:::weft(...)`, and the
+right-hand side of a pipe. The argument read is the one R matches to `x` (named
+`x`, else the first without a name, else a pipe's left-hand side). It is a
+string literal in any form R writes, `r"(...)"` included, or `c()` of strings,
+whose literal elements are read whatever the others are. A computed argument
+(`paste0()`, `sprintf()`, a name) is not read. A caption option written as R
+code that calls `weft()` is not a caption string. The context of what is found
+there is `weft`.
 
 **3.6.8** From a Python chunk, `weft_str()` is in the module (2.12.8). It calls
 `weft()` and returns the markdown as a `str`. The expressions in its markup are R. A named value in
@@ -3087,8 +3092,8 @@ rehearse("daily.qmd", cases = list(
 `if`, `sign` or `list`), its expression, its file and line, and the text of
 each arm. A span nested in an
 arm is listed under that arm. It takes the spans from the scanner (2.10.2),
-in prose, captions, front-matter fields and literal `weft()` strings, and
-runs no R.
+in prose, captions, front-matter fields and literal `weft()` strings; given
+an `.R` file, from the `weft()` strings of that script (5.1.9). It runs no R.
 
 **3.7.2** `rehearse(file, cases = )` renders the document once for each named
 case. A case is a list of `params`. Each render goes to a temporary
@@ -4823,8 +4828,8 @@ rule in this chapter, the context it was found in (prose, caption, front
 matter, `weft()` string, phrase, chunk or project), the text the gate
 counts (6.2.3), a message that ends with the rule number, and a hint. Rows
 that agree in file, line, column, rule, text and message are one.
-`lint_rules()` lists the ids, rule numbers, tiers and scopes (`file` or
-`project`). The ids are given in this chapter, and the rule numbers in the
+`lint_rules()` lists the ids, rule numbers, tiers, scopes (`file` or
+`project`) and whether a rule reads scripts (5.1.9). The ids are given in this chapter, and the rule numbers in the
 tables of 5.3.3, 5.8 and 5.11 are the ones `lint_rules()` cites.
 
 **5.1.2** Every lint and check declares a tier.
@@ -4836,9 +4841,10 @@ tables of 5.3.3, 5.8 and 5.11 are the ones `lint_rules()` cites.
 | 3 | human read | a ranked worklist; never adjudicated |
 
 **5.1.3** The lints read the prose of each source file, the captions written
-in chunk options, the literal strings passed to `weft()` (3.6.7), and the
-front-matter fields of 1.10.7 in every metadata block (2.10.6). A file that is
-not UTF-8 gives one finding, `read` (tier 1), and no other.
+in chunk options, the literal strings passed to `weft()` in documents and in
+scripts (3.6.7, 5.1.9), and the front-matter fields of 1.10.7 in every
+metadata block (2.10.6). A file that is not UTF-8 gives one finding, `read`
+(tier 1), and no other; a script is judged only when it mentions `weft`.
 
 **5.1.4** Constructs come from the scanner (2.10.2), prose from the package's
 own reader (2.10.3). What a lint skips is decided by what the source is: code,
@@ -4848,8 +4854,9 @@ followed by an attribute block to be a span, whose text is prose. The numeral
 rule reads math (5.2.6). Code rules read executed R chunks only: a chunk with
 `eval: false` or another engine gives nothing. The code of a guest chunk is
 read only by rules 5.11.2 and 5.11.4. A pipe (`|>` or `%>%`) is read
-as the call it makes, so `n |> claim(. > 10)` is `claim(n, . > 10)`. A named
-value's name is not parsed as R (1.12.1).
+as the call it makes, so `n |> claim(. > 10)` is `claim(n, . > 10)`. A literal argument of a
+`weft()` call is read wherever the call is (3.6.7); the rest of a script's
+code is not read. A named value's name is not parsed as R (1.12.1).
 
 **5.1.5** Tier 2 scopes to newly added material, not to the corpus. Newly
 added material is the lines git's diff shows as added since the comparison
@@ -4863,7 +4870,7 @@ dictionary or in a package's R code are not read.
 
 **5.1.7** `lints(path, files, rules, tier, reader)`. `path` is a file or a
 folder; the project root is found from it, and a project need not be set up.
-`files` limits the findings reported to those documents. `rules` names rules
+`files` limits the findings reported to those documents and scripts. `rules` names rules
 by id, and `tier` is 1, 2 or both. When `tier` is not given, a rule named in
 `rules` runs whatever its tier, and with no `rules` the tier is 1: tier 2 is
 listed over added material by `changes()` (5.1.5), and over a whole file only
@@ -4878,14 +4885,30 @@ Folders whose name starts with `_` (an include folder, `_partials`) are read
 for anchors and for what they include, and are not linted; `_site`, `_book`,
 `_freeze` and `_extensions` are not read. A `.md` file is read for anchors
 only. Each document's settings are `_weft.yml` merged with its own `weft:`
-key; the lints read the YAML and install no units.
+key; the lints read the YAML and install no units. The scripts of the project
+(5.1.9) are listed under the same root, with the same folders left out.
+
+**5.1.9** A script is an `.R` or `.r` file under the root, outside the folders
+5.1.8 leaves out (a dot-folder, `renv`, `packrat`, `node_modules`, `_site`,
+`_book`, `_freeze`, `_extensions`, a `_` folder) and outside `scripts_skip`
+(9.1.4), which is `[tests]` unless set. A script whose bytes do not hold `weft`
+is not read. In a script the lints read the literal strings passed to `weft()`,
+as 3.6.7 says, and nothing else: not the code around them, its `claim()` calls
+or its phrases (5.1.6). The rules that read them are `numeral`, `construct`,
+`read`, `block-start`, `lone-bar`, `if-zero`, `name`, `inert-check`,
+`long-guard`, `claim-word`, `literal-value`, `value-constant` and
+`value-format`; the project rules read documents only. A finding is placed at
+the character of the script that holds it, through escapes and raw strings. A
+script that does not parse as R is not read, and `lints()` says so in a note. A
+script has no front matter: its settings are its project's, and its language
+English.
 
 ### 5.2 Numerals — tier 1
 
 **5.2.1** Every numeral in prose is a value, or sits inside a `cite` span or a
 `.weft-literal` span or block. The rule is `numeral`. It reads the body, the
-captions, the fields of 1.10.7, the strings of `weft()` and the phrases
-of 5.1.6, and reports each numeral with its position.
+captions, the fields of 1.10.7, the strings of `weft()` in documents and
+scripts, and the phrases of 5.1.6, and reports each numeral with its position.
 
 **5.2.2** A numeral is judged at character level, word by word. A word whose
 first letter-or-digit is a digit is a numeral, whatever follows it: "12",
@@ -5471,8 +5494,8 @@ All rules have scope `file`.
 **6.1.2** It compares each staged file that weft reads with its version in
 `HEAD`. A new file has an empty `HEAD` version, and a deleted file an empty
 staged one. A renamed file is compared with the file it was renamed from
-(`git diff -M`). The files weft reads are the documents and the project files
-the lints read (5.4.4, §5.8). It judges each project of the repository on its
+(`git diff -M`). The files weft reads are the documents, the scripts (5.1.9) and the
+project files the lints read (5.4.4, §5.8). It judges each project of the repository on its
 own: a project is a folder that holds `_weft.yml`, on either side, at any
 depth. A repository with none passes, with a note. A document belongs to the
 innermost project that holds it, for its findings and for its constructs.
@@ -5527,7 +5550,7 @@ its mode (9.5.3). `git cherry-pick` and `git rebase` do not run the hook:
 **6.2.1** A commit fails on three things (tier 1):
 
 1. a construct error (§5.3), the rules `construct`, `block-start` and `read`,
-   in a changed document (a document whose staged version differs from
+   in a changed document or script (one whose staged version differs from
    `HEAD`), whenever it is present
 2. a finding the commit adds (6.2.2)
 3. constructs removed without saying so (§6.3)
@@ -5594,7 +5617,10 @@ value, and a span in a document the filter resolves counts as a span. `claim(`
 in a Python chunk and `@claim` in a Julia chunk count as `claim()` calls, by
 pattern. A claim in a chunk that is not evaluated counts for none of them, so
 turning `eval` off on a chunk with a claim is a removal. A hand-written `weft-values` block's names and a
-values file are not counted.
+values file are not counted. In a script it counts the values and spans of its
+`weft()` strings, and a `claim()` inside one of their expressions; a `claim()`
+elsewhere in a script is not counted (5.1.9). A script that `scripts_skip` leaves
+out counts for nothing, so skipping one is a removal.
 
 **6.3.2** There are two totals in each project: calls to `claim()`, and
 values and spans together. N is the sum over the projects of the amount by
@@ -5975,7 +6001,7 @@ on it.
 
 **7.3.5** It also lists the entries added and removed, each with its
 sentence; the new conditions (7.4.4); and the tier-2 findings on material
-added since the comparison point (5.1.5; from stage 3).
+added to documents and scripts since the comparison point (5.1.5; from stage 3).
 
 **7.3.6** It marks the entries not re-rendered (7.2.1), every listed entry of
 such a ledger carrying "(not re-rendered)". It renders nothing, writes nothing
@@ -6123,8 +6149,9 @@ render. It has four parts, and runs them in this order:
 4. `ledger`: the entries not re-rendered (7.2.3). Every stale ledger of a
    verified document fails, with its reasons.
 
-**8.1.2** It reports the total of every tolerated finding (6.2.5), rule by
-rule, without failing on them: "412 typed numerals remain".
+**8.1.2** It reports the total of every tolerated finding (6.2.5), in documents
+and scripts alike, rule by rule, without failing on them: "412 typed numerals
+remain".
 
 **8.1.3** The `strict` setting in `_weft.yml` (9.1.2) lists tier-1 rules. Then
 any instance of such a rule's finding fails `verify()`, whether or not `HEAD`
@@ -6288,6 +6315,7 @@ rule 8), and its message names `_weft.yml`.
 | whether the sentence-start list fails the render (it does not unless set) | 5.10.1 |
 | the classes and keys the project expects on a construct, from other systems | 5.3.3 |
 | `verify_skip`: the parts of `verify()` switched off (project only where `_weft.yml` exists) | 8.1.4, 9.1.4 |
+| `scripts_skip`: the scripts the lints and the gate do not read (project only where `_weft.yml` exists) | 5.1.9, 9.1.4 |
 | `weft_version`: the weft version that set the project up | 9.5.4 |
 | `names_from`: where a knitr document's named values come from | 1.12.13 |
 
@@ -6338,6 +6366,7 @@ bare_missing: true     # 1.3.5: false turns the warned check on a bare NA, NaN, 
 anchor_calls: []       # 5.7.3: helper calls that define anchors: fun, arg, optional prefix
 strict: []             # 8.1.3: tier-1 rule ids whose every instance fails verify()
 verify_skip: []        # 8.1.4: parts of verify() switched off: lints, decisions, render, ledger
+scripts_skip: [tests]   # 5.1.9: folders and files whose .R scripts are not read
 weft_version: null     # 9.5.4: the weft version that set the project up
 ```
 
@@ -6345,12 +6374,14 @@ A `date_format` that is not one string, a `ci_level` or `about_tolerance`
 outside its range, and a `sentence_start_fail` that is not `true` or `false`
 are errors when the configuration is read, each naming the setting. A wrong
 value for `label_words`, `numeral_years`, `claim_words`, `claim_quantifiers`,
-`claim_cap`, `guard_words`, `expected_names`, `strict`, `verify_skip` or `weft_version` is a
+`claim_cap`, `guard_words`, `expected_names`, `strict`, `verify_skip`, `scripts_skip` or `weft_version` is a
 `weft_config_error` naming the setting and the rule. `strict` takes the ids of
 tier-1 rules (`lint_rules()` lists them); an id that is not a rule is an
 error that offers the nearest, and a tier-2 id is an error, since tier 2 blocks
 nothing. `verify_skip` takes some of `lints`, `decisions`, `render` and
-`ledger`. `weft_version` is one string; `null` and an absent key both mean no
+`ledger`. `scripts_skip` takes a list of names (no `/`, matched against each
+folder and the file name) and paths from the root; given, it replaces `[tests]`.
+`weft_version` is one string; `null` and an absent key both mean no
 record.
 
 `ci_short` is `true` or `false`. These are `weft_config_error`s when the
@@ -6472,8 +6503,8 @@ name, and the default row's `is` still applies.
 **9.1.3** The configuration is read when a knit is initialised (2.1.5), not
 when the hooks are installed.
 
-**9.1.4** `draft` and `verify_skip` (the parts switched off) are project settings. Where a
-`_weft.yml` exists, either one in a document's front matter is an error,
+**9.1.4** `draft`, `verify_skip` (the parts switched off) and `scripts_skip` are project settings. Where a
+`_weft.yml` exists, any of them in a document's front matter is an error,
 found from the source (5.8 rule 8) and when the knit is initialised. A single
 document with no `_weft.yml` may set them in its front matter. `WEFT_DRAFT=1`
 is unchanged (9.4.1). `decisions` is a project setting too: in a document's
@@ -8043,6 +8074,15 @@ tier 2. The list is short because a long one, with number words and bare
 comparatives, flagged two sentences in three of a real manuscript (decision
 66).
 
+**5.1.9** Plot titles and console text are written in scripts as often as in
+chunks, and a typed numeral in a title is the same defect in either. A script is
+read only for its `weft()` strings because those are prose the author typed; the
+rest of a script is code that no chunk option marks as run, and judging it would
+make the lints a linter of R. Tests are skipped by default because they hold
+typed numbers and broken markup on purpose. The project rules stay with
+documents: a plot title cannot hold an anchor, and a citation in one prints as
+typed.
+
 **5.1.5** git's diff already knows what was added, and a check that judges
 only changed material is the one that gets read (Tricorder reports on changed
 lines by default: `dev/research-checks.md` §3). A re-wrapped paragraph shows
@@ -8153,6 +8193,10 @@ replaces is asked for `Weft-Removed: 1`, although the final commit removes more
 from its parent. This is accepted for now. A `_weft.yml` that does not read at
 `HEAD` must not turn off the removal count, or a commit could remove
 constructs with no trailer.
+
+**6.3.1** A script's `claim()` calls are not counted because nothing else in
+weft knows them yet; counting them only in the gate would charge a trailer for a
+check no report shows.
 
 **6.3.1, 6.3.2** A deletion is the change that leaves nothing to look at
 afterwards (B1). Every removal is allowed; the commit says how many. The
