@@ -888,7 +888,7 @@ lint_engine <- function(ctx) {
     if (is.null(inc)) inc <- project_included(ctx)
     if (f %in% inc) next
     # what the filter resolves needs no R: a named value or a span of the grammar (N146)
-    ours <- held & rw$resolver %in% "filter" &
+    ours <- held & (rw$resolver %in% "filter" | rw$kind == "named") &
       !(rw$kind != "named" & !is.na(rw$error) & grepl("(rule 1\\.12\\.(4|5|6|10))", rw$error))
     if (all(ours[held])) {
       if (!resolver_installed(ctx, src)) {

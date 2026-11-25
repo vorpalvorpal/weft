@@ -136,8 +136,9 @@ new_file_state <- function(path, config) {
                     error = function(e) scan_lost(path, e))
   lenient <- is_child_knit() || has_child_chunk(F$lines)
   cap_ids <- caption_ids(extra)
+  nf <- document_names_from(F$lines, NA_character_, config) %in% c("python", "julia")
   exp <- tryCatch(scan_text(blank_front_matter(txt), config = config, lenient = lenient,
-                            known = cap_ids),
+                            known = cap_ids, named_filter = nf),
                   error = function(e) scan_lost(path, e))
   F$unparseable <- character()
   F$unparse_rows <- NULL

@@ -18,7 +18,7 @@ trim_ws <- function(x) gsub("^[ \t\r\n]+|[ \t\r\n]+$", "", x, perl = TRUE)
 
 # ---- setup --------------------------------------------------------------
 
-new_scan <- function(text, file, first_line, config, filter_doc = FALSE, rmd = NA) {
+new_scan <- function(text, file, first_line, config, filter_doc = FALSE, rmd = NA, named_filter = FALSE) {
   text <- paste(enc2utf8(as.character(text)), collapse = "\n")
   if (length(text) != 1L || is.na(text)) text <- ""
   chars <- if (nzchar(text)) strsplit(text, "")[[1]] else character()
@@ -32,6 +32,8 @@ new_scan <- function(text, file, first_line, config, filter_doc = FALSE, rmd = N
   S$reg <- config$formatters %||% list()
   # whether the Lua filter resolves the spans of this text (N14); named values are always its
   S$filter_doc <- isTRUE(filter_doc)
+  # `names_from: python` or `julia` (E2 NS2): the named values are the filter's too
+  S$named_filter <- isTRUE(named_filter)
   # index vectors are doubles, so findInterval() does not coerce them on every call
   S$nl <- as.numeric(which(chars == "\n"))
   # the first colon of each fenced-div opening line is special too, so the
@@ -1946,10 +1948,12 @@ finish_scan <- function(S) {
     block_start = col(function(r) as.integer(r$bstart), 0L),
     tex = col(function(r) as.character(r$tex), "")
   )
-  # who resolves the row (N140): a named value is the filter's; an R value is the hooks'; a span is the
-  # filter's in a document it resolves, else the hooks'
+  # who resolves the row (N140, E2 ST1): in a document the filter resolves every row but an R value is the
+  # filter's; elsewhere the hooks' (a named value there is read by R first). scan_document() makes the
+  # named rows of front matter, of unresolved captions and under `names_from: python` the filter's.
   out$resolver <- if (nr == 0L) character() else {
-    ifelse(out$kind == "named" | (S$filter_doc & !(out$kind %in% c("value", "bare"))), "filter", "hooks")
+    ifelse((S$filter_doc & !(out$kind %in% c("value", "bare"))) | (S$named_filter & out$kind == "named"),
+           "filter", "hooks")
   }
   if (nr == 0L) {
     out$classes <- list()
@@ -2005,7 +2009,7 @@ check_ids <- function(rows, lenient = FALSE, known = character()) {
       # a child document or a caption may define it: the knit decides
       if (lenient || id %in% known) next
       add(k, sprintf("The id `#%s` is not defined in this document (rule 1.7.10).", id))
-    } else if (resolver[k] == "hooks" && rows$kind[d] == "named") {
+    } else if (resolver[k] == "hooks" && rows$kind[d] == "named" && resolver[d] == "filter") {
       add(k, sprintf(paste0("`#%s` names an id on a named value, which the hooks cannot read; refer to an id ",
                             "of the same form (rule 1.12.10)."), id))
     } else if (resolver[k] == "filter" && resolver[d] == "hooks") {
@@ -2029,16 +2033,17 @@ check_ids <- function(rows, lenient = FALSE, known = character()) {
 # Scan one string of markdown. `config` is optional; it only supplies the
 # project's registered formatter classes (1.4.8).
 scan_text <- function(text, file = NA_character_, first_line = 1L, config = NULL,
-                      lenient = FALSE, known = character(), filter_doc = FALSE, rmd = NA) {
-  rows <- scan_block(text, file, first_line, config, filter_doc, rmd)$rows
+                      lenient = FALSE, known = character(), filter_doc = FALSE, rmd = NA, named_filter = FALSE) {
+  rows <- scan_block(text, file, first_line, config, filter_doc, rmd, named_filter)$rows
   with_id_errors(rows, lenient, known)
 }
 
 # The rows of a place that is not the document's own prose (a caption, a
 # front-matter field, a `weft()` string): its ids are checked by the knit,
 # over the document as knitted (1.7.10), not here.
-scan_rows <- function(text, file = NA_character_, first_line = 1L, config = NULL, filter_doc = FALSE) {
-  scan_block(text, file, first_line, config, filter_doc)$rows
+scan_rows <- function(text, file = NA_character_, first_line = 1L, config = NULL, filter_doc = FALSE,
+                      named_filter = FALSE) {
+  scan_block(text, file, first_line, config, filter_doc, named_filter = named_filter)$rows
 }
 
 # The rows of a whole document with the errors about its ids added; the rows
@@ -2057,8 +2062,8 @@ with_id_errors <- function(rows, lenient = FALSE, known = character()) {
 # The same, keeping the scan state `S`, which the knitr resolver uses to read
 # an arm over the same text (arm_template_range()).
 scan_block <- function(text, file = NA_character_, first_line = 1L, config = NULL, filter_doc = FALSE,
-                       rmd = NA) {
-  S <- new_scan(text, file, first_line, config, filter_doc, rmd)
+                       rmd = NA, named_filter = FALSE) {
+  S <- new_scan(text, file, first_line, config, filter_doc, rmd, named_filter)
   if (S$n > 0L) scan_seq(S, 1L, S$n, NA_integer_)
   list(S = S, rows = finish_scan(S))
 }
@@ -2071,6 +2076,32 @@ scan_block <- function(text, file = NA_character_, first_line = 1L, config = NUL
 scan_file <- function(path, config = NULL) {
   lines <- read_source_lines(path)
   scan_document(lines, file = path, config = config, project = project_type(path))
+}
+
+# The setting `names_from` of a document (E2 NS1): the document's `weft:` key over the configuration
+# given, over the project's `_weft.yml` (read here when no configuration is given). "r", "python", "julia",
+# or NULL when absent or not one of those (the knit's read_config() reports a bad value).
+document_names_from <- function(lines, file = NA_character_, config = NULL) {
+  ok <- function(v) if (is.character(v) && length(v) == 1L && !is.na(v) && v %in% c("r", "python", "julia")) v
+  v <- NULL
+  if (!is.null(config)) {
+    v <- ok(config$names_from)
+  } else if (!is.na(file) && nzchar(file)) {
+    v <- tryCatch({
+      root <- find_project_root(file)
+      yml <- file.path(root, "_weft.yml")
+      if (file.exists(yml)) ok(read_weft_yml(yml)$proj$names_from)
+    }, error = function(e) NULL)
+  }
+  if (any(grepl("names_from", lines, fixed = TRUE))) {
+    fm <- tryCatch(front_block(lines), error = function(e) character())
+    if (length(fm)) {
+      y <- tryCatch(yaml_read_text(paste(fm, collapse = "\n")), error = function(e) NULL)
+      d <- if (is.list(y) && is.list(y$weft)) ok(y$weft$names_from)
+      if (!is.null(d)) v <- d
+    }
+  }
+  v
 }
 
 # Replace each YAML metadata block with spaces, keeping every line break so

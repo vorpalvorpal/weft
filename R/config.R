@@ -89,6 +89,7 @@ default_config <- function() {
     anchor_calls = list(),
     strict = character(),
     verify_skip = character(),
+    names_from = NULL,
     weft_version = NULL
   )
 }
@@ -327,6 +328,10 @@ validate_config <- function(cfg) {
     weft_abort(sprintf("`unit_defaults` must be `weft` or `si`; got `%s` (rule 9.1.6).",
                        paste(as.character(unlist(ud)), collapse = ", ")),
                "weft_config_error")
+  }
+  nf <- cfg$names_from
+  if (!is.null(nf) && !(is.character(nf) && length(nf) == 1L && !is.na(nf) && nf %in% c("r", "python", "julia"))) {
+    weft_abort("The setting `names_from` must be r, python or julia.", "weft_config_error")
   }
   decisions_route(cfg$decisions)
   validate_lint_config(cfg)

@@ -64,7 +64,8 @@ lint_rule_table_build <- function() {
     r("guest-read", "5.11.3", 2, "file", "A value read from Python or Julia that weft does not check."),
     r("ojs-value", "5.11.4", 2, "file", "An Observable value computed in the reader's browser."),
     r("named-unpublished", "5.12.1", 2, "file", "A name used by a named value or filter span that nothing publishes."),
-    r("publish-hidden", "5.12.2", 1, "file", "A chunk that publishes values where its output is dropped.")))
+    r("publish-hidden", "5.12.2", 1, "file", "A chunk that publishes values where its output is dropped."),
+    r("string-markup", "5.12.3", 2, "file", "Weft markup in an R string that does not go through weft().")))
 }
 
 #' The static lints
@@ -123,7 +124,8 @@ lint_rule_funs <- function() {
     `guest-read` = lint_guest_read,
     `ojs-value` = lint_ojs_value,
     `named-unpublished` = lint_named_unpublished,
-    `publish-hidden` = lint_publish_hidden
+    `publish-hidden` = lint_publish_hidden,
+    `string-markup` = lint_string_markup
   )
 }
 

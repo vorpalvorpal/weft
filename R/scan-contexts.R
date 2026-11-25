@@ -211,7 +211,7 @@ falsy <- function(x) {
 # ---- front matter rows -------------------------------------------------------
 
 scan_front_matter_rows <- function(lines, file = NA_character_, config = NULL,
-                                   project = "", filter_doc = FALSE) {
+                                   project = "", filter_doc = FALSE, named_filter = FALSE) {
   ff <- front_fields(lines)
   if (!nrow(ff)) return(NULL)
   keep <- rep(FALSE, length(lines))
@@ -227,8 +227,10 @@ scan_front_matter_rows <- function(lines, file = NA_character_, config = NULL,
     }
   }
   rows <- scan_rows(paste(mask_lines(txt, keep), collapse = "\n"), file = file,
-                    config = config, filter_doc = filter_doc)
+                    config = config, filter_doc = filter_doc, named_filter = named_filter)
   if (!nrow(rows)) return(NULL)
+  # front matter is always the filter's to read (E2 BN6)
+  rows$resolver[rows$kind == "named"] <- "filter"
   field <- character(nrow(rows))
   form <- character(nrow(rows))
   for (i in seq_len(nrow(ff))) {
@@ -496,7 +498,7 @@ labelled_chunks <- function(lines) {
 
 # One chunk's caption rows, with their static errors.
 scan_chunk_captions <- function(lines, ch, label, hdr, optblk, optinfo, doc_exec, file,
-                                config, dq = NULL, filter_doc = FALSE) {
+                                config, dq = NULL, filter_doc = FALSE, named_filter = FALSE) {
   rows <- list()
   rem <- integer(length(lines))   # characters taken off the front of a line
   ls <- line_starts(lines)
@@ -538,7 +540,7 @@ scan_chunk_captions <- function(lines, ch, label, hdr, optblk, optinfo, doc_exec
   # numbers matter
   if (length(regions)) {
     r <- scan_rows(paste(mask_lines(txt, keep), collapse = "\n"), file = file, config = config,
-                   filter_doc = filter_doc)
+                   filter_doc = filter_doc, named_filter = named_filter)
     if (nrow(r)) {
       # file offsets: the text scanned is the lines less what `rem` took off
       tstart <- c(1, cumsum(nchar(lines) - rem + 1))
@@ -568,7 +570,8 @@ scan_chunk_captions <- function(lines, ch, label, hdr, optblk, optinfo, doc_exec
     if (!(nm %in% CAPTION_OPTIONS)) next
     v <- hdr$opts[[nm]]$literal
     if (is.null(v)) next
-    r <- scan_rows(v, file = file, first_line = ch$open, config = config, filter_doc = filter_doc)
+    r <- scan_rows(v, file = file, first_line = ch$open, config = config, filter_doc = filter_doc,
+                   named_filter = named_filter)
     if (!nrow(r)) next
     off <- rep(NA_real_, nchar(v))
     pat <- paste0("(?<![A-Za-z0-9_.])", gsub(".", "\\.", nm, fixed = TRUE),
@@ -595,7 +598,6 @@ scan_chunk_captions <- function(lines, ch, label, hdr, optblk, optinfo, doc_exec
   rows <- bind_scan_rows(rows)
   rows$context <- "caption"
   rows$chunk <- label
-  top <- is.na(rows$parent) & !(rows$kind %in% c("bare", "link")) & rows$resolver == "hooks"
   add <- function(i, msg) {
     rows$error[i] <<- if (is.na(rows$error[i])) msg else paste(rows$error[i], msg, sep = "\n")
   }
@@ -623,6 +625,9 @@ scan_chunk_captions <- function(lines, ch, label, hdr, optblk, optinfo, doc_exec
   ev <- co("eval")
   if (!is.null(ev)) eval_off <- !isTRUE(is.na(ev)) && falsy(ev)
   why <- not_resolved_why(cache, eval_off, ch$engine)
+  # a named value in a caption the hooks do not resolve is the filter's (E2 ST1)
+  if (length(why)) rows$resolver[rows$kind == "named"] <- "filter"
+  top <- is.na(rows$parent) & !(rows$kind %in% c("bare", "link")) & rows$resolver == "hooks"
   for (i in which(top)) {
     o <- rows$option[i]
     if (o == "tab.cap") {
@@ -839,8 +844,10 @@ bind_scan_rows <- function(parts) {
 
 # The rows of the places beside prose in a document's lines: front matter,
 # captions and weft() strings.
-scan_extra_rows <- function(lines, file = NA_character_, config = NULL, project = "", filter_doc = FALSE) {
-  fm <- scan_front_matter_rows(lines, file, config, project, filter_doc)
+scan_extra_rows <- function(lines, file = NA_character_, config = NULL, project = "", filter_doc = FALSE,
+                            named_filter = NULL) {
+  if (is.null(named_filter)) named_filter <- document_names_from(lines, file, config) %in% c("python", "julia")
+  fm <- scan_front_matter_rows(lines, file, config, project, filter_doc, named_filter)
   caps <- list()
   strs <- list()
   doc_exec <- doc_execute(lines)
@@ -849,7 +856,7 @@ scan_extra_rows <- function(lines, file = NA_character_, config = NULL, project 
   dq <- nchar(orig) - nchar(lines)
   for (ch in labelled_chunks(lines)) {
     caps[[length(caps) + 1L]] <- scan_chunk_captions(lines, ch, ch$label, ch$hdr, ch$optblk,
-                                                    ch$oi, doc_exec, file, config, dq, filter_doc)
+                                                    ch$oi, doc_exec, file, config, dq, filter_doc, named_filter)
     strs[[length(strs) + 1L]] <- scan_chunk_strings(lines, ch, ch$oi$code_first, ch$label,
                                                    file, config, dq)
     strs[[length(strs) + 1L]] <- caption_code_rows(lines, ch, ch$label, ch$hdr, ch$optblk, file, config, dq)
@@ -904,9 +911,11 @@ filter_resolves <- function(lines, file = NA_character_) {
 scan_document <- function(lines, file = NA_character_, config = NULL, project = "") {
   text <- paste(lines, collapse = "\n")
   fd <- filter_resolves(lines, file)
-  extra <- scan_extra_rows(lines, file, config, project, fd)
+  nf <- document_names_from(lines, file, config) %in% c("python", "julia")
+  extra <- scan_extra_rows(lines, file, config, project, fd, nf)
   prose <- scan_text(blank_front_matter(text), file = file, config = config,
-                     lenient = has_child_chunk(lines), known = caption_ids(extra), filter_doc = fd)
+                     lenient = has_child_chunk(lines), known = caption_ids(extra), filter_doc = fd,
+                     named_filter = nf)
   prose$context <- rep("prose", nrow(prose))
   prose$fstart <- as.numeric(prose$start)
   prose$fend <- as.numeric(prose$end)
