@@ -16,7 +16,7 @@ a\|b	ok	a|b
 "a|b"	ok	a|b
 "line%20one%0Aline%20two"	ok	line%20one%20line%20two
 "a%0A%20%20%20b"	ok	a%20%20%20%20b
-R&amp;D	ok	R&amp;D
+R&amp;D	M3	
 "a}b"	ok	a}b
 '{x}'	ok	{x}
 "a\\b"	M1	

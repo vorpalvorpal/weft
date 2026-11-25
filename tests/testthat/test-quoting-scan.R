@@ -85,7 +85,7 @@ test_that("T1, 1.2.3: a value on inline code is read in any form; keys hold the 
   expect_identical(key(r"{`r x`{unit='mm\|m'}}", "unit"), "mm|m")
   expect_identical(key("`r x`{.num title=''}", "title"), "")
   expect_identical(key("`r x`{.num title=\"\"}", "title"), "")
-  expect_identical(key("`r x`{.num title=R&amp;D}", "title"), "R&amp;D")
+  expect_identical(key("`r x`{.num title=R&D}", "title"), "R&D")  # review-q R1: a reference is M3 even bare
   expect_identical(key(r"{`r x`{.num title="a}b"}}", "title"), "a}b")
 })
 
@@ -230,9 +230,9 @@ test_that("T1, D12, 1.12.6: in a document the filter resolves a leading space in
   expect_identical(nrow(x), 1L)
 })
 
-test_that("T1, D12 control: in a document the hooks resolve a leading space stays accepted, single-quoted too", {
+test_that("T1, review-q R3: in a document the hooks resolve a leading space is an error too, single-quoted too", {
   rmd <- w6d_scan(c("Intro.", "", "A [one | many]{if=' ok'} B."), name = "a.Rmd")
-  expect_true(all(is.na(rmd$error)))
+  expect_false(all(is.na(rmd$error)))
 })
 
 # ---- T2: broken blocks that hold why, decision or label (C3, D4) -----------------------------------------
