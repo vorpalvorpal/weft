@@ -616,7 +616,7 @@ test_that("TL3: a {=typst} fence keeps today's behaviour: no named row (control)
   expect_identical(nrow(r), 0L)
 })
 
-test_that("TL3, resolver: a named value in math in an .Rmd is a row the filter resolves (the hooks leave its source, N14)", {
+test_that("TL3, resolver: a named value in math in an .Rmd is a row the hooks resolve (E2 BN1; supersedes N14)", {
   path <- tempfile("mt-", fileext = ".Rmd")
   writeLines(c("Here $x = `depth`{.num}$ only."), path)
   withr::defer(unlink(path))
@@ -624,7 +624,7 @@ test_that("TL3, resolver: a named value in math in an .Rmd is a row the filter r
   r <- r[r$kind == "named", , drop = FALSE]
   expect_identical(nrow(r), 1L)
   expect_identical(r$tex, "math")
-  expect_identical(r$resolver, "filter")
+  expect_identical(r$resolver, "hooks")  # E2 BN1: R reads a named value in math in a knitr document
 })
 
 test_that("TL3: the construct lint reports the E95 text for a named value in math, at its line", {

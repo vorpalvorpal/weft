@@ -249,9 +249,9 @@ test_that("review 2g #10: a project unit written before, with space: false, keep
            "    name: dollar")
   g2_cfg(yml)
   expect_equal(g2_num(u(5, zzg10d)), "$5")                  # control: the symbol form
+  expect_equal(g2_nm(u(1, zzg10d)), f2("dollar~1"))         # while the explicit read is in force (review-e1 F1)
   expect_equal(f2_ws("`r u(5, zzg10d)`{.uname}", yml), f2("dollars~5"))
   expect_equal(f2_ws("`r u(5, zzg10d)`{.word}", yml), f2("dollars~five"))
-  expect_equal(g2_nm(u(1, zzg10d)), f2("dollar~1"))
 })
 
 # ---- 11: the /100 mL rows ---------------------------------------------------------------------------------------------

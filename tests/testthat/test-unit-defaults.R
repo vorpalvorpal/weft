@@ -241,7 +241,7 @@ test_that("2g G9: two documents knit with weft() in different modes each see the
   expect_equal(f2_ws("`r u(7.2, pH)`{.uname}", SI), f2("7.2~picohenries"))
   expect_equal(f2_ws("`r u(7.2, pH)`{.uname}"), f2("pH~7.2"))
   expect_equal(f2_ws("`r u(7.2, pH)`{.uname}", SI), f2("7.2~picohenries"))
-  expect_equal(g2_nm(u(7.2, pH)), f2("7.2~picohenries"))     # outside a knit: the last read
+  expect_equal(g2_nm(u(7.2, pH)), f2("pH~7.2"))     # outside a knit, a root with no _weft.yml: the defaults (review-e1 F1)
 })
 
 test_that("2g G9: a document's own unit_defaults: si applies to its knit, and the next knit is back to weft", {
