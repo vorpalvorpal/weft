@@ -3,8 +3,8 @@
 # \u2212 minus, \u00d7 times, \u207b superscript minus, \u00b2 \u00b3 \u2074 \u2076 superscripts,
 # \u2082 subscript 2, \u221e infinity.
 
-e1p_plain <- function(x) as.character(weft(x))
-e1p_md <- function(x) unname(format(weft(x), target = "markdown"))
+e1p_plain <- function(x, .envir = parent.frame()) as.character(weft(x, .envir = .envir))
+e1p_md <- function(x, .envir = parent.frame()) unname(format(weft(x, .envir = .envir), target = "markdown"))
 
 # ---- T4: the reader table (PL) ----------------------------------------------------------------
 
@@ -35,7 +35,7 @@ e1p_rows <- list(
   list("R&D", "R&D"),
   list("*1*<!-- -->*2*", "12"),
   list("[3]{.smallcaps}", "3"),
-  list("[1990]{.weft-literal}", "1990"),
+  list("[1990]{.weft-literal why='a year'}", "1990"),
   list("as shown [@smith2020]", "as shown [@smith2020]"),
   list("[a](http://x)", "[a](http://x)"),
   list("[1]", "[1]"),
@@ -58,7 +58,9 @@ test_that("T4 PL: every row of the reader table reads to its plain column (as.ch
 
 test_that("T4 PL: the markdown form of a string with no construct is the string as written", {
   for (r in e1p_rows) {
-    expect_identical(e1p_md(r[[1]]), r[[1]], label = paste("markdown:", r[[1]]))
+    # a .weft-literal span needs a why (1.8.10), which weft does not write back
+    want <- sub(" why='a year'", "", r[[1]], fixed = TRUE)
+    expect_identical(e1p_md(r[[1]]), want, label = paste("markdown:", r[[1]]))
   }
 })
 
@@ -99,7 +101,7 @@ test_that("T4 FT: unit symbols read as Unicode superscripts, with the no-break s
 
 test_that("T4 FT: a symbol with an escape in units: reads without the backslash", {
   root <- withr::local_tempdir()
-  writeLines(c("units:", "  zze1ugc:", "    symbol: \"\u00b5g_C\""), file.path(root, "_weft.yml"))
+  writeLines(c("units:", "  zze1ugc:", "    symbol: \"\u00b5g\\\\_C\""), file.path(root, "_weft.yml"))
   withr::local_dir(root)
   weft:::string_config_reset()
   expect_identical(e1p_plain("`r u(3, zze1ugc)`{.num}"), "3\u00a0\u00b5g_C")
@@ -140,7 +142,7 @@ test_that("T4 FT: lists keep their lines in plain (D12)", {
 
 test_that("T4 FT: n, if and nested spans choose an arm that is read by PL, with emphasis and a unit", {
   k <- 9
-  src <- "[a | *b* `r u(5, m^2)`{.num}]{if='k > 5'}"
+  src <- "[a | *b* `r u(5, m^2)`{.num}]{if='k < 5'}"  # the first arm is the true one
   expect_identical(e1p_md(src), "*b* 5\u00a0m^2^")
   expect_identical(e1p_plain(src), "b 5\u00a0m\u00b2")
   k <- 3

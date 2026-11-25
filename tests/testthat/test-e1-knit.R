@@ -102,6 +102,7 @@ test_that("T8 WS16 (Quarto): #| fig-cap: !expr weft::weft(...) gives a caption w
 
 test_that("T9 WS17: a ggplot2 title that is a weft object draws its plain text", {
   skip_if_not_installed("ggplot2", "4.0.0")
+  grDevices::pdf(NULL); withr::defer(grDevices::dev.off())  # no Rplots.pdf in tests/
   w <- weft("Rate *r* of 10^-4^ m^2^")
   p <- ggplot2::ggplot(data.frame(x = 1, y = 1), ggplot2::aes(x, y)) +
     ggplot2::geom_point() + ggplot2::labs(title = w)
@@ -121,6 +122,7 @@ test_that("T9 WS17: a ggplot2 title that is a weft object draws its plain text",
 
 test_that("T9 FT: a scale whose labels are fmt_num(target = 'plain') builds without error", {
   skip_if_not_installed("ggplot2", "4.0.0")
+  grDevices::pdf(NULL); withr::defer(grDevices::dev.off())  # no Rplots.pdf in tests/
   p <- ggplot2::ggplot(data.frame(x = c(1, 2), y = c(0.0001, 0.0002)), ggplot2::aes(x, y)) +
     ggplot2::geom_point() +
     ggplot2::scale_y_continuous(labels = function(b) fmt_num(b, target = "plain"))
