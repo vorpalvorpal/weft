@@ -658,6 +658,8 @@ apply_formatters <- function(value, classes = character(), keys = list(),
                              config = current_config(), governor = FALSE,
                              join = NULL, on_zero = note_zero, unit_form = NULL,
                              on_pick = NULL, target = "markdown") {
+  # the configuration (and with it the units in force) is settled before `value` is touched (F1)
+  force(config)
   # the one check the markdown path pays for the TeX target (rule 3.4.11)
   tex <- FALSE
   tex_in <- FALSE

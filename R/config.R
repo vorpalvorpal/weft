@@ -26,12 +26,16 @@ weft_env <- new.env(parent = emptyenv())
 current_config <- function() {
   units_ready()
   # outside a knit the configuration is the project's, as weft() reads it (A1)
-  weft_env$config %||% project_config() %||% {
-    cfg <- default_config()
-    cfg$units <- weft_env$units %||% list()
-    cfg$units_default <- weft_env$units_default %||% ud_state$default_entries %||% list()
-    cfg
-  }
+  weft_env$config %||% project_config() %||% defaults_config()
+}
+
+# The default configuration with the session's units: those of no project file (F1).
+defaults_config <- function() {
+  units_drop_stale()
+  cfg <- default_config()
+  cfg$units <- weft_env$units %||% list()
+  cfg$units_default <- weft_env$units_default %||% ud_state$default_entries %||% list()
+  cfg
 }
 
 # Outside a knit: the cached configuration of the working directory's project when it has a
@@ -42,6 +46,17 @@ project_config <- function() {
   root <- find_project_root(getwd())
   if (!file.exists(file.path(root, "_weft.yml"))) return(NULL)
   string_config()
+}
+
+# A root with no `_weft.yml` has the default units plus any the session registered through the API,
+# never another project's file nor a knit's front matter (F1 of dev/review-e1.md): when
+# the units in force came from a file or from front matter (`ud_state$src`, set where they are read),
+# the defaults are put back. A cheap check: one field read. Not while a configuration is being read.
+units_drop_stale <- function() {
+  src <- ud_state$src
+  if (is.null(src) || isTRUE(weft_env$reading) || isTRUE(ud_state$busy)) return(invisible())
+  if (isTRUE(src$file) || isTRUE(src$knit)) units_reset()
+  invisible()
 }
 
 # ---- defaults -----------------------------------------------------------
@@ -153,6 +168,7 @@ project_units <- function(root) {
                                list(tbl = NULL, where = "")), mode, root = root)
   weft_env$units <- ur$units
   weft_env$units_default <- ur$default
+  ud_state$src <- list(root = root, file = TRUE, knit = FALSE)
   ok <- TRUE
   invisible()
 }
@@ -228,6 +244,7 @@ read_config_ <- function(dir, front, doc) {
     list(tbl = proj_units, where = if (has_file) file else "_weft.yml"),
     list(tbl = front_units, where = doc %||% "the document's `weft:` front matter")),
     cfg$unit_defaults, root = dir)
+  ud_state$src <- list(root = ud_norm_root(dir), file = has_file, knit = !is.null(front_units))
   cfg$units <- ur$units
   cfg$units_default <- ur$default
   weft_env$units <- cfg$units

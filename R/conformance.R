@@ -255,7 +255,9 @@ conf_parse_keys <- function(keys) {
 conf_with_config <- function(cfg, expr) {
   old <- weft_env$config
   on.exit(weft_env$config <- old)
-  if (length(cfg)) weft_env$config <- utils::modifyList(current_config(), cfg)
+  # the tables are built from the defaults only, never the working directory's `_weft.yml` (F10)
+  units_ready()
+  weft_env$config <- utils::modifyList(defaults_config(), cfg)
   expr
 }
 
@@ -619,7 +621,8 @@ CONF_TEX_SETS <- "tex"
 # "all" is the three first sets stacked, as it was before 6f; the six sets of 6f are asked for by name.
 conformance_rows <- function(set = c("all", "numbers", "words", "lists", CONF_NEW_SETS, CONF_TEX_SETS)) {
   set <- match.arg(set)
-  out <- switch(set,
+  # every table is built from the defaults only (F10)
+  out <- conf_with_config(list(), switch(set,
     numbers = conf_numbers_rows(),
     words = conf_words_rows(),
     lists = conf_lists_rows(),
@@ -630,7 +633,7 @@ conformance_rows <- function(set = c("all", "numbers", "words", "lists", CONF_NE
     text = conf_text_rows(),
     governors = conf_governors_rows(),
     tex = conf_tex_rows(),
-    all = rbind(conf_numbers_rows(), conf_words_rows(), conf_lists_rows()))
+    all = rbind(conf_numbers_rows(), conf_words_rows(), conf_lists_rows())))
   rownames(out) <- NULL
   out[conf_cols]
 }

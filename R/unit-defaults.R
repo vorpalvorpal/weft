@@ -557,6 +557,7 @@ units_reset <- function() {
   ud_forget_registered(NULL)
   ud_state$ready <- FALSE
   ud_state$root <- NULL
+  ud_state$src <- NULL
   ud_state$ctx <- list(mode = "weft", own = character(), dflt = character())
   weft_env$units <- NULL
   weft_env$units_default <- NULL
