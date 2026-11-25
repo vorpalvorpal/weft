@@ -696,3 +696,16 @@ charge a trailer for a check no report shows."
    scanner, and the knit reports it (`R/scan-contexts.R:635-637`,
    `R/position.R:194-198`), so E1's T8 Quarto case should fail on it. C10
    is the fix; it can move into E1.
+
+## Rulings (orchestrator, 2026-11-26)
+
+1. **A `claim()` in a script's code does not count for the gate** (D13
+   and C16 stand). Counting it would make the gate guard checks that
+   `checks()`, `changes()` and the ledger do not show, so a failed commit
+   would name something no other tool lists. It belongs with the
+   claim collector for scripts, which the plan defers ("Later, not in this
+   plan"); that package should count them in the gate too.
+2. **`scripts_skip` defaults to `[tests]` and a given list replaces it**
+   (D3 stands), as `strict` and `verify_skip` do.
+3. **C10 (computed captions read as code) moves into E1.** E1's T8 Quarto
+   case needs it. E4 keeps T11 as a regression test.

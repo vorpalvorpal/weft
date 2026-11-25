@@ -813,3 +813,24 @@ others.
   values block.
 
 The plan is `dev/plan-weft-everywhere.md`.
+
+## Weft everywhere, during the build (2026-11-26, orchestrator)
+
+Robin delegated design decisions during the build; these are the ones
+that change behaviour. Details are in the design and review notes named.
+
+- **Review of package Q** (`dev/review-q.md`). A character reference is an
+  error in a bare value too (alternative: re-encode `&` on write, which
+  alters what the author typed). A quoted value in a block quote may not
+  cross a line break (alternative: strip `>` markers by nesting depth,
+  which the line-based scanner cannot know); elsewhere a line break and
+  the white space after it read as one space. A quoted value that starts
+  with white space is an error for every key (alternative: D12's
+  governor-only check, which leaves blocks Pandoc prints as text
+  accepted).
+- **E4: a `claim()` in a script's code does not count for the gate**
+  (alternative: count it, cheap and on the gate's purpose, but the gate
+  would then guard checks no other tool lists). Deferred to the claim
+  collector for scripts. `scripts_skip` replaces its `[tests]` default
+  when given, as `strict` does. Computed captions are read as code from
+  E1 on.
