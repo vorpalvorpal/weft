@@ -136,4 +136,68 @@ function M:find(needle, ok)
   return self:locate(s)
 end
 
+-- The value written after `=` at `pos`, as Pandoc reads it (not weft's subset, so that a document weft would
+-- refuse still gets its lines, rule 2.13.6): quoted in `"` or `'`, or bare up to white space or `}`; a `\`
+-- before a character that is not an ASCII letter or digit is that character (a whole UTF-8 character), a
+-- `\` before a letter or digit stays, a line break in a quoted value is a space. Character references are
+-- not decoded. Returns the value and the position after it, or nil.
+local function read_value(text, pos)
+  local q = text:sub(pos, pos)
+  local out, i = {}, pos
+  local quoted = q == '"' or q == "'"
+  if quoted then i = i + 1 end
+  while i <= #text do
+    local c = text:sub(i, i)
+    if c == "\\" and i < #text then
+      local nx = text:sub(i + 1, i + 1)
+      if nx:match("[A-Za-z0-9]") then
+        out[#out + 1] = c .. nx
+        i = i + 2
+      else
+        local ch = text:match("^[\0-\x7F\xC2-\xFD][\x80-\xBF]*", i + 1) or nx
+        out[#out + 1] = (ch == "\n" or ch == "\r") and " " or ch
+        i = i + 1 + #ch
+      end
+    elseif quoted and c == q then
+      return table.concat(out), i + 1
+    elseif quoted and c == "\r" and text:sub(i + 1, i + 1) == "\n" then
+      out[#out + 1] = " "
+      i = i + 2
+    elseif quoted and c == "\n" then
+      out[#out + 1] = " "
+      i = i + 1
+    elseif not quoted and c:match("[ \t\r\n}]") then
+      break
+    else
+      out[#out + 1] = c
+      i = i + 1
+    end
+  end
+  if quoted then return nil end
+  if #out == 0 then return nil end
+  return table.concat(out), i
+end
+
+-- The file index and line of the next occurrence of `KEY=` that follows `{`, a space, a tab or a line break
+-- and whose value, read as Pandoc reads it, equals `value` (rule 2.13.6). The cursor is kept per key and value,
+-- so an occurrence found nowhere moves nothing on for the others.
+function M:find_attr(key, value)
+  local id = key .. "\0" .. value
+  local from = self.cursor[id] or 1
+  local needle = key .. "="
+  while true do
+    local s, e = self.text:find(needle, from, true)
+    if not s then return nil end
+    local prev = s > 1 and self.text:sub(s - 1, s - 1) or ""
+    if prev == "{" or prev == " " or prev == "\t" or prev == "\n" or prev == "\r" then
+      local v, after = read_value(self.text, e + 1)
+      if v ~= nil and v == value then
+        self.cursor[id] = after
+        return self:locate(s)
+      end
+    end
+    from = s + 1
+  end
+end
+
 return M

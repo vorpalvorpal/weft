@@ -512,12 +512,17 @@ end
 
 -- ---- the construct as shown (N87) ---------------------------------------------------------------
 
+-- a value as shown in a report (D13): double quotes, `\` and `"` escaped, so it can be pasted back
+local function shown_value(v)
+  return '"' .. tostring(v):gsub("\\", "\\\\"):gsub('"', '\\"') .. '"'
+end
+
 local function shown_attrs(el)
   local parts = {}
   if el.identifier and el.identifier ~= "" then parts[#parts + 1] = "#" .. el.identifier end
   for _, c in ipairs(el.classes) do parts[#parts + 1] = "." .. c end
   for k, v in pairs(el.attributes) do
-    if k ~= "weft-at" and k ~= "weft-cap" then parts[#parts + 1] = string.format('%s="%s"', k, v) end
+    if k ~= "weft-at" and k ~= "weft-cap" then parts[#parts + 1] = k .. "=" .. shown_value(v) end
   end
   return table.concat(parts, " ")
 end
@@ -534,7 +539,7 @@ end
 local function shown_span(el, key, value)
   local text = pandoc.utils.stringify(el.content):gsub("[ \t\r\n]+", " ")
   text = text:gsub("^ ", ""):gsub(" $", "")
-  return string.format('[%s]{%s="%s"}', cut(text, 60), key, value)
+  return string.format('[%s]{%s=%s}', cut(text, 60), key, shown_value(value))
 end
 
 -- ---- named values (N5 to N8, N17, N82, N83, N100) ---------------------------------------------------
@@ -2503,7 +2508,7 @@ end
 local function tag(el)
   if el.t == "Math" or el.t == "RawInline" then return tag_tex(el) end
   if S.src == nil then return nil end
-  local needle, ok
+  local needle, ok, attr_key, attr_value
   if el.t == "Code" then
     if not code_candidate(el) then return nil end
     needle, ok = "`" .. el.text .. "`{", prev_not_backtick
@@ -2512,7 +2517,7 @@ local function tag(el)
     if not key and el.classes:includes("weft-literal") then
       -- only a blank decision is an error that needs a line
       if not decision_blank(el) then return nil end
-      needle = string.format('decision="%s"', el.attributes["decision"])
+      attr_key, attr_value = "decision", el.attributes["decision"]
     elseif not key then
       -- a text span has no key to search for: its first text class
       if not is_text_span(el) then return nil end
@@ -2521,12 +2526,13 @@ local function tag(el)
       end
     else
       local rawkey, rawvalue = get_key(el, key)
-      needle = string.format('%s="%s"', rawkey, rawvalue)
+      attr_key, attr_value = rawkey, rawvalue
     end
   else
     return nil
   end
-  local idx, line = S.src:find(needle, ok)
+  local idx, line
+  if attr_key then idx, line = S.src:find_attr(attr_key, attr_value) else idx, line = S.src:find(needle, ok) end
   if idx then
     el.attributes["weft-at"] = idx .. ":" .. line
     return el
@@ -2540,7 +2546,7 @@ local function tag_all(doc)
   local f = { traverse = "topdown", Inline = tag, RawBlock = tag_tex,
     Div = function(el)
       if S.src == nil or not el.classes:includes("weft-literal") or not decision_blank(el) then return nil end
-      local idx, line = S.src:find(string.format('decision="%s"', el.attributes["decision"]))
+      local idx, line = S.src:find_attr("decision", el.attributes["decision"])
       if idx then el.attributes["weft-at"] = idx .. ":" .. line; return el end
     end }
   for _, key in ipairs(META_FIELDS) do
