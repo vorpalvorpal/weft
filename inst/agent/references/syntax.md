@@ -69,9 +69,12 @@ Earlier work found [0.5 m in the upper reach]{cite="@doe2019"}.
 
 A value goes in double quotes, single quotes, or none when it is one word:
 `{if="tier == 'sev'"}`, `{if='tier == "sev"'}`, `{n=n_sites}`. Inside quotes,
-`\"`, `\'` and `\|` stand for the character; any other `\` is an error. In R
-code a raw string needs no escapes:
-`weft(r"([severe | mild]{if='tier == "sev"'})")`.
+`\"`, `\'` and `\|` stand for the character and `\ ` for a space (a value that
+starts with a space: `last="\ plus "`); any other `\` is an error. In an R
+string, give the value the quote the string does not use:
+`weft("[severe | mild]{if='tier == \"sev\"'}")`. A raw string needs no R
+escapes: `weft(r"([severe | mild]{if='tier == "sev"'})")`; it ends at `)"`, so a
+value ending in `)` takes single quotes.
 
 ## A check
 
@@ -94,6 +97,30 @@ through `weft()`.
 ```markdown
 The worst reading was `worst`{.num} NTU.
 ```
+
+## Strings in R code
+
+`weft()` resolves the same markup in an R string, for text no chunk option
+reaches: plot titles and labels, console and log messages, table cells. It
+evaluates at the call, in the caller's environment; a name reads R there.
+There is no `weft_str()` in R.
+
+```r
+n_high <- sum(turbidity > 10)
+p + labs(subtitle = weft("[No site | One site | # sites]{n=n_high} above `trigger`{.num} NTU"))
+```
+
+The result gives plain text (Unicode superscripts, no markup) to a plot,
+`cat()`, `paste()` and `message()`, and markdown when a chunk prints it.
+`format(w, target = "markdown")` gives the markdown; `format(w, target =
+"ansi")` the console form (emphasis in italic and bold where the console draws
+styles), which `print()` uses. In cli, `{.val {w}}` draws the console form and
+`{w}` the plain text. Tick labels: `labels = function(b) fmt_num(b, target =
+"plain")`. A failed check is collected as in prose in a knit with weft on;
+elsewhere the first failure stops with an error.
+Keep the markup a literal string: the lints and the commit gate read literal
+`weft()` strings in chunks and in the project's `.R` files, and skip a computed
+one (`paste0()`, `sprintf()`).
 
 ## A literal that must stay
 

@@ -18,6 +18,7 @@ articles:
       - targets
       - languages
       - named-values
+      - strings
   - title: Checking
     navbar: Checking
     contents:

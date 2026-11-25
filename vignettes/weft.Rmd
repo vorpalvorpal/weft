@@ -216,6 +216,8 @@ claim(61, . < 50)
   prose.
 - `vignette("named-values", package = "weft")`: values by name, for
   documents whose prose cannot call R.
+- `vignette("strings", package = "weft")`: `weft()` in plot titles, console
+  messages and tables.
 - `vignette("lints", package = "weft")`: the static checks.
 - `vignette("gate", package = "weft")`: the commit gate, the ledger,
   `changes()` and `verify()`.

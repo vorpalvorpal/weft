@@ -3009,8 +3009,10 @@ has its plain text as its markdown form. A `weft` object used as a value inside
 that R computes (`#| fig-cap: !expr weft(...)`, `fig.cap = weft(...)`) and that
 evaluates to a `weft` object is given to knitr as its markdown for `fig.cap`,
 `fig.scap`, `fig.subcap` and `tbl-cap`, and as its plain text for `fig.alt`.
-`cat(weft(...))` in a `results: asis` chunk writes plain text; to write markdown,
-print the object or `cat(format(x, target = "markdown"))`.
+`cat(weft(...))` in a `results: asis` chunk writes plain text, and so does an
+explicit `print()` (3.6.3); to write markdown, leave the object as the value of
+a top-level expression, which knitr gives to `knit_print()`, or write
+`cat(format(x, target = "markdown"))`.
 `knitr::kable(caption = weft(...))` gets the plain text. A ggplot2 title keeps
 the object and draws its plain text. A formula in the markup keeps its TeX in the
 plain form (1.4.24): a plot that needs one uses plotmath.
@@ -3026,12 +3028,13 @@ with its class (`weft_claim_failed`, `weft_no_value`, `weft_value_error`,
 a knit and `weft: chunk LABEL: ` in a knit; draft mode has no effect there.
 Warnings are signalled at the call and the object is returned. A failure is
 located by its chunk label, or by the line of the inline R that called `weft()`.
-It reads the configuration as a knit does: a configuration error is raised, and
-it never prints with half a configuration.
+A configuration error is raised (3.6.6): `weft()` never prints with half a
+configuration.
 
-**3.6.6** Outside a knit with weft's hooks, `weft()` reads the configuration of
-the project root of the working directory (the nearest folder upward that holds
-`_weft.yml`, else `_quarto.yml` or `_quarto.yaml`, else the working directory). It
+**3.6.6** Except in a knit with weft's hooks, which has its own configuration,
+`weft()` reads the configuration of the project root of the working directory
+(the nearest folder upward that holds `_weft.yml`, else `_quarto.yml` or
+`_quarto.yaml`, else the working directory). It
 is read once and kept for the session, and read again when `_weft.yml` there
 appears, disappears or changes size or modification time. A read that fails keeps
 nothing, so every call fails until the file is fixed. The language is English and

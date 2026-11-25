@@ -109,6 +109,23 @@ and a Pandoc filter fills it in. The same filter resolves conditions on names,
 wording, checks and values files. See
 [Values by name](https://vorpalvorpal.github.io/weft/articles/named-values.html).
 
+**weft in strings.** `weft()` resolves the same markup in an R string, for
+text that never passes through prose: plot titles and axis labels, console
+and log messages, table cells. It evaluates at the call, and a name in it
+reads R there. A plot or the console gets plain text, with Unicode
+superscripts and no markup; a knit gets markdown.
+
+```r
+n_high <- 2
+worst <- 12.63
+w <- weft("[No site | One site | # sites]{n=n_high} read above the trigger; the worst was `worst`{.num} NTU.")
+as.character(w)
+#> [1] "2 sites read above the trigger; the worst was 12.6 NTU."
+p + ggplot2::labs(title = w)   # the same text as a plot's title
+```
+
+See [weft in strings](https://vorpalvorpal.github.io/weft/articles/strings.html).
+
 **Lints.** `lints()` reads a project's documents without running them and
 lists typed numbers, construct errors and other problems. See
 [The static lints](https://vorpalvorpal.github.io/weft/articles/lints.html).
