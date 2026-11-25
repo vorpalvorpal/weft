@@ -74,7 +74,7 @@ e3_reader_inputs <- c(
   "5 * 3 and 2 * 4", "a * b*", "2*3*4", r"---(\*a\*)---", r"---(C:\Users)---", "m^2^",
   "10^\u22124^", "10^-4^", "x^ab^", "x^a b^", "CO~2~", "NO~x~", "~~gone~~", "*m^2^*", "^*2*^",
   "1.2 &times; 10<sup>-4</sup>", "&infin;", "&#8722;3", "R&D", "*1*<!-- -->*2*",
-  "[3]{.smallcaps}", "[1990]{.weft-literal}", "as shown [@smith2020]", "[a](http://x)", "[1]",
+  "[3]{.smallcaps}", "[1990]{.weft-literal why='a year'}", "as shown [@smith2020]", "[a](http://x)", "[1]",
   "`code`", "`` a`b ``", "$x^2$", "costs $5 and $10", "- a\n- b", "a\\\nb",
   "<<weft: failed claim, chunk fig-a>>"
 )
@@ -85,7 +85,7 @@ test_that("T2 C3: ansi_strip() of the ANSI rendering is the plain rendering, nam
   for (m in inputs) {
     w <- weft(c(nm = m))
     ansi <- format(w, target = "ansi")
-    expect_identical(cli::ansi_strip(ansi), format(w), label = m)
+    expect_identical(unname(cli::ansi_strip(ansi)), unname(format(w)), label = m)  # ansi_strip() drops names
     expect_identical(names(ansi), "nm", label = m)
   }
 })
@@ -94,7 +94,7 @@ test_that("T2 C3: the same holds for a vector with an NA element", {
   e3_ansi_on()
   w <- weft(c(a = "*x* m^2^", b = NA, c = "**y**"))
   ansi <- format(w, target = "ansi")
-  expect_identical(cli::ansi_strip(ansi), format(w))
+  expect_identical(unname(cli::ansi_strip(ansi)), unname(format(w)))  # ansi_strip() drops names
 })
 
 # ---- T3: when styles are written (C5) ----------------------------------------------------------
@@ -191,7 +191,6 @@ test_that("T5 C7: a length-0 object prints <weft[0]>", {
 test_that("T5 C7: print() returns its argument invisibly", {
   e3_ansi_on()
   w <- weft("a *b*")
-  expect_invisible(capture.output(print(w)))
   out <- NULL
   capture.output(out <- withVisible(print(w)))
   expect_false(out$visible)

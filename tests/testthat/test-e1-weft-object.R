@@ -253,11 +253,11 @@ test_that("T7 WS7: as.character() is plain with names and NA kept; format() writ
   expect_identical(names(format(w, target = "markdown")), c("a", "b"))
 })
 
-test_that("T7 WS7: a target other than plain or markdown is a weft_construct_error", {
+test_that("T7 WS7: a target other than plain, markdown or ansi is a weft_construct_error", {
   w <- weft("a")
   e <- tryCatch(format(w, target = "tex"), error = function(e) e)
   expect_s3_class(e, "weft_construct_error")
-  expect_match(conditionMessage(e), "`target` must be \"plain\" or \"markdown\"; got \"tex\".", fixed = TRUE)
+  expect_match(conditionMessage(e), "`target` must be \"plain\", \"markdown\" or \"ansi\"; got \"tex\".", fixed = TRUE)
   e <- tryCatch(format(w, target = 1), error = function(e) e)
   expect_s3_class(e, "weft_construct_error")
   expect_match(conditionMessage(e), "got something else.", fixed = TRUE)

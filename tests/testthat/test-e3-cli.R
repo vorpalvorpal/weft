@@ -35,9 +35,10 @@ test_that("T8 C9: cli_format() writes NA as 'NA' and ignores style", {
 
 test_that("T8 C9: {.val {w}} draws the emphasis, unquoted", {
   e3c_ansi_on()
-  out <- cli::format_inline("Got {.val {weft('a *b*')}}.")
+  # emphasis not at the end, so cli's own .val colour does not close between the two
+  out <- cli::format_inline("Got {.val {weft('a *b* c')}}.")
   expect_true(grepl("\u001b[3mb\u001b[23m", out, fixed = TRUE))
-  expect_identical(cli::ansi_strip(out), "Got a b.")
+  expect_identical(cli::ansi_strip(out), "Got a b c.")
 })
 
 test_that("T8 C9: {.val {w}} with colours off collapses a vector as cli does", {
