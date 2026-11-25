@@ -8,18 +8,18 @@
 #       name, relative to it, recursively). It returns a character vector of
 #       unique NAMEs, in no fixed order (tests sort it). Reserved words of N6
 #       are never in it.
-#   Everything else is reached through the exports: weft_put() outside a knit
+#   Everything else is reached through weft:::values_block() (E2: weft_put() is gone)
 #   (its returned text is parsed by b6_parse()), weft_values_write(), and
 #   knits of small .Rmd documents with b6_knit().
 #
 # READINGS TAKEN where the note is open (each is one place to change):
-#   * The text weft_put() returns outside a knit is the fenced block (N20, N44)
+#   * The text weft:::values_block() returns is the fenced block (N20, N44)
 #     or the bare JSON; b6_parse() accepts both. Tests pin only that it is a
 #     character string of class "weft_values" that parses as schema 1.
 #   * Key order (N20's example): weft, lang, run, at come in that order, then
 #     values; a record's t comes first and v (when written) second. Where
 #     `cell` and `checks` sit is not pinned.
-#   * weft_put() raises weft_values_error for E40 to E44 (N2) and makes an
+#   * values_block() raises weft_values_error for E40 to E44 (N2) and makes an
 #     error record for E45 (N47: "anything else"). The record-level path (N43)
 #     makes an error record for both E44 and E45.
 #   * An error record's `why` holds `{S}` for the subject, the text of E44 or
@@ -42,7 +42,7 @@ b6_read_json <- function(txt) {
 }
 
 # the parsed block (a list with weft, lang, run, at, values, ...) of the text
-# weft_put() returns outside a knit
+# weft:::values_block() returns
 b6_parse <- function(x) b6_read_json(b6_json_text(x))
 
 # the raw JSON text of that
@@ -51,8 +51,8 @@ b6_text <- function(x) b6_json_text(x)
 # the top-level key order of a JSON text
 b6_keys <- function(txt) names(b6_read_json(txt))
 
-# the record weft_put() makes of one R value
-b6_rec <- function(x) b6_parse(weft::weft_put(v = x))$values$v
+# the record weft:::values_block() (E2 PB3, the internal block maker) makes of one R value
+b6_rec <- function(x) b6_parse(weft:::values_block(v = x))$values$v
 
 # only the members of a record the note pins (not `type`, not `checks`)
 b6_core <- function(rec) {
@@ -156,4 +156,45 @@ b6_write_doc <- function(lines, name = "doc.Rmd", dir = NULL, extra = list()) {
   writeLines(lines, file.path(dir, name), useBytes = TRUE)
   for (f in names(extra)) writeLines(extra[[f]], file.path(dir, f), useBytes = TRUE)
   file.path(dir, name)
+}
+
+# ---- E2 (dev/design-e2.md): the knit, then the filter on its markdown --------------------------------
+
+# the knit, then the filter on its markdown, as a knitr document (2.13.13)
+e2_render <- function(lines, ..., to = "plain") {
+  k <- b6_knit(lines, ...)
+  k$filtered <- filter_md(k$text, name = "doc.Rmd", to = to)
+  k
+}
+
+# an R chunk as lines (hidden by default), for the E2 tests
+e2_chunk <- function(label, ..., opts = "include=FALSE") {
+  c(sprintf("```{r %s, %s}", label, opts), c(...), "```", "")
+}
+
+# the lines of the blocks the hooks wrote, for the names each publishes, in order
+e2_names <- function(res) unlist(b6_block_names(res$blocks))
+
+# knitr::knit() of a small .Rmd in `envir` (T9): the knit's raw text, any error, and last_knit(). The set-up
+# chunk calls weft::weft_setup(). Files go in a fresh temp folder.
+e2_knit_in <- function(lines, envir, draft = FALSE, front = NULL, files = NULL, env = parent.frame()) {
+  d <- write_doc(lines, TRUE, NULL, front, files, "doc", "rmd")
+  withr::local_envvar(c(WEFT_DRAFT = if (draft) "1" else NA_character_, WEFT_RUN = NA_character_,
+                        WEFT_COLLECT = NA_character_), .local_envir = env)
+  withr::local_dir(d$dir, .local_envir = env)
+  withr::defer(weft_restore_knitr(), envir = env)
+  err <- tryCatch({
+    knitr::knit(d$input, output = file.path(d$dir, "doc.md"), envir = envir, quiet = TRUE)
+    NULL
+  }, error = function(e) e)
+  out <- file.path(d$dir, "doc.md")
+  list(error = err, failed = !is.null(err), text = if (file.exists(out)) readLines(out, warn = FALSE, encoding = "UTF-8") else character(),
+       knit = tryCatch(weft:::last_knit(), error = function(e) NULL), offset = d$offset, dir = d$dir)
+}
+
+# the text of the failures of a knit, as one string
+e2_fail_text <- function(res) {
+  f <- res$knit$failures
+  if (is.null(f) || !nrow(f)) return("")
+  paste(vapply(f$detail, function(x) paste(unlist(x), collapse = " "), ""), collapse = "\n")
 }

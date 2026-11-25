@@ -79,10 +79,18 @@ W6D_E6 <- function(id) {
 W6D_E9 <- function(key) {
   sprintf("A named value takes no `%s`: a governor key belongs on a span (rule 1.3.3).", key)
 }
-W6D_E70 <- function(name) {
-  sprintf(paste0("`%s` is used by name but no chunk of this document mentions it; publish it with put(), ",
-                 "weft_put() or @put (rule 5.12.1)."), name)
+# E2 ST5: the message by document; the knitr text (names_from r) also says to set the name in an R chunk
+W6D_E70 <- function(name, knitr = FALSE) {
+  if (knitr) {
+    sprintf(paste0("`%s` is used by name but no chunk of this document mentions it; set it in an R chunk, or ",
+                   "publish it with put() or @put (rule 5.12.1)."), name)
+  } else {
+    sprintf(paste0("`%s` is used by name but no chunk of this document mentions it; publish it with put() or ",
+                   "@put (rule 5.12.1)."), name)
+  }
 }
+W6D_E70_HINT <- paste0("Set it in code in this document: an R chunk under knitr, put(name=...) in Python, ",
+                       "@put name in Julia, or a values file.")
 # {opt} is the option as written, with or without code marks (the note does not say which)
 W6D_E71 <- function(label, opt) {
   c(sprintf(paste0("chunk `%s` has %s, so what it publishes never reaches the document; publish in a chunk ",

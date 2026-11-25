@@ -132,24 +132,25 @@ KNITR_BODY <- c("A `r depth`{.num} and `r x` here.", "",
                 "A [word]{.strong} here.", "",
                 "The `depth`{.num} again.")
 
-test_that("N140: in a knitr document every row has resolver hooks except the named values, which have filter", {
+# E2 ST1: a named value in the prose of a knitr document is read by R first: resolver hooks
+test_that("N140/ST1: in a knitr document every row has resolver hooks, the named value in prose too", {
   for (nm in names(KNITR_DOCS)) {
     d <- KNITR_DOCS[[nm]]
     lines <- if (is.null(d$front)) c(KNITR_BODY, "", d$chunks) else w6d_doc(KNITR_BODY, d$chunks, d$front)
     x <- w6d_scan(lines, name = d$name)
     nr <- x$kind == "named"
     expect_identical(sum(nr), 1L, label = nm)
-    expect_identical(x$resolver[nr], "filter", label = nm)
+    expect_identical(x$resolver[nr], "hooks", label = nm)
     expect_identical(sort(unique(x$kind[!nr])), sort(c("value", "bare", "n", "if", "sign", "list", "cite", "text")),
                      label = nm)
     expect_true(all(x$resolver[!nr] == "hooks"), label = nm)
   }
 })
 
-test_that("N140: a named value inside an arm of a span the hooks resolve is a filter row; the span stays the hooks'", {
+test_that("N140/ST1: a named value inside an arm of a span the hooks resolve is a hooks row too (R reads it)", {
   lines <- c(r"{The depth is [`depth`{.num} deep | shallow]{if="ok"}.}")
   x <- w6d_scan(lines, name = "a.Rmd")
-  expect_identical(x$resolver[x$kind == "named"], "filter")
+  expect_identical(x$resolver[x$kind == "named"], "hooks")
   expect_identical(x$resolver[x$kind == "if"], "hooks")
 })
 

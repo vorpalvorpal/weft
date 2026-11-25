@@ -41,7 +41,6 @@ e1p_rows <- list(
   list("[1]", "[1]"),
   list("`code`", "code"),
   list("`` a`b ``", "a`b"),
-  list("`x`{.num}", "`x`{.num}"),
   list("$x^2$", "$x^2$"),
   list("costs $5 and $10", "costs $5 and $10"),
   list("- a\n- b", "- a\n- b"),
@@ -156,8 +155,12 @@ test_that("T4 FT: n, if and nested spans choose an arm that is read by PL, with 
   expect_identical(e1p_plain(src2), "3 sites")
 })
 
-test_that("T4 FT: a named value is left as written, in both forms (WS4)", {
-  expect_identical(e1p_plain("see `x`{.num} here"), "see `x`{.num} here")
+# E2 BN1, BN9, D3: weft() reads a named value from .envir; an unbound name is a failure, not left as written
+test_that("T4 FT (E2): a named value is read from .envir, in both forms; an unbound one stops with weft_no_value (WS4)", {
+  x <- 12.5
+  expect_identical(e1p_plain("see `x`{.num} here"), "see 12.5 here")
+  expect_identical(e1p_md("see `x`{.num} here"), "see 12.5 here")
+  expect_error(e1p_plain("see `unbound_zz`{.num} here"), class = "weft_no_value")
 })
 
 test_that("T4 FT: the minus sign, no-break and thin spaces are kept", {

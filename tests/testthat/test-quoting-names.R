@@ -63,13 +63,14 @@ test_that("T5, C7, Python: weft._source_names gives the same set as the R extrac
   expect_setequal(got, weft:::values_source_names(p))
 })
 
-test_that("T5, C7, knit: a name governed by a single-quoted n is published when the chunk binds it", {
+# E2 inverts this (TR1, D7): a governor in prose is the hooks' own (R reads it), so nothing is published for it
+test_that("T5, C7, knit: a name governed by a single-quoted n in prose is never published; the hooks resolve the span", {
   res <- b6_knit(c(
     "```{r calc, include=FALSE}", "kq <- 3L", "other_q <- 2L", "unused_q <- 1", "```", "",
     "Found [one | many]{n='kq'} sites, of `other_q`{.num}."
   ))
   b6_expect_knitted(res)
-  published <- unlist(b6_block_names(res$blocks))
-  expect_true("kq" %in% published)
-  expect_false("unused_q" %in% published)
+  expect_length(res$blocks, 0L)
+  expect_true("Found many sites, of 2." %in% res$text)
+  expect_false(any(grepl("`other_q`{", res$text, fixed = TRUE)))
 })

@@ -253,7 +253,8 @@ fm_msg <- list(
   E8 = function(key, v) sprintf("`%s` must be at most 100 (got `%s`).", key, v),
   E9 = function(key) sprintf("A named value takes no `%s`: a governor key belongs on a span (rule 1.3.3).", key),
   E10 = function(name) sprintf("no value is published under the name `%s` in this document (rule 1.12.7).", name),
-  E10_hint = function(name) sprintf("Publish it in code in this document: weft_put(%s = ...) in R, put(%s=...) in Python, @put %s in Julia. A cell with include: false or output: false publishes nothing on the jupyter and julia engines.", name, name, name),
+  # E2 M6: the hint of "no value is published under the name"
+  E10_hint = function(name) sprintf("Publish it in code in this document: put(%s=...) in Python, @put %s in Julia, or a values file; under knitr, set it in an R chunk, and pass text an R chunk prints through weft(). A cell with include: false or output: false publishes nothing on the jupyter and julia engines.", name, name),
   E11 = function(name, why) sprintf("`%s` is missing (%s) (rule 1.3.4).", name, why),
   E12 = function(reason) sprintf("a weft-values block that does not read: %s (rule 2.13.1).", reason),
   E13 = function(n) sprintf("a weft-values block of %s bytes; the limit is 5000000 (rule 2.13.1).", format(n, scientific = FALSE)),

@@ -193,8 +193,9 @@ test_that("N111: a `resolve` line is a failure as it stands, and explains the ma
 VN_HAND_DOC <- c("---", "title: \"a\"", "---", "", "````{.weft-values}",
                  "{\"weft\":1,\"values\":{\"depth\":{\"t\":\"float\",\"v\":\"12.5\"}}}", "````", "",
                  "Depth `depth`{.num} here.")
-VN_KNITR_DOC <- c("---", "title: \"b\"", "engine: knitr", "---", "",
-                  "```{r setup, include=FALSE}", "weft::weft_setup()", "weft::weft_put(depth = 12.5)", "```", "",
+# E2: R reads the prose name now, so the filter's named value (and the hooks' block) comes from the title
+VN_KNITR_DOC <- c("---", "title: \"b `depth`{.num}\"", "engine: knitr", "---", "",
+                  "```{r setup, include=FALSE}", "weft::weft_setup()", "depth <- 12.5", "```", "",
                   "Depth `depth`{.num} here.")
 
 vn_real <- function() {

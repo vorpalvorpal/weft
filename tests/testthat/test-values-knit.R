@@ -8,30 +8,48 @@ chunk <- function(label, ..., opts = "include=FALSE") {
   c(sprintf("```{r %s, %s}", label, opts), c(...), "```", "")
 }
 
+# E2 (BN1, BN6, TR1): R reads a named value in prose, so it publishes nothing for it. A named value in front matter
+# is the filter's, and the hooks publish its name: `fm_front(...)` is the `front` argument that forces a block.
+fm_front <- function(...) {
+  nm <- c(...)
+  sprintf('subtitle: "%s"', paste0("`", nm, "`{.num}", collapse = " "))
+}
+
 block_value <- function(b, name) b6_core(b$block$values[[name]])
 
 # ---- a block before the prose that uses the name (N43) ------------------------
 
-test_that("N43: a name the prose mentions, bound in a chunk, is published in a block before that prose", {
+test_that("E2 T1/T4: a name the prose mentions, bound in a chunk, is read by R: printed, and no block", {
   res <- b6_knit(c(
     chunk("calc", "depth <- 3.14159"),
     "The depth is `depth`{.num} metres."
   ))
+  b6_expect_knitted(res)
+  expect_length(res$blocks, 0L)
+  expect_true("The depth is 3.1 metres." %in% res$text)
+  expect_false(any(grepl("`depth`{", res$text, fixed = TRUE)))
+})
+
+test_that("N43: a name in front matter, bound in a chunk, is published in a block before the first prose", {
+  res <- b6_knit(c(
+    chunk("calc", "depth <- 3.14159"),
+    "The depth is stated above."
+  ), front = fm_front("depth"))
   b6_expect_knitted(res)
   expect_length(res$blocks, 1L)
   b <- res$blocks[[1]]
   expect_identical(b$block$weft, 1L)
   expect_identical(b$block$lang, "r")
   expect_identical(block_value(b, "depth"), b6_e_float("3.14159"))
-  prose <- b6_line(res$text, "The depth is")
+  prose <- b6_line(res$text, "The depth is stated")
   expect_false(is.na(prose))
   expect_true(b$close < prose)
-  # the construct is left for the filter, as written
+  # the front-matter construct is left for the filter, as written
   expect_true(any(grepl("`depth`{.num}", res$text, fixed = TRUE)))
 })
 
 test_that("N20: a block is fenced with four or more backticks, and its text is one line of JSON", {
-  res <- b6_knit(c(chunk("calc", "depth <- 1.5"), "Uses `depth`{.num}."))
+  res <- b6_knit(c(chunk("calc", "depth <- 1.5"), "Uses depth."), front = fm_front("depth"))
   b6_expect_knitted(res)
   expect_length(res$blocks, 1L)
   b <- res$blocks[[1]]
@@ -46,8 +64,8 @@ test_that("N43: each kind of R value the prose names is published as N47 says, w
     chunk("calc",
           "d <- 3.5", "n <- 4L", "ok <- TRUE", "site <- 'north'",
           "when <- as.Date('2026-11-13')", "vec <- c(a = 1L, b = 2L)", "gone <- NA_real_"),
-    "Names `d`{.num} `n`{.num} `ok`{.val} `site`{.val} `when`{.val} `vec`{.and} `gone`{.num}."
-  ))
+    "Names listed in the subtitle."
+  ), front = fm_front("d", "n", "ok", "site", "when", "vec", "gone"))
   b6_expect_knitted(res)
   expect_length(res$blocks, 1L)
   b <- res$blocks[[1]]
@@ -65,8 +83,8 @@ test_that("N43: each kind of R value the prose names is published as N47 says, w
 test_that("N43: a value N47 refuses is published as an error record, and the knit goes on", {
   res <- b6_knit(c(
     chunk("calc", "frame <- data.frame(a = 1)", "len <- units::set_units(5, 'm')", "fine <- 2L"),
-    "Names `frame`{.num} `len`{.num} `fine`{.num}."
-  ))
+    "Names listed in the subtitle."
+  ), front = fm_front("frame", "len", "fine"))
   b6_expect_knitted(res)
   expect_length(res$blocks, 1L)
   vals <- res$blocks[[1]]$block$values
@@ -100,27 +118,26 @@ test_that("N43: a name bound only in the last chunk, with no prose after, is pub
   res <- b6_knit(c(
     "Uses `tail_name`{.num}.", "",
     "End of prose.", "",
-    chunk("last", "tail_name <- 5", "weft::weft_put(extra = 1L)")
+    chunk("last", "tail_name <- 5")
   ))
   b6_expect_knitted(res)
   expect_length(res$blocks, 1L)
   b <- res$blocks[[1]]
-  # waiting and auto names go into the same block (N43)
-  expect_setequal(names(b$block$values), c("tail_name", "extra"))
+  expect_setequal(names(b$block$values), "tail_name")
   expect_true(b$open > b6_line(res$text, "End of prose."))
 })
 
 test_that("N43: a name is republished when its binding changes, and not when it does not", {
   res <- b6_knit(c(
     chunk("a", "depth <- 1", "other <- 10"),
-    "P1 `depth`{.num} `other`{.num}.", "",
+    "P1 text.", "",
     chunk("b", "other <- 20"),
-    "P2 `depth`{.num} `other`{.num}.", "",
+    "P2 text.", "",
     chunk("c", "depth <- 2"),
     "P3 text.", "",
     chunk("d", "other <- 20", "depth <- 2"),
     "P4 text."
-  ))
+  ), front = fm_front("depth", "other"))
   b6_expect_knitted(res)
   nm <- b6_block_names(res$blocks)
   expect_length(nm, 3L)
@@ -147,7 +164,7 @@ test_that("N43: a name with no binding in the knit environment publishes nothing
   expect_identical(nrow(res$knit$failures), 0L)
 })
 
-test_that("N43/N45: the names are found over the whole source: governor values and an included file", {
+test_that("E2 TR1/D7: a governor name in prose is never published; a named value in an included file is read by R", {
   res <- b6_knit(
     c(chunk("calc", "k <- 3L", "cmp <- 12", "other <- 5", "incname <- 'in'", "unused <- 1"),
       "A [one | many]{n=\"k\"} and [a | b]{if=\"cmp > 10, 'x' != 'y', other >= 2\"}.", "",
@@ -156,12 +173,24 @@ test_that("N43/N45: the names are found over the whole source: governor values a
     files = list("inc.Rmd" = "From the include: `incname`{.val}.")
   )
   b6_expect_knitted(res)
-  published <- unlist(b6_block_names(res$blocks))
-  expect_true(all(c("k", "cmp", "other", "incname") %in% published))
-  expect_false("unused" %in% published)
+  expect_length(res$blocks, 0L)
+  expect_true(any(grepl("From the include: in.", res$text, fixed = TRUE)))
 })
 
-test_that("N45: names inside a .weft-literal span are taken as any others, the knit does not fail, and the text stays", {
+test_that("E2 TR1: the names of a front-matter named value are published over an include as well", {
+  res <- b6_knit(
+    c(chunk("calc", "incname <- 'in'", "unused <- 1"),
+      "{{< include inc.Rmd >}}", "",
+      "After."),
+    files = list("inc.Rmd" = "From the include."),
+    front = fm_front("incname")
+  )
+  b6_expect_knitted(res)
+  published <- unlist(b6_block_names(res$blocks))
+  expect_identical(published, "incname")
+})
+
+test_that("N45: names inside a .weft-literal span are not read and not published, the knit does not fail, and the text stays", {
   res <- b6_knit(c(
     chunk("calc", "shown <- 2"),
     "Write [`shown`{.num}]{.weft-literal why=\"the syntax, not a value\"} to print it.", "",
@@ -171,63 +200,20 @@ test_that("N45: names inside a .weft-literal span are taken as any others, the k
   b6_expect_knitted(res)
   expect_identical(nrow(res$knit$failures), 0L)
   expect_true(any(grepl("`shown`{.num}", res$text, fixed = TRUE)))
-  # N45 reads the whole file text: the name is published (a name too many costs a few bytes)
-  expect_true("shown" %in% unlist(b6_block_names(res$blocks)))
+  # E2 TR1: the list is front matter, unresolved captions and names left at run time; none of these
+  expect_false("shown" %in% unlist(b6_block_names(res$blocks)))
 })
 
-# ---- N42: weft_put() in a knit ------------------------------------------------------
-
-test_that("N42: weft_put() in a chunk with include: false publishes, with `cell` the chunk's label, before the next prose", {
-  res <- b6_knit(c(
-    chunk("pub", "weft::weft_put(depth = 2.5)"),
-    "Next prose."
-  ))
-  b6_expect_knitted(res)
-  expect_length(res$blocks, 1L)
-  b <- res$blocks[[1]]
-  expect_identical(block_value(b, "depth"), b6_e_float("2.5"))
-  expect_identical(b$block$cell, "pub")
-  expect_true(b$close < b6_line(res$text, "Next prose."))
-})
-
-test_that("N40/N42: weft_put() returns invisible NULL in a knit", {
-  res <- b6_knit(c(
-    chunk("pub", "vv <- withVisible(weft::weft_put(a = 1L))",
-          "stopifnot(is.null(vv$value), !vv$visible)"),
-    "Next prose."
-  ))
-  b6_expect_knitted(res)
-  expect_identical(b6_block_names(res$blocks), list("a"))
-})
-
-test_that("N43: a name weft_put() published in the block wins over the auto value", {
-  res <- b6_knit(c(
-    chunk("calc", "depth <- 1", "weft::weft_put(depth = 99)"),
-    "Uses `depth`{.num}."
-  ))
-  b6_expect_knitted(res)
-  expect_length(res$blocks, 1L)
-  expect_identical(block_value(res$blocks[[1]], "depth"), b6_e_float("99"))
-})
-
-test_that("N26/N42: a name put twice while waiting is one entry, the later value", {
-  res <- b6_knit(c(
-    chunk("one", "weft::weft_put(n = 1L)"),
-    chunk("two", "weft::weft_put(n = 2L)"),
-    "Prose."
-  ))
-  b6_expect_knitted(res)
-  expect_length(res$blocks, 1L)
-  expect_identical(block_value(res$blocks[[1]], "n"), b6_e_int("2"))
-})
+# ---- E2: the N42 tests (weft_put() in a knit, waiting names, the asis write, a put wins, a claim put) are gone
+# with weft_put(); PB4 says where use-site checks went. N26 is kept through a front-matter name.
 
 test_that("N26: a name republished after a prose block is a new block with the new value", {
   res <- b6_knit(c(
-    chunk("one", "weft::weft_put(n = 1L)"),
+    chunk("one", "n <- 1L"),
     "Prose one.", "",
-    chunk("two", "weft::weft_put(n = 2L)"),
+    chunk("two", "n <- 2L"),
     "Prose two."
-  ))
+  ), front = fm_front("n"))
   b6_expect_knitted(res)
   expect_length(res$blocks, 2L)
   expect_identical(block_value(res$blocks[[1]], "n"), b6_e_int("1"))
@@ -236,57 +222,36 @@ test_that("N26: a name republished after a prose block is a new block with the n
   expect_true(b6_line(res$text, "Prose one.") < res$blocks[[2]]$open)
 })
 
-test_that("N42: in a results = asis chunk weft_put() writes the block at once, before the text the chunk prints", {
+test_that("N26/D4: a name assigned twice before one prose block is one entry, the later value", {
   res <- b6_knit(c(
-    chunk("pub", "weft::weft_put(depth = 2.5)",
-          "cat('The asis depth is `depth`{.num}.\\n')",
-          opts = "results='asis', echo=FALSE"),
-    "Later paragraph."
-  ))
+    chunk("one", "n <- 1L"),
+    chunk("two", "n <- 2L"),
+    "Prose."
+  ), front = fm_front("n"))
   b6_expect_knitted(res)
   expect_length(res$blocks, 1L)
-  b <- res$blocks[[1]]
-  expect_identical(block_value(b, "depth"), b6_e_float("2.5"))
-  expect_true(b$close < b6_line(res$text, "The asis depth is"))
-  # control: it was not also left waiting: the later prose has no second block
-  expect_true(b6_line(res$text, "Later paragraph.") > b$close)
-})
-
-test_that("N41/N42: a failing claim() put in a knit is recorded on the value and does not fail the knit", {
-  res <- b6_knit(c(
-    chunk("pub", "n <- 5", "weft::weft_put(n = claim(n, . > 10))"),
-    "Uses `n`{.num}."
-  ))
-  b6_expect_knitted(res)
-  expect_identical(nrow(res$knit$failures), 0L)
-  expect_length(res$blocks, 1L)
-  rec <- res$blocks[[1]]$block$values$n
-  expect_length(rec$checks, 1L)
-  expect_identical(rec$checks[[1]]$text, ". > 10")
-  expect_identical(rec$checks[[1]]$ok, FALSE)
+  expect_identical(block_value(res$blocks[[1]], "n"), b6_e_int("2"))
 })
 
 # ---- N130h: the end-of-document check, and R constructs in the same document ----------
 
-test_that("N130h: the end-of-document check does not fail on named constructs, which wait for the filter", {
+test_that("N130h: the end-of-document check does not fail on named constructs; R prints the bound ones, the rest wait", {
   res <- b6_knit(c(
     chunk("calc", "depth <- 3.14159", "sites <- c('a', 'b')"),
     "Named: `depth`{.num}, `sites`{.and}, `nobody`{digits=\"2\"}, `site`{.val}."
   ))
   b6_expect_knitted(res)
   expect_identical(nrow(res$knit$failures), 0L)
-  expect_true(any(grepl("`depth`{.num}", res$text, fixed = TRUE)))
-  expect_true(any(grepl("`sites`{.and}", res$text, fixed = TRUE)))
-  expect_true(any(grepl("`nobody`{digits=\"2\"}", res$text, fixed = TRUE)))
+  expect_true(any(grepl("Named: 3.1, a and b, `nobody`{digits=\"2\"}, `site`{.val}.", res$text, fixed = TRUE)))
 })
 
-test_that("N130h: R-expression constructs in the same document resolve as today, named ones stay", {
+test_that("N130h: named values and R-expression constructs in the same document both print", {
   res <- b6_knit(c(
     chunk("calc", "depth <- 3.14159"),
     "R says `r depth`{.num digits=\"2\"}, the name says `depth`{.num digits=\"2\"}."
   ))
   b6_expect_knitted(res)
-  expect_true("R says 3.14, the name says `depth`{.num digits=\"2\"}." %in% res$text)
+  expect_true("R says 3.14, the name says 3.14." %in% res$text)
   expect_identical(nrow(res$knit$failures), 0L)
 })
 
@@ -301,17 +266,17 @@ test_that("N130h: a failure of an R construct is still reported with named const
 # ---- N48: run and time in a knit --------------------------------------------------------
 
 test_that("N48: the block's run is .weft/run from the document's folder, else WEFT_RUN, else null", {
-  src <- c(chunk("calc", "depth <- 1"), "Uses `depth`{.num}.")
+  src <- c(chunk("calc", "depth <- 1"), "Uses depth.")
   res <- b6_knit(src, files = list(".weft/run" = c("run-file-9", "second")),
-                 env = c(WEFT_RUN = "run-env"))
+                 env = c(WEFT_RUN = "run-env"), front = fm_front("depth"))
   b6_expect_knitted(res)
   expect_identical(res$blocks[[1]]$block$run, "run-file-9")
 
-  res <- b6_knit(src, env = c(WEFT_RUN = "run-env"))
+  res <- b6_knit(src, env = c(WEFT_RUN = "run-env"), front = fm_front("depth"))
   b6_expect_knitted(res)
   expect_identical(res$blocks[[1]]$block$run, "run-env")
 
-  res <- b6_knit(src)
+  res <- b6_knit(src, front = fm_front("depth"))
   b6_expect_knitted(res)
   expect_null(res$blocks[[1]]$block$run)
   expect_match(res$blocks[[1]]$text, "\"run\":null", fixed = TRUE)
@@ -319,11 +284,12 @@ test_that("N48: the block's run is .weft/run from the document's folder, else WE
 
 test_that("N48: the run is read at each publish, so a change between two blocks shows", {
   res <- b6_knit(
-    c(chunk("one", "weft::weft_put(a = 1L)"),
+    c(chunk("one", "a <- 1L"),
       "P1.", "",
-      chunk("two", "writeLines('run-two', '.weft/run')", "weft::weft_put(b = 2L)"),
+      chunk("two", "writeLines('run-two', '.weft/run')", "b <- 2L"),
       "P2."),
-    files = list(".weft/run" = "run-one")
+    files = list(".weft/run" = "run-one"),
+    front = fm_front("a", "b")
   )
   b6_expect_knitted(res)
   expect_length(res$blocks, 2L)
@@ -333,7 +299,7 @@ test_that("N48: the run is read at each publish, so a change between two blocks 
 
 test_that("N21/N48: `at` is whole seconds since 1970 at the time of the publish", {
   before <- as.numeric(Sys.time())
-  res <- b6_knit(c(chunk("calc", "depth <- 1"), "Uses `depth`{.num}."))
+  res <- b6_knit(c(chunk("calc", "depth <- 1"), "Uses depth."), front = fm_front("depth"))
   after <- as.numeric(Sys.time())
   b6_expect_knitted(res)
   at <- res$blocks[[1]]$block$at
@@ -344,12 +310,12 @@ test_that("N21/N48: `at` is whole seconds since 1970 at the time of the publish"
 # ---- draft mode --------------------------------------------------------------------------
 
 test_that("draft mode: the blocks are written as usual, and a failed claim in a chunk still stops the knit (decision 36)", {
-  res <- b6_knit(c(chunk("calc", "depth <- 3.14159"), "Uses `depth`{.num}."), draft = TRUE)
+  res <- b6_knit(c(chunk("calc", "depth <- 3.14159"), "Uses depth."), draft = TRUE, front = fm_front("depth"))
   b6_expect_knitted(res)
   expect_length(res$blocks, 1L)
   expect_identical(block_value(res$blocks[[1]], "depth"), b6_e_float("3.14159"))
   # a failed check in chunk code is left alone in draft mode: it stops the knit either way
-  src <- c(chunk("calc", "depth <- 3.14159", "claim(2, . > 10)"), "Uses `depth`{.num}.")
+  src <- c(chunk("calc", "depth <- 3.14159", "claim(2, . > 10)"), "Uses depth.")
   expect_true(b6_knit(src, draft = TRUE)$failed)
   expect_true(b6_knit(src, draft = FALSE)$failed)
 })

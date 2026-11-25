@@ -1,5 +1,5 @@
 # Package 6b, rules N20 to N22, N45 and N47 (dev/design-6.md): the record an R
-# value becomes, as the JSON weft_put() writes it. Outside a knit weft_put()
+# value becomes, as the JSON values_block() writes it. values_block()
 # returns the block's text (N44), which b6_parse() reads. Helpers: helper-6b.R.
 
 # N47's number rule, written out: the first of %.15g, %.16g, %.17g that reads
@@ -20,7 +20,7 @@ test_that("N47: logical scalars are bool records, with JSON true and false", {
   b6_expect_rec(TRUE, b6_e_bool(TRUE))
   b6_expect_rec(FALSE, b6_e_bool(FALSE))
   # the JSON text itself holds the bare words, not strings
-  expect_match(b6_text(weft::weft_put(v = TRUE)), "\"v\":{\"t\":\"bool\",\"v\":true}",
+  expect_match(b6_text(weft:::values_block(v = TRUE)), "\"v\":{\"t\":\"bool\",\"v\":true}",
                fixed = TRUE)
 })
 
@@ -29,7 +29,7 @@ test_that("N47: an integer scalar is an int record, its digits as a string", {
   b6_expect_rec(-3L, b6_e_int("-3"))
   b6_expect_rec(0L, b6_e_int("0"))
   b6_expect_rec(.Machine$integer.max, b6_e_int("2147483647"))
-  expect_match(b6_text(weft::weft_put(v = 5L)), "\"v\":{\"t\":\"int\",\"v\":\"5\"}",
+  expect_match(b6_text(weft:::values_block(v = 5L)), "\"v\":{\"t\":\"int\",\"v\":\"5\"}",
                fixed = TRUE)
 })
 
@@ -81,7 +81,7 @@ test_that("N47: a string with quotes, a newline, a backslash and non-ASCII text 
   expect_identical(rec$t, "string")
   expect_identical(rec$v, s)
   # one line, so a backtick run inside cannot close the four-backtick fence (N20)
-  txt <- weft::weft_put(v = s)
+  txt <- weft:::values_block(v = s)
   expect_false(grepl("\n", b6_text(txt), fixed = TRUE))
 })
 
@@ -194,8 +194,8 @@ test_that("N29/E42: a vector of 10000 elements is published, one of 10001 is ref
   rec <- b6_rec(seq_len(10000))
   expect_identical(rec$t, "list")
   expect_length(rec$v, 10000L)
-  expect_error(weft::weft_put(big = seq_len(10001)), class = "weft_values_error")
-  err <- tryCatch(weft::weft_put(big = seq_len(10001)), weft_values_error = function(e) e)
+  expect_error(weft:::values_block(big = seq_len(10001)), class = "weft_values_error")
+  err <- tryCatch(weft:::values_block(big = seq_len(10001)), weft_values_error = function(e) e)
   expect_match(conditionMessage(err), "is a list of 10001 elements; weft publishes at most 10000",
                fixed = TRUE)
   expect_match(conditionMessage(err), "big", fixed = TRUE)
@@ -215,8 +215,8 @@ test_that("N47: a bit64 integer64 is an int record, its digits", {
 
 test_that("E44: a units quantity is refused, with its message and the weft_values_error class", {
   u <- units::set_units(5, "m")
-  expect_error(weft::weft_put(depth = u), class = "weft_values_error")
-  err <- tryCatch(weft::weft_put(depth = u), weft_values_error = function(e) e)
+  expect_error(weft:::values_block(depth = u), class = "weft_values_error")
+  err <- tryCatch(weft:::values_block(depth = u), weft_values_error = function(e) e)
   expect_s3_class(err, "weft_error")
   expect_match(conditionMessage(err), "depth", fixed = TRUE)
   expect_match(conditionMessage(err),
@@ -244,7 +244,7 @@ test_that("E45: a data frame, a list, a POSIXct and a function are error records
 })
 
 test_that("E45: a refusal of one name does not stop the other names of the call", {
-  blk <- b6_parse(weft::weft_put(ok = 1L, bad = data.frame(a = 1), also = "x"))
+  blk <- b6_parse(weft:::values_block(ok = 1L, bad = data.frame(a = 1), also = "x"))
   expect_identical(blk$values$ok$t, "int")
   expect_identical(blk$values$bad$t, "error")
   expect_identical(blk$values$also$t, "string")
@@ -253,7 +253,7 @@ test_that("E45: a refusal of one name does not stop the other names of the call"
 # ---- the JSON written ---------------------------------------------------------
 
 test_that("N20/N21: the block is one JSON object of schema 1, valid, with the fixed key order", {
-  txt <- b6_text(weft::weft_put(depth = 3.14159))
+  txt <- b6_text(weft:::values_block(depth = 3.14159))
   expect_true(jsonlite::validate(txt))
   blk <- b6_read_json(txt)
   expect_identical(blk$weft, 1L)
@@ -270,7 +270,7 @@ test_that("N20/N21: the block is one JSON object of schema 1, valid, with the fi
 
 test_that("N21: `at` is whole seconds since 1970 (an integer number in the JSON)", {
   before <- as.numeric(Sys.time())
-  txt <- b6_text(weft::weft_put(a = 1))
+  txt <- b6_text(weft:::values_block(a = 1))
   after <- as.numeric(Sys.time())
   expect_match(txt, "\"at\":[0-9]+[,}]")
   at <- b6_read_json(txt)$at
@@ -278,8 +278,8 @@ test_that("N21: `at` is whole seconds since 1970 (an integer number in the JSON)
 })
 
 test_that("N20: the same call twice gives the same text, apart from the time", {
-  a <- b6_text(weft::weft_put(x = 1.5, y = "s", z = c(1L, 2L)))
-  b <- b6_text(weft::weft_put(x = 1.5, y = "s", z = c(1L, 2L)))
+  a <- b6_text(weft:::values_block(x = 1.5, y = "s", z = c(1L, 2L)))
+  b <- b6_text(weft:::values_block(x = 1.5, y = "s", z = c(1L, 2L)))
   strip <- function(s) sub("\"at\":[0-9]+", "\"at\":0", s)
   expect_identical(strip(a), strip(b))
   # a record of a list keeps t, v, of in a fixed order too

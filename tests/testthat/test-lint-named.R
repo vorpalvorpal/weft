@@ -314,7 +314,7 @@ test_that("N144: it is a tier-2 rule: tier 1 alone does not list it", {
 })
 
 test_that("N144: a chunk of any language that mentions the name, as a whole-word token, silences it", {
-  for (chunks in list(w6d_py("depth = 12"), w6d_jl("depth = 12"), w6d_r("weft_put(depth = 12)"),
+  for (chunks in list(w6d_py("depth = 12"), w6d_jl("depth = 12"), w6d_r("depth <- 12"),
                       w6d_py("put(depth=12)"), w6d_py("print(\"depth\")"), w6d_py("depth.x = 1"),
                       w6d_py(c("x = 1", "depth = 12")))) {
     expect_identical(nrow(nu(chunks = chunks)), 0L, label = paste(chunks, collapse = " | "))
@@ -381,10 +381,10 @@ test_that("N144: in a knitr document only named values are the filter's: a hooks
   rmd <- function(body, chunks = character()) w6d_find(c(body, if (length(chunks)) c("", chunks)),
                                                        "named-unpublished", name = "a.Rmd")
   x <- rmd(NU_BODY)
-  expect_identical(w6d_msgs(x), W6D_E70("depth"))
-  expect_identical(nrow(rmd(NU_BODY, w6d_r("weft_put(depth = 12)"))), 0L)
+  expect_identical(w6d_msgs(x), W6D_E70("depth", knitr = TRUE))
+  expect_identical(nrow(rmd(NU_BODY, w6d_r("depth <- 12"))), 0L)
   # control: a hooks span's governor name is not a name used by the filter
-  y <- rmd(c(NU_BODY, "", r"{The level [rose | fell]{if="ok"} again.}"), w6d_r("weft_put(depth = 12)"))
+  y <- rmd(c(NU_BODY, "", r"{The level [rose | fell]{if="ok"} again.}"), w6d_r("depth <- 12"))
   expect_identical(nrow(y), 0L)
 })
 
@@ -446,7 +446,7 @@ test_that("N145: a chunk that shows its output, or is not executed, or only hide
 })
 
 test_that("N145: a hidden chunk in a knitr document is harmless (D9): no finding", {
-  expect_identical(nrow(ph("weft_put(n = 1)", "include: false", engine = "r", front = "engine: knitr")), 0L)
+  expect_identical(nrow(ph("n <- 1", "include: false", engine = "r", front = "engine: knitr")), 0L)
   expect_identical(nrow(ph("put(n = 1)", "include: false", engine = "python", front = "engine: knitr")), 0L)
 })
 

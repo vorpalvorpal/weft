@@ -67,16 +67,20 @@ test_that("N14, N92: in a document that is not knitr (a .md, a .qmd with no R) t
 
 # ---- N130h, N131h, N132h: both kinds in one knitr .qmd, rendered once ---------------------------------------
 
+# E2: `lim` is bound in R now (no weft_put()) and stands only in the title, which the filter resolves with the
+# value the hooks publish for it (BN6, TR1); `depth` and `pb` are in prose, so R reads them (hooks entries).
+# design ambiguity: the design says the title "gains `lim`" and the prose keeps it; a name in both places would make
+# two `value|lim|1` ledger keys, so the prose here drops `lim`.
 CK_QMD <- function(lim = "20L") {
-  c("---", "title: \"t\"", "engine: knitr", "---", "",
+  c("---", "title: \"Limit `lim`{.num}\"", "engine: knitr", "---", "",
     "```{r setup, include=FALSE}",
     "weft::weft_setup()",
     "hk <- 12.5", "pa <- 1/3", "pb <- 1/3", "n_sites <- 4L", "rising <- TRUE", "depth <- 3.5",
-    sprintf("weft::weft_put(lim = %s)", lim),
+    sprintf("lim <- %s", lim),
     "```", "",
     "## Data", "",
     "Hooks `r hk`{.num} and `r pa`{.num} here.", "",
-    "Named `depth`{.num}, `lim`{.num} and `pb`{.num}. Found [one site | # sites]{n=\"n_sites\"} here. [up | down]{if=\"rising\"} ok.",
+    "Named `depth`{.num} and `pb`{.num}. Found [one site | # sites]{n=\"n_sites\"} here. [up | down]{if=\"rising\"} ok.",
     "")
 }
 
@@ -133,7 +137,7 @@ test_that("N110, N130h: both kinds in one document give one stamp, with writers 
   expect_identical(s$source, "doc.qmd")
   expect_identical(s$run, "R1")
   expect_identical(unlist(s$writers), c("knit", "filter"))
-  expect_identical(s$named, 3L)             # depth, lim, pb: the hooks' own constructs are not counted
+  expect_identical(s$named, 1L)             # lim in the title: the one named value the filter resolves (E2)
   expect_true(isTRUE(s$fresh))              # every block was written in this run
   expect_identical(s$failures, list())
   expect_gte(s$checks, 4)                   # the hooks' three constructs, and at least one of the filter's
@@ -148,7 +152,7 @@ test_that("N112, N113, N130h: one ledger file holds the hooks' entries and the f
   es <- led$entries
   expect_setequal(g6_keys(es), CK_KEYS)
   for (e in es) {
-    mine <- e$kind == "value" && e$expr %in% c("depth", "lim", "pb")
+    mine <- e$kind == "value" && e$expr == "lim"       # the title's: depth and pb are read by R now
     expect_identical(identical(e$writer, "filter"), mine, label = paste(e$kind, e$expr))
   }
   expect_identical(g6_pick(es, "value", "depth", 1)$text, "3.5")
@@ -162,7 +166,8 @@ test_that("N112, N113, N130h: one ledger file holds the hooks' entries and the f
   expect_identical(order(f, s, k, x, o, method = "radix"), seq_along(es))
 })
 
-test_that("N131h: an R double published and used by name prints what `r x`{.num} prints", {
+# E2 T1: R reads the name, so `pb` and `pa` (the same value) print the same text, with no publishing
+test_that("N131h: an R double used by name prints what `r x`{.num} prints", {
   fx <- ck_two_renders()
   es <- fx$led1$entries
   expect_false(is.null(es))
@@ -170,7 +175,7 @@ test_that("N131h: an R double published and used by name prints what `r x`{.num}
   by_name <- g6_pick(es, "value", "pb", 1)$text
   expect_identical(by_name, by_hooks)
   txt <- gsub("<[^>]+>", "", fx$html1)
-  expect_true(grepl(paste0("Named 3.5, 20 and ", by_name), txt, fixed = TRUE))
+  expect_true(grepl(paste0("Named 3.5 and ", by_name), txt, fixed = TRUE))
   expect_true(grepl(paste0("and ", by_hooks, " here"), txt, fixed = TRUE))
 })
 
@@ -197,21 +202,20 @@ test_that("N112: a second render replaces only the filter's entries: hooks' line
   s <- g6_json(fx$stamp2)
   expect_identical(s$run, "R2")
   expect_identical(unlist(s$writers), c("knit", "filter"))
-  expect_identical(s$named, 3L)
+  expect_identical(s$named, 1L)
   expect_true(isTRUE(s$fresh))
   expect_identical(list.files(file.path(fx$root, ".weft", "stamps")), "doc.qmd.json")
 })
 
 # ---- N133h: double reporting ---------------------------------------------------------------------------------
 
-CK_FAIL_QMD <- c("---", "title: \"t\"", "engine: knitr", "---", "",
+# E2: `gone` is never set, in the title, so the filter (not the hooks) fails it "no value"
+CK_FAIL_QMD <- c("---", "title: \"Gone `gone`{.num}\"", "engine: knitr", "---", "",
                  "```{r setup, include=FALSE}",
                  "weft::weft_setup()",
                  "depth <- 7",
-                 "weft::weft_put(gone = NA_real_)",
                  "```", "",
-                 "The depth is `r claim(depth, . > 10)` here.", "",
-                 "Gone `gone`{.num} here.", "")
+                 "The depth is `r claim(depth, . > 10)` here.", "")
 
 test_that("N133h: in a project render both resolvers' failures go to the one post-render report", {
   root <- ck_project(list("doc.qmd" = CK_FAIL_QMD))

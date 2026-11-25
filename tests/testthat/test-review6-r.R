@@ -198,14 +198,14 @@ test_that("review-6 #14: the same for an integer, a string, a logical and a Date
                    "{\"t\":\"list\",\"v\":[{\"t\":\"date\",\"v\":\"2026-11-13\"}],\"of\":\"date\",\"keys\":[\"when\"]}")
 })
 
-test_that("review-6 #14: through weft_put() the record is a list of one with its key, and the key is the vector's name, not the argument's", {
+test_that("review-6 #14: through values_block() the record is a list of one with its key, and the key is the vector's name, not the argument's", {
   rec <- b6_rec(c(depth = 3.5))
   expect_identical(rec$t, "list")
   expect_identical(unlist(rec$keys), "depth")
   expect_identical(rec$of, "float")
   expect_length(rec$v, 1L)
   expect_identical(rec$v[[1]]$v, "3.5")
-  blk <- b6_parse(weft::weft_put(alpha = c(depth = 3.5)))
+  blk <- b6_parse(weft:::values_block(alpha = c(depth = 3.5)))
   expect_identical(unlist(blk$values$alpha$keys), "depth")
 })
 
@@ -272,8 +272,8 @@ test_that("review-6 #15: values_record() of a complex and of a raw is an error r
   }
 })
 
-test_that("review-6 #15: weft_put() of them behaves as E45 says: an error record, the other names still published", {
-  blk <- b6_parse(weft::weft_put(ok = 1L, z = 1 + 2i, r = as.raw(255), also = "x"))
+test_that("review-6 #15: values_block() of them behaves as E45 says: an error record, the other names still published", {
+  blk <- b6_parse(weft:::values_block(ok = 1L, z = 1 + 2i, r = as.raw(255), also = "x"))
   expect_identical(blk$values$ok$t, "int")
   expect_identical(blk$values$also$t, "string")
   expect_identical(blk$values$z$t, "error")
@@ -282,16 +282,16 @@ test_that("review-6 #15: weft_put() of them behaves as E45 says: an error record
   expect_identical(blk$values$r$why, paste("{S}", E45_6("raw")))
 })
 
-test_that("review-6 #15: in a knit, a complex the prose names is an error record at the name", {
-  res <- b6_knit(c(
-    "```{r calc, include=FALSE}", "z <- 1 + 2i", "```", "",
-    "Uses `z`{.val}."
-  ))
-  b6_expect_knitted(res)
-  expect_length(res$blocks, 1L)
-  rec <- res$blocks[[1]]$block$values$z
-  expect_identical(rec$t, "error")
-  expect_identical(rec$why, paste("{S}", E45_6("complex")))
+# E2 (T1, BN3): R reads the name, so a complex fails as `r z`{.num} does; nothing is published for it
+test_that("review-6 #15: in a knit, a complex the prose names fails with the kind `r z` gives, shown as the named value", {
+  chunk_z <- c("```{r calc, include=FALSE}", "z <- 1 + 2i", "```", "")
+  named <- b6_knit(c(chunk_z, "Uses `z`{.num}."))
+  inline <- b6_knit(c(chunk_z, "Uses `r z`{.num}."))
+  expect_true(inline$failed)
+  expect_true(named$failed)
+  expect_identical(named$knit$failures$kind, inline$knit$failures$kind)
+  expect_match(named$message, "`z`{.num}", fixed = TRUE)
+  expect_length(named$blocks, 0L)
 })
 
 test_that("review-6 #15 control: the kinds N47 lists are still records", {
@@ -319,21 +319,21 @@ test_that("review-6 #17: R finds .weft/run in the document's folder and 8 parent
   for (depth in c(0L, 1L, 7L, 8L)) {
     tr <- run6_tree(depth)
     withr::local_dir(tr$here)
-    expect_identical(b6_parse(weft::weft_put(a = 1))$run, "run-file", label = paste("depth", depth))
+    expect_identical(b6_parse(weft:::values_block(a = 1))$run, "run-file", label = paste("depth", depth))
   }
   tr <- run6_tree(9L)
   withr::local_dir(tr$here)
-  expect_null(b6_parse(weft::weft_put(a = 1))$run)
+  expect_null(b6_parse(weft:::values_block(a = 1))$run)
 })
 
 test_that("review-6 #17: R takes the file before WEFT_RUN; beyond the search the env is used", {
   withr::local_envvar(c(WEFT_RUN = "env-run"))
   tr <- run6_tree(8L)
   withr::local_dir(tr$here)
-  expect_identical(b6_parse(weft::weft_put(a = 1))$run, "run-file")
+  expect_identical(b6_parse(weft:::values_block(a = 1))$run, "run-file")
   tr9 <- run6_tree(9L)
   withr::local_dir(tr9$here)
-  expect_identical(b6_parse(weft::weft_put(a = 1))$run, "env-run")
+  expect_identical(b6_parse(weft:::values_block(a = 1))$run, "env-run")
 })
 
 test_that("review-6 #17: Python and Julia look the same way (depth 8 found, 9 not; the file before WEFT_RUN)", {
