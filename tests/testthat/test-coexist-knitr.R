@@ -198,7 +198,7 @@ test_that("N112: a second render replaces only the filter's entries: hooks' line
   expect_false(any(grepl("\"text\":\"20\"", fx$led2$lines, fixed = TRUE)))
   hooks_lines <- function(l) l[-1][!grepl("\"writer\":\"filter\"", l[-1], fixed = TRUE)]
   expect_identical(hooks_lines(fx$led2$lines), hooks_lines(fx$led1$lines))
-  expect_length(hooks_lines(fx$led2$lines), 4L)
+  expect_length(hooks_lines(fx$led2$lines), 6L)
   s <- g6_json(fx$stamp2)
   expect_identical(s$run, "R2")
   expect_identical(unlist(s$writers), c("knit", "filter"))

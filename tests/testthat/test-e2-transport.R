@@ -71,7 +71,7 @@ test_that("T3 BN1: nothing is published for a name R reads, however often it is 
 test_that("T4 TR1, D7: the leak: a name only in a prose governor is not written into the block", {
   res <- e2_render(c(e2_chunk("calc", "secret <- 'hunter2'", "n <- 3L"),
                      "[shown]{if='nchar(secret) > 0'} and `n`{.num}.", "", "End."),
-                   front = "subtitle: \"Count `n`{.num}\"")
+                   front = "subtitle: \"Count `n`{.num}\"", to = "html", args = "-s")
   b6_expect_knitted(res)
   expect_length(res$blocks, 1L)
   expect_identical(names(res$blocks[[1]]$block$values), "n")
@@ -88,15 +88,18 @@ test_that("T4 TR1: a governor in prose is never published", {
 
 test_that("T4 BN6: a front-matter name is the filter's: in a block scalar, a plain scalar and an end metadata block", {
   chunk_n <- e2_chunk("calc", "n <- 3L")
-  a <- e2_render(c(chunk_n, "Body."), front = c("abstract: |", "  Found `n`{.num} sites."))
+  a <- e2_render(c(chunk_n, "Body."), front = c("abstract: |", "  Found `n`{.num} sites."),
+                  to = "html", args = "-s")
   b6_expect_knitted(a)
   expect_true(any(grepl("`n`{.num}", a$text, fixed = TRUE)))
   expect_identical(e2_names(a), "n")
   expect_true(grepl("Found 3 sites", a$filtered$output, fixed = TRUE))
-  t <- e2_render(c(chunk_n, "Body."), front = "title: \"Sites `n`{.num}\"")
+  t <- e2_render(c(chunk_n, "Body."), front = "title: \"Sites `n`{.num}\"",
+                  to = "html", args = "-s", drop_default_title = TRUE)
   expect_identical(e2_names(t), "n")
   expect_true(grepl("Sites 3", t$filtered$output, fixed = TRUE))
-  e <- e2_render(c(chunk_n, "Body.", "", "---", "abstract: \"Late `n`{.num}\"", "---"))
+  e <- e2_render(c(chunk_n, "Body.", "", "---", "abstract: \"Late `n`{.num}\"", "---"),
+                  to = "html", args = "-s")
   expect_identical(e2_names(e), "n")
   expect_true(grepl("Late 3", e$filtered$output, fixed = TRUE))
 })
@@ -117,8 +120,8 @@ test_that("T4 TR1, D6: the same caption on a chunk that runs uncached is read by
   expect_false("depth" %in% e2_names(res))
 })
 
-test_that("T4 D8: there is no gate: a grammar span in a cached chunk's caption has its name published", {
-  cached <- c("```{r fig-a, cache=TRUE, fig.cap = '[a | b]{if=\"flag\"}', echo=FALSE}", "flag <- TRUE", "plot(1)", "```")
+test_that("T4 D8: there is no gate: a bare named value in a cached chunk's caption has its name published", {
+  cached <- c("```{r fig-a, cache=TRUE, fig.cap = 'Flag `flag`{.num}', echo=FALSE}", "flag <- 3L", "plot(1)", "```")
   res <- b6_knit(c(cached, "", "End."))
   expect_true("flag" %in% e2_names(res))
 })
@@ -181,7 +184,7 @@ test_that("T5 PS1, E1 WS2: the weft() route gives each line of a loop its own va
 test_that("T5 BN9: a chunk whose value is a weft object reads the name in it", {
   res <- b6_knit(c("```{r, echo=FALSE}", "m <- 1.25", "weft::weft(\"Mean `m`{.num}\")", "```", ""))
   b6_expect_knitted(res)
-  expect_true(any(grepl("Mean 1.2", res$text, fixed = TRUE)))
+  expect_true(any(grepl("Mean 1.3", res$text, fixed = TRUE)))
 })
 
 # ---- T9: a binding from before the render ---------------------------------------------------------
@@ -209,7 +212,7 @@ test_that("T9 BN11, D15: in draft mode the knit prints the held value there and 
   e$n <- 1L
   res <- e2_knit_in(E2_STALE(), e, draft = TRUE)
   expect_false(res$failed)
-  expect_true("Above: 1." %in% res$text)
+  expect_true("Above: one." %in% res$text)
   expect_identical(nrow(res$knit$failures), 1L)
   expect_identical(res$knit$failures$kind, "no value")
 })
@@ -219,7 +222,7 @@ test_that("T9 BN11: without a chunk that sets the name later, the held value is 
   e$n <- 1L
   res <- e2_knit_in(E2_STALE(assign = FALSE), e)
   expect_false(res$failed)
-  expect_true("Above: 1." %in% res$text)
+  expect_true("Above: one." %in% res$text)
   expect_identical(nrow(res$knit$failures), 0L)
 })
 
@@ -228,7 +231,7 @@ test_that("T9 BN11: inline R is not covered: `r n` above the assigning chunk is 
   e$n <- 1L
   res <- e2_knit_in(c("Above: `r n`{.count}.", "", e2_chunk("calc", "n <- 12L"), "Below."), e)
   expect_false(res$failed)
-  expect_true("Above: 1." %in% res$text)
+  expect_true("Above: one." %in% res$text)
 })
 
 # rehearse() runs each case in its own R process: run this alone

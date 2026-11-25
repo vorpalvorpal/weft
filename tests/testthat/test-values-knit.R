@@ -168,7 +168,7 @@ test_that("E2 TR1/D7: a governor name in prose is never published; a named value
   res <- b6_knit(
     c(chunk("calc", "k <- 3L", "cmp <- 12", "other <- 5", "incname <- 'in'", "unused <- 1"),
       "A [one | many]{n=\"k\"} and [a | b]{if=\"cmp > 10, 'x' != 'y', other >= 2\"}.", "",
-      "{{< include inc.Rmd >}}", "",
+      "```{r, child=\"inc.Rmd\"}", "```", "",
       "After."),
     files = list("inc.Rmd" = "From the include: `incname`{.val}.")
   )

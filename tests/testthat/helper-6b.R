@@ -161,9 +161,11 @@ b6_write_doc <- function(lines, name = "doc.Rmd", dir = NULL, extra = list()) {
 # ---- E2 (dev/design-e2.md): the knit, then the filter on its markdown --------------------------------
 
 # the knit, then the filter on its markdown, as a knitr document (2.13.13)
-e2_render <- function(lines, ..., to = "plain") {
+e2_render <- function(lines, ..., to = "plain", args = character(), drop_default_title = FALSE) {
   k <- b6_knit(lines, ...)
-  k$filtered <- filter_md(k$text, name = "doc.Rmd", to = to)
+  txt <- k$text
+  if (drop_default_title) txt <- txt[txt != "title: \"t\""]
+  k$filtered <- filter_md(txt, name = "doc.Rmd", to = to, args = args)
   k
 }
 

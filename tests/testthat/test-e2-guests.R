@@ -73,7 +73,7 @@ test_that("T7 TR4: auto() publishes a changed Python name at the end of its chun
 test_that("T7 TR4: auto() asks for the names of named values and of governors in Python or Julia code, not a prose governor", {
   res <- e2_py(c(pychunk("a1", c("from weft import auto", "auto()"), "include=FALSE"),
                  pychunk("a2", c("secret = 'x'", "shown = 4"), "include=FALSE"),
-                 "[a | b]{if=\"nchar(secret) > 0\"} and `shown`{.num}."))
+                 "[a | b]{if=\"nchar(py$secret) > 0\"} and `shown`{.num}."))
   expect_false("secret" %in% e2_names(res))
   expect_true("shown" %in% e2_names(res))
 })

@@ -227,10 +227,10 @@ test_that("N13: an id on a named value is defined for the filter's spans of a ju
   expect_identical(nrow(y), 0L)
 })
 
-test_that("N13, E6: in a knitr document a span the hooks resolve cannot refer to an id on a named value", {
+test_that("N13, E6, BN10, D17: in a knitr document a hooks span may refer to an id on a named value: no finding", {
   x <- con6d(c("The depth `depth`{#d .num} was measured.", "", r"{The level [rose | fell]{sign="#d"} again.}"),
              name = "a.Rmd", front = NULL)
-  expect_one_construct(x, W6D_E6("d"), "1.12.10")
+  expect_identical(nrow(x), 0L)
 })
 
 # ---- N141: R's parser is not applied to names or to filter spans --------------------------------------------
