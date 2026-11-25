@@ -100,7 +100,8 @@ sign, which the \code{pdf()} device cannot draw: for a plot with weft text that
 is saved as PDF, use \code{cairo_pdf()} or a ragg device.
 
 \code{cat()} in a \code{results = "asis"} chunk writes plain text; to write markdown,
-print the object or use \code{cat(format(x, target = "markdown"))}.
+leave the object as a top-level value in a chunk (knitr then calls \code{knit_print()})
+or use \code{cat(format(x, target = "markdown"))}; an explicit \code{print()} writes plain text.
 }
 \section{In the console and in cli}{
 
@@ -141,7 +142,7 @@ signalled at the call and the object is returned.
 
 Outside a knit, the configuration is that of the project root of the working
 directory (the nearest folder upward that holds \verb{_weft.yml}, else
-\verb{_quarto.yml}, else the working directory). It is read once and kept for the
+\verb{_quarto.yml} or \verb{_quarto.yaml}, else the working directory). It is read once and kept for the
 session, and read again when \verb{_weft.yml} appears, disappears or changes size
 or modification time. A \verb{_weft.yml} with an error is a \code{weft_config_error}.
 

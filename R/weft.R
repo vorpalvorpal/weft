@@ -33,7 +33,8 @@
 #' is saved as PDF, use `cairo_pdf()` or a ragg device.
 #'
 #' `cat()` in a `results = "asis"` chunk writes plain text; to write markdown,
-#' print the object or use `cat(format(x, target = "markdown"))`.
+#' leave the object as a top-level value in a chunk (knitr then calls `knit_print()`)
+#' or use `cat(format(x, target = "markdown"))`; an explicit `print()` writes plain text.
 #'
 #' @section In the console and in cli:
 #' The console form of a `weft` text is its plain text with emphasis in italic,
@@ -74,7 +75,7 @@
 #'
 #' Outside a knit, the configuration is that of the project root of the working
 #' directory (the nearest folder upward that holds `_weft.yml`, else
-#' `_quarto.yml`, else the working directory). It is read once and kept for the
+#' `_quarto.yml` or `_quarto.yaml`, else the working directory). It is read once and kept for the
 #' session, and read again when `_weft.yml` appears, disappears or changes size
 #' or modification time. A `_weft.yml` with an error is a `weft_config_error`.
 #'

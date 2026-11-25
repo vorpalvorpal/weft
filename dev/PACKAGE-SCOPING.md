@@ -3015,7 +3015,9 @@ a top-level expression, which knitr gives to `knit_print()`, or write
 `cat(format(x, target = "markdown"))`.
 `knitr::kable(caption = weft(...))` gets the plain text. A ggplot2 title keeps
 the object and draws its plain text. A formula in the markup keeps its TeX in the
-plain form (1.4.24): a plot that needs one uses plotmath.
+plain form (1.4.24): a plot that needs one uses plotmath. The plain text uses superscripts, the minus
+sign and other characters outside Latin-1, which the default `pdf()` device cannot draw; use
+`cairo_pdf()` or a ragg device for plots with weft text.
 
 **3.6.5** A string given to `weft()` is prose wherever it is called from. During
 a knit with weft's hooks installed, a failed check, a missing value, a value
@@ -3075,7 +3077,8 @@ and `as.character(x)` are always plain.
 cli's value colour; `{x}` gives the plain text. A `weft` text given to cli as a value is never read
 as a cli template, so braces in it are text. Given as the template itself (`cli_inform(x)`), it is
 read by cli, which evaluates what it finds in braces: pass it as `"{x}"`. Markup is not written into
-a cli template: it is resolved by `weft()` first.
+a cli template: it is resolved by `weft()` first. Use `{.val {w}}` with the substitution alone;
+`{.val text {w}}` pastes the value, and cli quotes it.
 
 ```r
 w <- weft("Depth at *[one site | # sites]{n='k'}*: `r d`{.num unit='m'}")

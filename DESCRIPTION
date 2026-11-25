@@ -25,6 +25,7 @@ Imports:
 Suggests:
     bit64,
     curl,
+    ggplot2,
     JuliaCall (>= 0.17.6),
     pkgload,
     quarto,
