@@ -15,7 +15,7 @@ ri <- function(x) knitr::inline_expr(x)
 This article is for authors whose prose cannot call R: a Quarto document on
 the Jupyter or Julia engine, a plain Pandoc document, or a chapter built
 from a values file. It is also for knitr authors: in a knitr document a name
-reads R, as `` `r x` `` does; elsewhere code publishes it. It assumes you know `vignette("values",
+reads R, as `` `r ri("x")` `` does; elsewhere code publishes it. It assumes you know `vignette("values",
 package =
 "weft")` and `vignette("wording", package = "weft")`. After it you will be
 able to write a value in a sentence by name, publish it from Python, Julia
@@ -71,7 +71,7 @@ Published text is data, not markdown, so `.val` with a text or collapse class
 ### When to write a name
 
 - In a knitr document (an `.Rmd`, or a `.qmd` with `engine: knitr`), write
-  names or R expressions as you like: `` `x`{.num} `` and `` `r x`{.num} ``
+  names or R expressions as you like: `` `x`{.num} `` and `` `r ri("x")`{.num} ``
   print the same, except for objects of R itself (see "Names in a knitr
   document"). Write a name for a value used above the code that sets it, and
   in front matter.
@@ -87,7 +87,7 @@ name they are a value error.
 
 ## Names in a knitr document
 
-In a knitr document R reads a named value, as `` `r x` `` reads an expression,
+In a knitr document R reads a named value, as `` `r ri("x")` `` reads an expression,
 with every formatter: units, the dictionary and project formatters work. You
 publish nothing:
 
@@ -114,7 +114,7 @@ R looks the name up in the knit's environment and the environments it
 encloses, as far as the global environment, and stops there: a name is never
 read from base R, a package or a dataset. So
 `` `pi`{.num} ``, `` `T`{.val} `` and `` `rivers`{.num} `` are not read by name,
-while `` `r pi` `` still reads base R's `pi`. To use an object a package
+while `` `r ri("pi")` `` still reads base R's `pi`. To use an object a package
 exports, bind it in a chunk: `n <- pkg::n`.
 
 A function is not a value. If `f` is a function in R, `` `f`{.num} `` is left
