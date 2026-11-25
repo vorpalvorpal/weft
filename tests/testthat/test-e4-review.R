@@ -140,8 +140,8 @@ test_that("K8: lints() and checks() count the same files; skipped scripts and sc
                          "tests/c.R" = E4_LINE), weft_yml = "draft: false")
   l <- lints(root)
   ch <- checks(root)
-  # ambiguity: n_files is read as an attribute of the result, as it is in the code that sets it
-  expect_identical(attr(l, "n_files"), attr(ch, "n_files"))
+  # lints() calls its count n_files; checks() calls it documents
+  expect_identical(attr(l, "n_files"), attr(ch, "documents"))
   expect_identical(attr(l, "n_files"), 2L)
 })
 

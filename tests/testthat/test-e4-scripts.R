@@ -1,7 +1,6 @@
 # Package E4 (dev/design-e4.md): scripts in lints(), arms(), checks(), changes(), verify(); the ledger is unchanged.
 # T1 to T3, T6 to T9, T12, T14 to T16. Written before the code. No R under R/ was read.
 
-E4_LINE <- "weft(\"We found 12 sites\")"
 E4_PLOT <- c("library(ggplot2)", "p <- labs(title = weft(\"We found 12 sites\"))")
 
 e4_clean <- function(x) cli::ansi_strip(x)
