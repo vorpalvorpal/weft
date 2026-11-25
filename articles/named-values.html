@@ -216,11 +216,12 @@ per site or one per model, writes text that knitr’s hooks never see as
 prose. Typing the numbers into that text with <code><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste()</a></code> or
 <code><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf()</a></code> loses every check. There are two ways to keep
 them, and they print the same.</p>
-<p><strong><code><a href="../reference/weft_str.html">weft_str()</a></code></strong> resolves the markup in R, at
-once, and returns markdown. Its constructs are R expressions, so units,
+<p><strong><code><a href="../reference/weft.html">weft()</a></code></strong> resolves the markup in R, at
+once, and returns an object that prints as markdown in a knit (and as
+plain text anywhere else). Its constructs are R expressions, so units,
 the dictionary and project formatters all work:</p>
 <div class="sourceCode" id="cb9"><pre class="sourceCode markdown"><code class="sourceCode markdown"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a><span class="in">```{r, results = "asis"}</span></span>
-<span id="cb9-2"><a href="#cb9-2" tabindex="-1"></a><span class="in">cat(weft_str("We sampled [a site | # sites]{n=\"n_sites\"}, mean `r mean_ntu`{.num} NTU."), "\n")</span></span>
+<span id="cb9-2"><a href="#cb9-2" tabindex="-1"></a><span class="in">weft("We sampled [a site | # sites]{n=\"n_sites\"}, mean `r mean_ntu`{.num} NTU.")</span></span>
 <span id="cb9-3"><a href="#cb9-3" tabindex="-1"></a><span class="in">```</span></span></code></pre></div>
 <p><strong>A named value</strong> leaves the markup for the filter.
 Publish the values first, then print text that names them:</p>
@@ -230,14 +231,14 @@ Publish the values first, then print text that names them:</p>
 <span id="cb10-4"><a href="#cb10-4" tabindex="-1"></a><span class="in">```</span></span></code></pre></div>
 <p>Both print:</p>
 <pre class="text"><code>We sampled 3 sites, mean 8.2 NTU.</code></pre>
-<p>Under <code><a href="../reference/weft_str.html">weft_str()</a></code> a failed check, a missing value or a
-value error is collected as it is in prose and marked with the chunk
-that printed it. A named value is checked by the filter, so its text
-keeps to the filter’s grammar (no units, no R expressions), but a check
-given to <code><a href="../reference/weft_put.html">weft_put()</a></code> travels with the value and counts each
-time the name is used. Use <code><a href="../reference/weft_str.html">weft_str()</a></code> for text that needs
-R; use a name when the same text also comes from Python or Julia, or
-from a values file.</p>
+<p>Under <code><a href="../reference/weft.html">weft()</a></code> a failed check, a missing value or a value
+error is collected as it is in prose and marked with the chunk that
+printed it. A named value is checked by the filter, so its text keeps to
+the filter’s grammar (no units, no R expressions), but a check given to
+<code><a href="../reference/weft_put.html">weft_put()</a></code> travels with the value and counts each time the
+name is used. Use <code><a href="../reference/weft.html">weft()</a></code> for text that needs R; use a name
+when the same text also comes from Python or Julia, or from a values
+file.</p>
 </div>
 <div class="section level2">
 <h2 id="publishing-from-python">Publishing from Python<a class="anchor" aria-label="anchor" href="#publishing-from-python"></a>

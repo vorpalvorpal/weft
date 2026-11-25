@@ -123,8 +123,8 @@ ways to turn weft on, and the installers that write them for you, are in
 <code><a href="../reference/claim.html">claim()</a></code>, <code><a href="../reference/plural.html">plural()</a></code>, <code><a href="../reference/u.html">u()</a></code>,
 <code><a href="../reference/glue_vec.html">glue_vec()</a></code>, <code><a href="../reference/dict_glossary.html">dict_glossary()</a></code> and the
 <code>fmt_*()</code> functions without <code>weft::</code>. Call other
-weft functions, such as <code><a href="../reference/phrases.html">of_n()</a></code> or <code><a href="../reference/weft_str.html">weft_str()</a></code>,
-as <code><a href="../reference/phrases.html">weft::of_n()</a></code>, or attach the package with
+weft functions, such as <code><a href="../reference/phrases.html">of_n()</a></code> or <code><a href="../reference/weft.html">weft()</a></code>, as
+<code><a href="../reference/phrases.html">weft::of_n()</a></code>, or attach the package with
 <code><a href="https://vorpalvorpal.github.io/weft/">library(weft)</a></code> in a chunk.</p>
 </div>
 <div class="section level2">
@@ -251,12 +251,14 @@ span:</p>
 <span><span class="co">#&gt; [1] "a site"</span></span>
 <span><span class="fu"><a href="../reference/plural.html">plural</a></span><span class="op">(</span><span class="fl">4</span>, <span class="st">"a site"</span>, <span class="st">"# sites"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] "4 sites"</span></span></code></pre></div>
-<p><code><a href="../reference/weft_str.html">weft_str()</a></code> resolves weft markup in a string, for text
-that no chunk option reaches, such as a table caption:</p>
+<p><code><a href="../reference/weft.html">weft()</a></code> resolves weft markup in a string, for text that
+no chunk option reaches, such as a table caption or a plot title. It
+returns an object that prints as markdown in a knit and gives plain text
+(<code><a href="https://rdrr.io/r/base/character.html" class="external-link">as.character()</a></code>) to anything else:</p>
 <div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">n_sites</span> <span class="op">&lt;-</span> <span class="fl">3</span></span>
-<span><span class="fu"><a href="../reference/weft_str.html">weft_str</a></span><span class="op">(</span><span class="st">"Turbidity at `r n_sites`{.word} sites."</span><span class="op">)</span></span>
-<span><span class="co">#&gt; [1] "Turbidity at three sites."</span></span></code></pre></div>
+<span><span class="fu"><a href="../reference/weft.html">weft</a></span><span class="op">(</span><span class="st">"Turbidity at `r n_sites`{.word} sites."</span><span class="op">)</span></span></code></pre></div>
+<p>Turbidity at three sites.</p>
 <p>Outside a knit, a failed check stops at once with an error:</p>
 <div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/claim.html">claim</a></span><span class="op">(</span><span class="fl">61</span>, <span class="va">.</span> <span class="op">&lt;</span> <span class="fl">50</span><span class="op">)</span></span>

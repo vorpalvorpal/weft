@@ -145,7 +145,7 @@ and reads that folder's <code>.Rprofile</code>, as a render does, so a document 
 activates weft there can be rehearsed. It is not run with <code>--vanilla</code>.</p>
 <p>Only the spans of the file rehearsed are reported: a span in a document
 that a chunk includes with <code>child=</code> is not listed or reported. A span that
-a case evaluates more than once (a <code><a href="weft_str.html">weft_str()</a></code> in a loop) is reported once,
+a case evaluates more than once (a <code><a href="weft.html">weft()</a></code> in a loop) is reported once,
 with the last arm it chose. A case value is not checked against the
 default's type, and <code>cases</code> cannot be empty.</p>
 <p>The child process loads the same weft as this one: when it was loaded by

@@ -472,11 +472,11 @@ capitalises it. Two classes from one “at most one” group are a
 <strong>construct error</strong>, which stops the render at once and
 which the lints report without running anything.</p>
 <p>A class or key that weft does not own passes through to a Pandoc span
-around the output. <code><a href="../reference/weft_str.html">weft_str()</a></code>, described below, shows the
-markdown weft writes:</p>
+around the output. <code><a href="../reference/weft.html">weft()</a></code>, described below, resolves markup
+in a string; its markdown form shows what weft writes:</p>
 <div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">mean_ntu</span> <span class="op">&lt;-</span> <span class="fl">8.2333</span></span>
-<span><span class="fu"><a href="../reference/weft_str.html">weft_str</a></span><span class="op">(</span><span class="st">"Turbidity was `r mean_ntu`{.num .strong} and `r mean_ntu`{.num .smallcaps}."</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/format.html" class="external-link">format</a></span><span class="op">(</span><span class="fu"><a href="../reference/weft.html">weft</a></span><span class="op">(</span><span class="st">"Turbidity was `r mean_ntu`{.num .strong} and `r mean_ntu`{.num .smallcaps}."</span><span class="op">)</span>, target <span class="op">=</span> <span class="st">"markdown"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] "Turbidity was **8.2** and [8.2]{.smallcaps}."</span></span></code></pre></div>
 <p>A misspelt class, such as <code>.nmu</code>, is therefore not an
 error. The tier-2 lint <code>name</code> lists it (see
@@ -580,13 +580,13 @@ Pass one formatter’s result to another and the record goes with it:</p>
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/glue_vec.html">glue_vec</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Upper"</span>, <span class="st">"Middle"</span>, <span class="st">"Lower"</span><span class="op">)</span>, last <span class="op">=</span> <span class="st">" or "</span><span class="op">)</span></span>
 <span><span class="co">#&gt; &lt;weft_text&gt;</span></span>
 <span><span class="co">#&gt; [1] "Upper, Middle or Lower"</span></span></code></pre></div>
-<p><code><a href="../reference/weft_str.html">weft_str()</a></code> resolves weft markup in a string, for text
-that no chunk option reaches: a <code>kable()</code> caption, a plot
-title, text written by a chunk with <code>results: asis</code>.</p>
+<p><code><a href="../reference/weft.html">weft()</a></code> resolves weft markup in a string, for text that
+no chunk option reaches: a <code>kable()</code> caption, a plot title,
+text written by a chunk with <code>results: asis</code>.</p>
 <div class="sourceCode" id="cb23"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">n_sites</span> <span class="op">&lt;-</span> <span class="fl">3</span></span>
-<span><span class="fu"><a href="../reference/weft_str.html">weft_str</a></span><span class="op">(</span><span class="st">"Turbidity at `r n_sites`{.word} sites, mean `r mean_ntu`{.num} NTU."</span><span class="op">)</span></span>
-<span><span class="co">#&gt; [1] "Turbidity at three sites, mean 8.2 NTU."</span></span></code></pre></div>
+<span><span class="fu"><a href="../reference/weft.html">weft</a></span><span class="op">(</span><span class="st">"Turbidity at `r n_sites`{.word} sites, mean `r mean_ntu`{.num} NTU."</span><span class="op">)</span></span></code></pre></div>
+<p>Turbidity at three sites, mean 8.2 NTU.</p>
 </div>
 <div class="section level2">
 <h2 id="captions-and-front-matter">Captions and front matter<a class="anchor" aria-label="anchor" href="#captions-and-front-matter"></a>

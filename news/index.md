@@ -2,6 +2,37 @@
 
 ## weft (development version)
 
+- **Behaviour change:**
+  [`weft()`](https://vorpalvorpal.github.io/weft/reference/weft.md)
+  replaces `weft_str()` (which is removed). It resolves weft markup in a
+  character vector from R code and returns a `weft` object: its content
+  is the plain text (Unicode, no markup: `1.2 × 10⁻⁴`, `m²`, emphasis
+  without its marks) so that [`cat()`](https://rdrr.io/r/base/cat.html),
+  [`nchar()`](https://rdrr.io/r/base/nchar.html),
+  [`paste()`](https://rdrr.io/r/base/paste.html) and a ggplot2 title get
+  readable text, and its attribute `markdown` holds the markdown.
+  `format(x, target = "markdown")` gives the markdown; printing the
+  object in a knit, or as inline R, writes it. Everything in the markup
+  is evaluated at the call, in `.envir`, so titles made in a loop each
+  keep their own values. A caption option that R computes as a `weft`
+  object (`fig.cap = weft(...)`, `#| fig-cap: !expr weft(...)`) is
+  written as markdown, and the lints read it as R code rather than as a
+  markup string. Outside a knit the configuration of the project root of
+  the working directory is read once and kept for the session (read
+  again when `_weft.yml` changes), and `fmt_*()` read the same cache, so
+  one script prints one value one way. The scanner and the lints read
+  [`weft()`](https://vorpalvorpal.github.io/weft/reference/weft.md)
+  strings, naming the argument R matches to `x`; their context is
+  `"weft"`, where it was `"weft_str"`. Python’s module keeps
+  `weft_str()`, which calls
+  [`weft()`](https://vorpalvorpal.github.io/weft/reference/weft.md).
+- Every `fmt_*()`,
+  [`fmt_unit()`](https://vorpalvorpal.github.io/weft/reference/fmt_unit.md)
+  and `apply_formatters()` gain `target = "plain"`: Unicode text with no
+  markup, for a plot’s labels or a console message
+  (`fmt_sci(0.000123, target = "plain")` is `1.2 × 10⁻⁴`). The plain
+  text is the markdown text read by one reader (rule 1.4.24), so the two
+  never disagree.
 - **Behaviour change:** weft now needs the units package at 1.0-1.7 or
   later (`Remotes: r-quantities/units`; CRAN has 1.0-1). weft redefines
   a database unit (`gal` as the US gallon) with
@@ -217,7 +248,7 @@ First release.
   [`fmt_pct()`](https://vorpalvorpal.github.io/weft/reference/fmt.md),
   [`fmt_p()`](https://vorpalvorpal.github.io/weft/reference/fmt.md) and
   the rest), and
-  [`weft_str()`](https://vorpalvorpal.github.io/weft/reference/weft_str.md)
+  [`weft()`](https://vorpalvorpal.github.io/weft/reference/weft.md)
   resolves weft markup in a string from R code.
 - Quantities with units
   ([`u()`](https://vorpalvorpal.github.io/weft/reference/u.md)), printed

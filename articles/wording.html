@@ -233,7 +233,7 @@ format the number that <code>#</code> prints. With none,
 that tells you to count it:</p>
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">v</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Upper"</span>, <span class="st">"Lower"</span><span class="op">)</span></span>
-<span><span class="fu"><a href="../reference/weft_str.html">weft_str</a></span><span class="op">(</span><span class="st">'[a site | # sites]{n="v"}'</span><span class="op">)</span></span>
+<span><span class="fu"><a href="../reference/weft.html">weft</a></span><span class="op">(</span><span class="st">'[a site | # sites]{n="v"}'</span><span class="op">)</span></span>
 <span><span class="co">#&gt; <span style="color: #BBBB00; font-weight: bold;">Error</span><span style="font-weight: bold;">:</span></span></span>
 <span><span class="co">#&gt; <span style="color: #BBBB00;">!</span> weft: chunk unnamed-chunk-6: An `n` governor must be a single number, not a vector; write `length(x)` to count the elements of a vector (rule 1.5.11)</span></span></code></pre></div>
 </div>
@@ -319,8 +319,8 @@ Cover did not change.</code></pre>
 change that prints as “0.0%” takes the zero arm.</p>
 <div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">d</span> <span class="op">&lt;-</span> <span class="op">-</span><span class="fl">0.0004</span></span>
-<span><span class="fu"><a href="../reference/weft_str.html">weft_str</a></span><span class="op">(</span><span class="st">"Cover [rose by # | fell by # | did not change]{.pct sign=\"d\"}."</span><span class="op">)</span></span>
-<span><span class="co">#&gt; [1] "Cover did not change."</span></span></code></pre></div>
+<span><span class="fu"><a href="../reference/weft.html">weft</a></span><span class="op">(</span><span class="st">"Cover [rose by # | fell by # | did not change]{.pct sign=\"d\"}."</span><span class="op">)</span></span></code></pre></div>
+<p>Cover did not change.</p>
 </div>
 <div class="section level2">
 <h2 id="agreement">Agreement<a class="anchor" aria-label="anchor" href="#agreement"></a>
@@ -349,8 +349,8 @@ there, without evaluating it again:</p>
 first, so <code>\|</code> also works, and inside a pipe-table cell the
 separator itself must be written <code>\|</code>.</p>
 <div class="sourceCode" id="cb25"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="../reference/weft_str.html">weft_str</a></span><span class="op">(</span><span class="st">'[a||b | c]{if="TRUE"}'</span><span class="op">)</span></span>
-<span><span class="co">#&gt; [1] "a|b"</span></span></code></pre></div>
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/weft.html">weft</a></span><span class="op">(</span><span class="st">'[a||b | c]{if="TRUE"}'</span><span class="op">)</span></span></code></pre></div>
+<p>a|b</p>
 </div>
 <div class="section level2">
 <h2 id="quoting-a-value">Quoting a value<a class="anchor" aria-label="anchor" href="#quoting-a-value"></a>
@@ -366,12 +366,12 @@ fix is to bind the expression to a name in a chunk.</p>
 <code>)"</code>, so a value that ends in <code>)</code> takes single
 quotes (<code>{if='isTRUE(x)'}</code>).</p>
 <div class="sourceCode" id="cb26"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="../reference/weft_str.html">weft_str</a></span><span class="op">(</span><span class="st">r"([severe | mild]{if='tier == "sev"'})"</span><span class="op">)</span></span></code></pre></div>
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/weft.html">weft</a></span><span class="op">(</span><span class="st">r"([severe | mild]{if='tier == "sev"'})"</span><span class="op">)</span></span></code></pre></div>
 <p>The same sentence in a string that needs no raw-string form:</p>
 <div class="sourceCode" id="cb27"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">tier</span> <span class="op">&lt;-</span> <span class="st">"sev"</span></span>
-<span><span class="fu"><a href="../reference/weft_str.html">weft_str</a></span><span class="op">(</span><span class="st">"[severe | mild]{if='tier == \"sev\"'}"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; [1] "severe"</span></span></code></pre></div>
+<span><span class="fu"><a href="../reference/weft.html">weft</a></span><span class="op">(</span><span class="st">"[severe | mild]{if='tier == \"sev\"'}"</span><span class="op">)</span></span></code></pre></div>
+<p>severe</p>
 </div>
 <div class="section level2">
 <h2 id="checks-claim">Checks: <code>claim()</code><a class="anchor" aria-label="anchor" href="#checks-claim"></a>
@@ -392,9 +392,9 @@ and in a governor:
 <code>[a site | # sites]{n="claim(k, . &gt; 0)"}</code>.</p>
 <p>Where the check runs decides what happens when it fails:</p>
 <ul>
-<li>In inline R during a knit (prose, a caption, a
-<code><a href="../reference/weft_str.html">weft_str()</a></code> string), the failure is collected and the render
-fails at the end with the full report.</li>
+<li>In inline R during a knit (prose, a caption, a <code><a href="../reference/weft.html">weft()</a></code>
+string), the failure is collected and the render fails at the end with
+the full report.</li>
 <li>Everywhere else (chunk code, a targets pipeline, the console), it
 stops at once with an error of class <code>weft_claim_failed</code>. A
 project can collect failures in chunk code too: see “Collecting failures
@@ -689,7 +689,7 @@ span:</p>
 <span><span class="co">#&gt; [1] "never"</span></span></code></pre></div>
 <p><code>if</code> and <code>sign</code> spans have no function form. In
 R code an <code>if</code> is R’s own, and a <code>sign</code> span is
-written as markup in a <code><a href="../reference/weft_str.html">weft_str()</a></code> string.</p>
+written as markup in a <code><a href="../reference/weft.html">weft()</a></code> string.</p>
 </div>
 <div class="section level2">
 <h2 id="numbers-from-a-source">Numbers from a source<a class="anchor" aria-label="anchor" href="#numbers-from-a-source"></a>

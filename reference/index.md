@@ -36,7 +36,16 @@ Format computed values, with or without units.
   with a unit
 - [`unit_defaults()`](https://vorpalvorpal.github.io/weft/reference/unit_defaults.md)
   : The default units weft registers
-- [`weft_str()`](https://vorpalvorpal.github.io/weft/reference/weft_str.md)
+- [`weft()`](https://vorpalvorpal.github.io/weft/reference/weft.md)
+  [`as.character(`*`<weft>`*`)`](https://vorpalvorpal.github.io/weft/reference/weft.md)
+  [`format(`*`<weft>`*`)`](https://vorpalvorpal.github.io/weft/reference/weft.md)
+  [`print(`*`<weft>`*`)`](https://vorpalvorpal.github.io/weft/reference/weft.md)
+  [`` `[`( ``*`<weft>`*`)`](https://vorpalvorpal.github.io/weft/reference/weft.md)
+  [`` `[[`( ``*`<weft>`*`)`](https://vorpalvorpal.github.io/weft/reference/weft.md)
+  [`sort(`*`<weft>`*`)`](https://vorpalvorpal.github.io/weft/reference/weft.md)
+  [`c(`*`<weft>`*`)`](https://vorpalvorpal.github.io/weft/reference/weft.md)
+  [`` `[<-`( ``*`<weft>`*`)`](https://vorpalvorpal.github.io/weft/reference/weft.md)
+  [`knit_print(`*`<weft>`*`)`](https://vorpalvorpal.github.io/weft/reference/weft.md)
   : Resolve markup in a string
 - [`glue_vec()`](https://vorpalvorpal.github.io/weft/reference/glue_vec.md)
   : Join items into a phrase

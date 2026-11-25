@@ -92,9 +92,9 @@ document that activates weft there can be rehearsed. It is not run with
 Only the spans of the file rehearsed are reported: a span in a document
 that a chunk includes with `child=` is not listed or reported. A span
 that a case evaluates more than once (a
-[`weft_str()`](https://vorpalvorpal.github.io/weft/reference/weft_str.md)
-in a loop) is reported once, with the last arm it chose. A case value is
-not checked against the default's type, and `cases` cannot be empty.
+[`weft()`](https://vorpalvorpal.github.io/weft/reference/weft.md) in a
+loop) is reported once, with the last arm it chose. A case value is not
+checked against the default's type, and `cases` cannot be empty.
 
 The child process loads the same weft as this one: when it was loaded by
 `pkgload` (as `devtools::load_all()` does) from a source directory, the

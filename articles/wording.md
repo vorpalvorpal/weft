@@ -102,7 +102,7 @@ to count it:
 ``` r
 
 v <- c("Upper", "Lower")
-weft_str('[a site | # sites]{n="v"}')
+weft('[a site | # sites]{n="v"}')
 #> Error:
 #> ! weft: chunk unnamed-chunk-6: An `n` governor must be a single number, not a vector; write `length(x)` to count the elements of a vector (rule 1.5.11)
 ```
@@ -227,9 +227,10 @@ as “0.0%” takes the zero arm.
 ``` r
 
 d <- -0.0004
-weft_str("Cover [rose by # | fell by # | did not change]{.pct sign=\"d\"}.")
-#> [1] "Cover did not change."
+weft("Cover [rose by # | fell by # | did not change]{.pct sign=\"d\"}.")
 ```
+
+Cover did not change.
 
 ## Agreement
 
@@ -270,9 +271,10 @@ pipe-table cell the separator itself must be written `\|`.
 
 ``` r
 
-weft_str('[a||b | c]{if="TRUE"}')
-#> [1] "a|b"
+weft('[a||b | c]{if="TRUE"}')
 ```
+
+a\|b
 
 ## Quoting a value
 
@@ -288,7 +290,7 @@ value that ends in `)` takes single quotes (`{if='isTRUE(x)'}`).
 
 ``` r
 
-weft_str(r"([severe | mild]{if='tier == "sev"'})")
+weft(r"([severe | mild]{if='tier == "sev"'})")
 ```
 
 The same sentence in a string that needs no raw-string form:
@@ -296,9 +298,10 @@ The same sentence in a string that needs no raw-string form:
 ``` r
 
 tier <- "sev"
-weft_str("[severe | mild]{if='tier == \"sev\"'}")
-#> [1] "severe"
+weft("[severe | mild]{if='tier == \"sev\"'}")
 ```
+
+severe
 
 ## Checks: `claim()`
 
@@ -323,7 +326,7 @@ governor: `[a site | # sites]{n="claim(k, . > 0)"}`.
 Where the check runs decides what happens when it fails:
 
 - In inline R during a knit (prose, a caption, a
-  [`weft_str()`](https://vorpalvorpal.github.io/weft/reference/weft_str.md)
+  [`weft()`](https://vorpalvorpal.github.io/weft/reference/weft.md)
   string), the failure is collected and the render fails at the end with
   the full report.
 - Everywhere else (chunk code, a targets pipeline, the console), it
@@ -695,7 +698,7 @@ plural(0, "never", "once", "twice", "# times")
 
 `if` and `sign` spans have no function form. In R code an `if` is R’s
 own, and a `sign` span is written as markup in a
-[`weft_str()`](https://vorpalvorpal.github.io/weft/reference/weft_str.md)
+[`weft()`](https://vorpalvorpal.github.io/weft/reference/weft.md)
 string.
 
 ## Numbers from a source

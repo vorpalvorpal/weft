@@ -5,7 +5,7 @@ every `n`, `if`, `sign` and `list` span, each of its arms: the span's
 place, the key and its expression, the arm's role and the text the
 author wrote. The spans are those in prose, in captions, in front-matter
 fields and in literal
-[`weft_str()`](https://vorpalvorpal.github.io/weft/reference/weft_str.md)
+[`weft()`](https://vorpalvorpal.github.io/weft/reference/weft.md)
 strings. No R is run: the file is parsed, never evaluated, so an
 expression that stops, writes a file or names an unknown object does
 nothing.

@@ -137,8 +137,8 @@ bare message. See
 
 Text that a chunk prints with `results: asis`, such as a list of
 questions or one sentence per site, is converted with
-[`weft_str()`](https://vorpalvorpal.github.io/weft/reference/weft_str.md)
-or with named values (see “Text a chunk prints” in
+[`weft()`](https://vorpalvorpal.github.io/weft/reference/weft.md) or
+with named values (see “Text a chunk prints” in
 [`vignette("named-values", package = "weft")`](https://vorpalvorpal.github.io/weft/articles/named-values.md)).
 
 ## Reads weft can and cannot follow

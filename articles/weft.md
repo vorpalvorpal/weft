@@ -55,8 +55,7 @@ Once weft is on, inline R in the document can call
 and the `fmt_*()` functions without `weft::`. Call other weft functions,
 such as
 [`of_n()`](https://vorpalvorpal.github.io/weft/reference/phrases.md) or
-[`weft_str()`](https://vorpalvorpal.github.io/weft/reference/weft_str.md),
-as
+[`weft()`](https://vorpalvorpal.github.io/weft/reference/weft.md), as
 [`weft::of_n()`](https://vorpalvorpal.github.io/weft/reference/phrases.md),
 or attach the package with
 [`library(weft)`](https://vorpalvorpal.github.io/weft/) in a chunk.
@@ -206,16 +205,20 @@ plural(4, "a site", "# sites")
 #> [1] "4 sites"
 ```
 
-[`weft_str()`](https://vorpalvorpal.github.io/weft/reference/weft_str.md)
+[`weft()`](https://vorpalvorpal.github.io/weft/reference/weft.md)
 resolves weft markup in a string, for text that no chunk option reaches,
-such as a table caption:
+such as a table caption or a plot title. It returns an object that
+prints as markdown in a knit and gives plain text
+([`as.character()`](https://rdrr.io/r/base/character.html)) to anything
+else:
 
 ``` r
 
 n_sites <- 3
-weft_str("Turbidity at `r n_sites`{.word} sites.")
-#> [1] "Turbidity at three sites."
+weft("Turbidity at `r n_sites`{.word} sites.")
 ```
+
+Turbidity at three sites.
 
 Outside a knit, a failed check stops at once with an error:
 

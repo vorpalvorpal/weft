@@ -315,13 +315,14 @@ render at once and which the lints report without running anything.
 
 A class or key that weft does not own passes through to a Pandoc span
 around the output.
-[`weft_str()`](https://vorpalvorpal.github.io/weft/reference/weft_str.md),
-described below, shows the markdown weft writes:
+[`weft()`](https://vorpalvorpal.github.io/weft/reference/weft.md),
+described below, resolves markup in a string; its markdown form shows
+what weft writes:
 
 ``` r
 
 mean_ntu <- 8.2333
-weft_str("Turbidity was `r mean_ntu`{.num .strong} and `r mean_ntu`{.num .smallcaps}.")
+format(weft("Turbidity was `r mean_ntu`{.num .strong} and `r mean_ntu`{.num .smallcaps}."), target = "markdown")
 #> [1] "Turbidity was **8.2** and [8.2]{.smallcaps}."
 ```
 
@@ -434,7 +435,7 @@ glue_vec(c("Upper", "Middle", "Lower"), last = " or ")
 #> [1] "Upper, Middle or Lower"
 ```
 
-[`weft_str()`](https://vorpalvorpal.github.io/weft/reference/weft_str.md)
+[`weft()`](https://vorpalvorpal.github.io/weft/reference/weft.md)
 resolves weft markup in a string, for text that no chunk option reaches:
 a `kable()` caption, a plot title, text written by a chunk with
 `results: asis`.
@@ -442,9 +443,10 @@ a `kable()` caption, a plot title, text written by a chunk with
 ``` r
 
 n_sites <- 3
-weft_str("Turbidity at `r n_sites`{.word} sites, mean `r mean_ntu`{.num} NTU.")
-#> [1] "Turbidity at three sites, mean 8.2 NTU."
+weft("Turbidity at `r n_sites`{.word} sites, mean `r mean_ntu`{.num} NTU.")
 ```
+
+Turbidity at three sites, mean 8.2 NTU.
 
 ## Captions and front matter
 

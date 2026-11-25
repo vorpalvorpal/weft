@@ -168,19 +168,25 @@ fmt_em(x, target = "markdown")
 
 - target:
 
-  `"markdown"` (the default, today's output) or `"tex"`, which writes
-  the number, percentage, scientific notation, p-value, range and unit
-  as TeX for use inside math (rule 3.4.11): the minus is `-`, a
-  thousands mark of `,` is `{,}`, `.sci` is `1.2 \times 10^{6}`, and a
-  range says `\text{to}`. The result carries the attribute
-  `target = "tex"`, and printing it as markdown (through `fmt_strong()`
-  or a collapse, say) is a `weft_value_error`; format the number again
-  without `target`. The formatters that print words, emphasis or a list
-  (`fmt_word()`, `fmt_count()`, `fmt_ord()`, `fmt_no()`, `fmt_date()`,
-  `fmt_a()`, `fmt_cap()`, `fmt_em()`, `fmt_strong()`, `fmt_and()`,
-  `fmt_or()`, `fmt_pairs()`, `fmt_ul()`, `fmt_ol()`, `fmt_dl()`) have no
-  TeX form and raise a `weft_construct_error` under `"tex"`. Any other
-  value of `target` is a `weft_construct_error`.
+  `"markdown"` (the default, today's output), `"tex"`, which writes the
+  number, percentage, scientific notation, p-value, range and unit as
+  TeX for use inside math (rule 3.4.11): the minus is `-`, a thousands
+  mark of `,` is `{,}`, `.sci` is `1.2 \times 10^{6}`, and a range says
+  `\text{to}`. The result carries the attribute `target = "tex"`, and
+  printing it as markdown (through `fmt_strong()` or a collapse, say) is
+  a `weft_value_error`; format the number again without `target`. The
+  formatters that print words, emphasis or a list (`fmt_word()`,
+  `fmt_count()`, `fmt_ord()`, `fmt_no()`, `fmt_date()`, `fmt_a()`,
+  `fmt_cap()`, `fmt_em()`, `fmt_strong()`, `fmt_and()`, `fmt_or()`,
+  `fmt_pairs()`, `fmt_ul()`, `fmt_ol()`, `fmt_dl()`) have no TeX form
+  and raise a `weft_construct_error` under `"tex"`. `"plain"` writes
+  Unicode text with no markup for a sink that prints none, such as a
+  ggplot2 scale's labels or a console message (rule 1.4.24): scientific
+  notation and units in Unicode superscripts, emphasis without its
+  marks. Every class has a plain form. The result carries the attribute
+  `target = "plain"`; a text made under `"tex"` given to a formatter
+  under `"plain"` is a `weft_value_error`. Any other value of `target`
+  is a `weft_construct_error`.
 
 - sep:
 

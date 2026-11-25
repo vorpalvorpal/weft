@@ -216,7 +216,7 @@ A word whose first letter or digit is a digit is a numeral: “12”, “45%”,
 “11-year”, “3rd”, “1990s”. A word that starts with a letter is a name:
 “CO2”, “PM2.5”. The rule reads the body, captions, the front-matter
 fields that take constructs,
-[`weft_str()`](https://vorpalvorpal.github.io/weft/reference/weft_str.md)
+[`weft()`](https://vorpalvorpal.github.io/weft/reference/weft.md)
 strings, and inline math, where an exponent or a subscript is exempt. A
 value in math is written as inline R with a class block, which writes
 TeX there: see “Values in math and raw LaTeX” in

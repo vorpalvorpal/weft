@@ -159,14 +159,14 @@ the numbers into that text with
 [`sprintf()`](https://rdrr.io/r/base/sprintf.html) loses every check.
 There are two ways to keep them, and they print the same.
 
-**[`weft_str()`](https://vorpalvorpal.github.io/weft/reference/weft_str.md)**
-resolves the markup in R, at once, and returns markdown. Its constructs
-are R expressions, so units, the dictionary and project formatters all
-work:
+**[`weft()`](https://vorpalvorpal.github.io/weft/reference/weft.md)**
+resolves the markup in R, at once, and returns an object that prints as
+markdown in a knit (and as plain text anywhere else). Its constructs are
+R expressions, so units, the dictionary and project formatters all work:
 
 ```` markdown
 ```{r, results = "asis"}
-cat(weft_str("We sampled [a site | # sites]{n=\"n_sites\"}, mean `r mean_ntu`{.num} NTU."), "\n")
+weft("We sampled [a site | # sites]{n=\"n_sites\"}, mean `r mean_ntu`{.num} NTU.")
 ```
 ````
 
@@ -186,17 +186,16 @@ Both print:
 We sampled 3 sites, mean 8.2 NTU.
 ```
 
-Under
-[`weft_str()`](https://vorpalvorpal.github.io/weft/reference/weft_str.md)
+Under [`weft()`](https://vorpalvorpal.github.io/weft/reference/weft.md)
 a failed check, a missing value or a value error is collected as it is
 in prose and marked with the chunk that printed it. A named value is
 checked by the filter, so its text keeps to the filter’s grammar (no
 units, no R expressions), but a check given to
 [`weft_put()`](https://vorpalvorpal.github.io/weft/reference/weft_put.md)
 travels with the value and counts each time the name is used. Use
-[`weft_str()`](https://vorpalvorpal.github.io/weft/reference/weft_str.md)
-for text that needs R; use a name when the same text also comes from
-Python or Julia, or from a values file.
+[`weft()`](https://vorpalvorpal.github.io/weft/reference/weft.md) for
+text that needs R; use a name when the same text also comes from Python
+or Julia, or from a values file.
 
 ## Publishing from Python
 

@@ -189,7 +189,7 @@ large integers the result is a wrong number with no error.
 <code>1</code>, nothing can tell it from a right <code>1</code>.</p>
 <p>So in every expression weft evaluates (a value, a bare value, a
 governor, a caption on an R chunk, a string given to
-<code><a href="../reference/weft_str.html">weft_str()</a></code>), weft reads <code>py$name</code>,
+<code><a href="../reference/weft.html">weft()</a></code>), weft reads <code>py$name</code>,
 <code>py[["name"]]</code> and chains such as <code>py$cfg$depth</code>
 itself. It reads the Python object, decides its kind from its Python
 type, and refuses a value that R cannot hold exactly:</p>
@@ -449,8 +449,9 @@ and warns once.</p>
 </h2>
 <p>Text a Python chunk prints with <code>results = "asis"</code> is not
 resolved by weft. To print a sentence with constructs from Python, pass
-it through <code><a href="../reference/weft_str.html">weft_str()</a></code> from the module. The expressions
-inside the markup are R, so they read Python values with
+it through <code>weft_str()</code> from the module, which calls R’s
+<code><a href="../reference/weft.html">weft()</a></code> and returns its markdown as a <code>str</code>. The
+expressions inside the markup are R, so they read Python values with
 <code>py$</code>:</p>
 <div class="sourceCode" id="cb14"><pre class="sourceCode markdown"><code class="sourceCode markdown"><span id="cb14-1"><a href="#cb14-1" tabindex="-1"></a><span class="in">```{python summary, results = "asis"}</span></span>
 <span id="cb14-2"><a href="#cb14-2" tabindex="-1"></a><span class="in">from weft import weft_str</span></span>

@@ -124,8 +124,8 @@ arrives in R as `1`. Once it is `1`, nothing can tell it from a right
 
 So in every expression weft evaluates (a value, a bare value, a
 governor, a caption on an R chunk, a string given to
-[`weft_str()`](https://vorpalvorpal.github.io/weft/reference/weft_str.md)),
-weft reads `py$name`, `py[["name"]]` and chains such as `py$cfg$depth`
+[`weft()`](https://vorpalvorpal.github.io/weft/reference/weft.md)), weft
+reads `py$name`, `py[["name"]]` and chains such as `py$cfg$depth`
 itself. It reads the Python object, decides its kind from its Python
 type, and refuses a value that R cannot hold exactly:
 
@@ -330,9 +330,10 @@ loaded in Python, weft leaves it in place and warns once.
 
 Text a Python chunk prints with `results = "asis"` is not resolved by
 weft. To print a sentence with constructs from Python, pass it through
-[`weft_str()`](https://vorpalvorpal.github.io/weft/reference/weft_str.md)
-from the module. The expressions inside the markup are R, so they read
-Python values with `py$`:
+`weft_str()` from the module, which calls R’s
+[`weft()`](https://vorpalvorpal.github.io/weft/reference/weft.md) and
+returns its markdown as a `str`. The expressions inside the markup are
+R, so they read Python values with `py$`:
 
 ```` markdown
 ```{python summary, results = "asis"}
