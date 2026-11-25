@@ -112,7 +112,7 @@ count it:
 
 ```{r, error = TRUE}
 v <- c("Upper", "Lower")
-weft_str('[a site | # sites]{n="v"}')
+weft('[a site | # sites]{n="v"}')
 ```
 
 ## Lists: `list`
@@ -233,7 +233,7 @@ A `sign` span judges zero on the number as printed: a change that prints as
 
 ```{r}
 d <- -0.0004
-weft_str("Cover [rose by # | fell by # | did not change]{.pct sign=\"d\"}.")
+weft("Cover [rose by # | fell by # | did not change]{.pct sign=\"d\"}.")
 ```
 
 ## Agreement
@@ -274,7 +274,7 @@ either is removed first, so `\|` also works, and inside a pipe-table cell the
 separator itself must be written `\|`.
 
 ```{r}
-weft_str('[a||b | c]{if="TRUE"}')
+weft('[a||b | c]{if="TRUE"}')
 ```
 
 ## Quoting a value
@@ -290,14 +290,14 @@ In R code a raw string needs no escapes. A raw string ends at `)"`, so a
 value that ends in `)` takes single quotes (`{if='isTRUE(x)'}`).
 
 ```{verbatim, lang = "r"}
-weft_str(r"([severe | mild]{if='tier == "sev"'})")
+weft(r"([severe | mild]{if='tier == "sev"'})")
 ```
 
 The same sentence in a string that needs no raw-string form:
 
 ```{r}
 tier <- "sev"
-weft_str("[severe | mild]{if='tier == \"sev\"'}")
+weft("[severe | mild]{if='tier == \"sev\"'}")
 ```
 
 ## Checks: `claim()`
@@ -318,7 +318,7 @@ and in a governor: `[a site | # sites]{n="claim(k, . > 0)"}`.
 
 Where the check runs decides what happens when it fails:
 
-- In inline R during a knit (prose, a caption, a `weft_str()` string), the
+- In inline R during a knit (prose, a caption, a `weft()` string), the
   failure is collected and the render fails at the end with the full report.
 - Everywhere else (chunk code, a targets pipeline, the console), it stops at
   once with an error of class `weft_claim_failed`. A project can collect
@@ -603,7 +603,7 @@ plural(0, "never", "once", "twice", "# times")
 ```
 
 `if` and `sign` spans have no function form. In R code an `if` is R's own,
-and a `sign` span is written as markup in a `weft_str()` string.
+and a `sign` span is written as markup in a `weft()` string.
 
 ## Numbers from a source
 

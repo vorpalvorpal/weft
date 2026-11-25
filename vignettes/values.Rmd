@@ -304,11 +304,11 @@ one "at most one" group are a **construct error**, which stops the render at
 once and which the lints report without running anything.
 
 A class or key that weft does not own passes through to a Pandoc span around
-the output. `weft_str()`, described below, shows the markdown weft writes:
+the output. `weft()`, described below, resolves markup in a string; its markdown form shows what weft writes:
 
 ```{r}
 mean_ntu <- 8.2333
-weft_str("Turbidity was `r mean_ntu`{.num .strong} and `r mean_ntu`{.num .smallcaps}.")
+format(weft("Turbidity was `r mean_ntu`{.num .strong} and `r mean_ntu`{.num .smallcaps}."), target = "markdown")
 ```
 
 A misspelt class, such as `.nmu`, is therefore not an error. The tier-2 lint
@@ -380,13 +380,13 @@ fmt_pairs(fmt_num(c(Upper = 4.2, Middle = 7.9, Lower = 12.6)))
 glue_vec(c("Upper", "Middle", "Lower"), last = " or ")
 ```
 
-`weft_str()` resolves weft markup in a string, for text that no chunk option
+`weft()` resolves weft markup in a string, for text that no chunk option
 reaches: a `kable()` caption, a plot title, text written by a chunk with
 `results: asis`.
 
 ```{r}
 n_sites <- 3
-weft_str("Turbidity at `r n_sites`{.word} sites, mean `r mean_ntu`{.num} NTU.")
+weft("Turbidity at `r n_sites`{.word} sites, mean `r mean_ntu`{.num} NTU.")
 ```
 
 ## Captions and front matter

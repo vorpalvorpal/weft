@@ -132,7 +132,7 @@ the sentence quoted, where `stopifnot()` stopped with a bare message. See
 `vignette("wording", package = "weft")`.
 
 Text that a chunk prints with `results: asis`, such as a list of
-questions or one sentence per site, is converted with `weft_str()` or with
+questions or one sentence per site, is converted with `weft()` or with
 named values (see "Text a chunk prints" in
 `vignette("named-values", package = "weft")`).
 

@@ -71,7 +71,7 @@ A value goes in double quotes, single quotes, or none when it is one word:
 `{if="tier == 'sev'"}`, `{if='tier == "sev"'}`, `{n=n_sites}`. Inside quotes,
 `\"`, `\'` and `\|` stand for the character; any other `\` is an error. In R
 code a raw string needs no escapes:
-`weft_str(r"([severe | mild]{if='tier == "sev"'})")`.
+`weft(r"([severe | mild]{if='tier == "sev"'})")`.
 
 ## A check
 

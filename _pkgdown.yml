@@ -42,7 +42,7 @@ reference:
       - fmt_unit
       - u
       - unit_defaults
-      - weft_str
+      - weft
       - glue_vec
       - py_value
       - jl_value
