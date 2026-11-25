@@ -354,7 +354,8 @@ test_that("G17a: weft() in an R chunk reads Python values by G9 and collects its
 test_that("G17a: outside a knit weft() stops at once with the value error", {
   skip_if_no_python()
   py_set(t_g5_ws1 = "2**53 + 1", t_g5_ws2 = "3.14159")
-  expect_refused5(weft_md("`r py$t_g5_ws1`{.num}"), m1("`py$t_g5_ws1`", "9007199254740993"))
+  expect_refused5(weft_md("`r py$t_g5_ws1`{.num}"),
+                  paste0("weft: a weft() string: ", m1("`py$t_g5_ws1`", "9007199254740993")))  # WS13 prefix
   expect_identical(as.character(weft_md("`r py$t_g5_ws2`{.num} m")), "3.1 m")
 })
 

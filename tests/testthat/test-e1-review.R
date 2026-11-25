@@ -23,13 +23,13 @@ test_that("F1: project A's units: are not in force in project B, which has no _w
   a <- e1r_root(e1r_unit_yml)
   b <- e1r_root(NULL)
   withr::local_dir(a)
-  expect_identical(as.character(weft("`r u(3, zze1rv)`{.num}")), "3 FF")
+  expect_identical(as.character(weft("`r u(3, zze1rv)`{.num}")), "3\u00a0FF")
   setwd(b)
   # B has the default units: the unit is unknown there
   expect_error(weft("`r u(3, zze1rv)`{.num}"))
   # and A's file applies again on going back
   setwd(a)
-  expect_identical(as.character(weft("`r u(3, zze1rv)`{.num}")), "3 FF")
+  expect_identical(as.character(weft("`r u(3, zze1rv)`{.num}")), "3\u00a0FF")
 })
 
 test_that("F1: fmt_*() outside a knit in B do not use A's units either", {
@@ -50,7 +50,7 @@ test_that("F1: a knit's front-matter units are not left in force for a root with
                                      "      symbol: FF"),
                     format = "knit", in_process = TRUE)
   expect_false(res$failed, label = res$message)
-  expect_match(res$md, "KNIT: 3 FF", fixed = TRUE)
+  expect_match(res$md, "KNIT: 3\u00a0FF", fixed = TRUE)
   b <- e1r_root(NULL)
   withr::local_dir(b)
   expect_error(weft("`r u(3, zze1rv)`{.num}"))
@@ -64,12 +64,12 @@ test_that("F2: Python's weft_str() sees the knit's x (and a missing result is No
                                "print(weft_str('[a site | # sites]{n=\"x\"}'))"),
                       "results='asis'"),
               pychunk("pyna", c("from weft import weft_str",
-                                "print(weft_str(r.na1) is None)"),
+                                "print(weft_str(None) is None)"),
                       "results='asis'")))
   expect_false(res$failed, label = res$message)
   expect_match(res$md, "3 sites", fixed = TRUE)
-  # ambiguity: how Python hands an NA to weft_str(); here an R NA_character_ through `r.na1`
-  # (None in Python), and the result must be missing (None), not the string "NA"
+  # reticulate hands an R NA_character_ to Python as the string "NA", so the missing case is
+  # Python's None itself: it goes in as NA and comes back as None, not the string "NA"
   expect_match(res$md, "True", fixed = TRUE)
 })
 

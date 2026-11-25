@@ -303,7 +303,8 @@ test_that("J15: outside a knit weft() stops at once with the value error", {
   skip_if_no_julia()
   jl_set(t_j5p_ws1 = "2^53 + 1", t_j5p_ws2 = "3.14159")
   expect_refused5(weft_md("`r jl_value('t_j5p_ws1')`{.num}"),
-                  jm1("`jl_value(\"t_j5p_ws1\")`", "Int64", "9007199254740993"))
+                  paste0("weft: a weft() string: ",  # WS13 prefix
+                         jm1("`jl_value(\"t_j5p_ws1\")`", "Int64", "9007199254740993")))
   expect_identical(as.character(weft_md("`r jl_value('t_j5p_ws2')`{.num} m")), "3.1 m")
 })
 
