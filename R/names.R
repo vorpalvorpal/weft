@@ -68,3 +68,62 @@ named_val_elements <- function(v, name) {
   if (is.double(v)) return(list(text = float_text(unname(v))))
   list(text = as.character(v))
 }
+
+# ---- what the executed code assigns (BN11, G5) --------------------------------------------------------
+
+# The names the parsed code `code` assigns: `<-`, `=`, `->`, `<<-`, `->>` (the parser turns the arrows into the
+# first and third), `assign("name", ...)` and a `for` variable. The target of a complex assignment (`x$a <- 1`,
+# `names(x) <- v`) is the name it changes. `all` is TRUE when the code may assign any name: code that does not
+# parse, `assign()` with a name that is not a literal string, and calls such as `list2env()`, `eval()`,
+# `source()` and `load()`. A list with `names` and `all`.
+named_code_assigns <- function(code) {
+  ex <- tryCatch(parse(text = paste(code, collapse = "\n"), keep.source = FALSE), error = function(e) NULL)
+  if (is.null(ex)) return(list(names = character(), all = TRUE))
+  out <- character()
+  all <- FALSE
+  target <- function(lhs) {
+    while (is.call(lhs) && length(lhs) >= 2L) lhs <- lhs[[2L]]
+    if (is.character(lhs) && length(lhs) == 1L) return(lhs)
+    if (is.symbol(lhs)) as.character(lhs) else NULL
+  }
+  ALL_CALLS <- c("list2env", "eval", "evalq", "source", "sys.source", "load", "delayedAssign", "makeActiveBinding")
+  walk <- function(e) {
+    if (is.call(e)) {
+      f <- e[[1L]]
+      fn <- if (is.symbol(f)) as.character(f) else if (is.call(f) && length(f) == 3L &&
+                                                       as.character(f[[1L]])[1L] %in% c("::", ":::")) {
+        as.character(f[[3L]])
+      } else ""
+      if (fn %in% c("<-", "=", "<<-") && length(e) == 3L) {
+        t <- target(e[[2L]])
+        if (!is.null(t)) out <<- c(out, t) else all <<- TRUE
+      } else if (identical(fn, "assign")) {
+        a <- if (length(e) >= 2L) e[[2L]] else NULL
+        nm <- names(e)
+        if (!is.null(nm) && "x" %in% nm) a <- e[[which(nm == "x")[1L]]]
+        if (is.character(a) && length(a) == 1L) out <<- c(out, a) else all <<- TRUE
+      } else if (identical(fn, "for") && length(e) >= 2L && is.symbol(e[[2L]])) {
+        out <<- c(out, as.character(e[[2L]]))
+      } else if (fn %in% ALL_CALLS) {
+        all <<- TRUE
+      }
+      for (i in seq_along(e)) if (!identical(e[[i]], quote(expr = ))) walk(e[[i]])
+    } else if (is.pairlist(e) || is.expression(e)) {
+      for (i in seq_along(e)) if (!identical(e[[i]], quote(expr = ))) walk(e[[i]])
+    }
+    invisible()
+  }
+  for (i in seq_along(ex)) walk(ex[[i]])
+  list(names = unique(out), all = all)
+}
+
+# Record the code of a chunk that is about to run (the `evaluate` hook).
+named_note_code <- function(s, code) {
+  a <- named_code_assigns(code)
+  if (a$all) s$assigns_all <- TRUE
+  s$assigned <- union(s$assigned, a$names)
+  invisible()
+}
+
+# Whether an executed R chunk above has assigned `nm`, or may have.
+named_assigned_above <- function(s, nm) isTRUE(s$assigns_all) || nm %in% s$assigned

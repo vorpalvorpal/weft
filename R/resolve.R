@@ -904,6 +904,11 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
     }
     reads <- if (in_weft) !identical(ctx$read_names, FALSE) else identical(cfg$names_from %||% "r", "r")
     if (!reads) return(named_leave(k, nm))
+    # a row in front matter or an end metadata block is the filter's (BN6, D5, G2)
+    if (!in_weft && isTRUE(tryCatch(ledger_where(s, F, R$file[k], R$line_view[k], chunk_label)$front,
+                                    error = function(e) FALSE))) {
+      return(named_leave(k, nm, join = TRUE))
+    }
     env <- if (is_str) (ctx$named_env %||% ctx$envir) else knitr::knit_global()
     lk <- named_lookup(nm, env)
     out <- NULL
@@ -930,7 +935,8 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
     }
     v <- lk$value
     # a value the session held before the render, read above the code that sets it (BN11)
-    if (!in_weft && !is.null(s$held[[nm]]) && identical(v, s$held[[nm]]) && is.null(s$noted[[nm]])) {
+    if (!in_weft && !is.null(s$held[[nm]]) && identical(v, s$held[[nm]]) && is.null(s$noted[[nm]]) &&
+        !named_assigned_above(s, nm)) {
       s$noted[[nm]] <- list(file = R$file[k], line = R$line[k], expr = label, chunk = chunk_label)
     }
     cc <- split_classes(R$classes[[k]], R$keys[[k]], c(owned, ".val"), cfg$formatters)

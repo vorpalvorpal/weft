@@ -478,12 +478,6 @@ values_scan_lists <- function(path, cfg) {
     named <- extra$kind == "named" & is.na(extra$error)
     out$front <- extra$expr[named & extra$context == "front-matter"]
     out$cap <- extra$expr[named & extra$context == "caption" & extra$resolver == "filter"]
-    gov <- which(extra$context == "caption" & extra$kind %in% c("n", "if", "sign", "list") &
-                   !is.na(extra$error) & grepl("2.3.5", extra$error, fixed = TRUE))
-    for (k in gov) {
-      e <- trim_ws(extra$expr[k])
-      out$cap <- c(out$cap, if (extra$kind[k] == "if") cond_names(e) else if (is_weft_name(e)) e)
-    }
   }
   seen <- character()
   walk <- function(p, depth) {
@@ -599,12 +593,13 @@ values_pending <- function(s) {
   fresh <- list()
   for (nm in nms) {
     lk <- named_lookup(nm, env)
-    if (!(lk$kind %in% c("value", "function"))) next
+    # R does not publish a function: the name is the filter's (G6)
+    if (!identical(lk$kind, "value")) next
     snap <- named_snapshot(lk)
     last <- s$pub[[nm]]
     if (!is.null(last) && identical(last$snap, snap)) next
     s$pub[[nm]] <- list(snap = snap)
-    fresh[[nm]] <- values_record(if (lk$kind == "value") lk$value else function() NULL)$json
+    fresh[[nm]] <- values_record(lk$value)$json
   }
   put <- s$waiting
   if (!length(fresh) && !length(put)) return(NULL)

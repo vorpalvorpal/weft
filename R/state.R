@@ -50,6 +50,9 @@ new_state <- function(config = NULL) {
   s$list_paths <- character()
   s$held <- list()
   s$noted <- list()
+  # what the executed R chunks assign (G5): the names, and whether any code may assign every name
+  s$assigned <- character()
+  s$assigns_all <- FALSE
   s
 }
 

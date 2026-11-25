@@ -300,7 +300,7 @@ guest_chunk_end <- function(options) {
     err <- guest_take_error()
     if (!is.null(err)) mine <- c(mine, list(list(class = "error", text = err)))
     # auto()'s changes are published with this chunk's snapshot of R's bindings (E2 TR4)
-    if (identical(tolower(as.character(options$engine %||% "")[1L]), "python") && values_r_names(s)) {
+    if (identical(tolower(as.character(options$engine %||% "")[1L]), "python")) {
       values_take_auto(s)
     }
   }

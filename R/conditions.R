@@ -94,6 +94,7 @@ make_evaluate_hook <- function(prev) {
     opts <- knitr::opts_current$get()
     label <- opts$label %||% NA_character_
     settle_pending(s, label)
+    named_note_code(s, code)
     if (!is.null(s$pending_cache) && identical(s$pending_cache$label, label)) {
       s$pending_cache$evaluated <- TRUE
     }

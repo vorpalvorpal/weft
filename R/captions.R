@@ -79,6 +79,21 @@ caption_construct_kinds <- function(v) {
   out
 }
 
+# The names of the bare named values in the elements of a caption that is not resolved: R leaves them (G4).
+caption_leave_names <- function(v) {
+  s <- active_state()
+  if (is.null(s)) return(invisible())
+  nms <- character()
+  for (e in v) {
+    if (is.na(e)) next
+    r <- scan_text(e)
+    if (nrow(r)) nms <- c(nms, r$expr[is.na(r$parent) & r$kind == "named"])
+  }
+  nms <- unique(nms[values_name_ok(nms)])
+  if (length(nms)) s$left <- union(s$left, nms)
+  invisible()
+}
+
 caption_option_hook <- function(options, o) {
   v <- options[[o]]
   if (is.null(v)) return(options)
@@ -105,6 +120,9 @@ caption_option_hook <- function(options, o) {
   why <- caption_not_resolved(options)
   if (length(why)) {
     # a named value there is the filter's, with the name's last published value (E2 ST1): no error
+    # and its name joins the names R leaves, and so publishes, for caching set at run time is not in the
+    # source's list (G4)
+    caption_leave_names(v)
     other <- kinds[kinds != "named"]
     if (length(other)) caption_unresolvable(options, o, other[1L], why)
     return(options)
