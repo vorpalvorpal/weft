@@ -257,7 +257,14 @@ source_label <- function(text, start, end) {
 }
 
 # A value written as markup (C5, D5, D9): double quotes, with `\` as `\\`, `"` as `\"` and `|` as `\|`.
-attr_markup <- function(x) {
+# A value with a character reference, or one that starts with white space, is refused: Pandoc would decode
+# the reference or drop the block (R1, R3). `key` names the key in the message.
+attr_markup <- function(x, key = "") {
+  for (v in as.character(x)[!is.na(x)]) {
+    rf <- find_char_ref(v)
+    if (!is.na(rf)) construct_error(msg_char_ref(rf, key))
+    if (starts_with_space(v)) construct_error(msg_lead_space(key))
+  }
   x <- gsub("\\", "\\\\", as.character(x), fixed = TRUE)
   x <- gsub("\"", "\\\"", x, fixed = TRUE)
   paste0("\"", gsub("|", "\\|", x, fixed = TRUE), "\"")
@@ -269,10 +276,15 @@ attr_shown <- function(x) {
   paste0("\"", gsub("\"", "\\\"", x, fixed = TRUE), "\"")
 }
 
+# `key=value` for each of the keys, the values written as markup.
+attr_pairs <- function(ky) {
+  vapply(seq_along(ky), function(j) paste0(names(ky)[j], "=", attr_markup(unname(ky)[[j]], names(ky)[j])), "")
+}
+
 # The classes and keys the construct does not own, written back as a span.
 passthrough <- function(text, cl, ky) {
   if (!nzchar(text)) return(text)
-  items <- c(cl, if (length(ky)) paste0(names(ky), "=", attr_markup(unname(ky))))
+  items <- c(cl, if (length(ky)) attr_pairs(ky))
   if (!length(items)) return(text)
   sprintf("[%s]{%s}", text, paste(items, collapse = " "))
 }
@@ -1152,7 +1164,7 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
     ky <- R$keys[[k]]
     ky <- ky[!names(ky) %in% c("why", "decision")]
     items <- c(if (!is.na(R$id[k]) && nzchar(R$id[k])) paste0("#", R$id[k]), cl,
-               if (length(ky)) paste0(names(ky), "=", attr_markup(unname(ky))))
+               if (length(ky)) attr_pairs(ky))
     blk <- sprintf("{%s}", paste(items, collapse = " "))
     if (startsWith(substr(text, R$start[k], R$start[k]), ":")) {
       return(paste0(substr(text, R$start[k], R$block_start[k] - 1L), blk))

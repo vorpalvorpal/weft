@@ -545,7 +545,7 @@ parse_block <- function(S, i, div = FALSE) {
 
 # Read the value of a quoted attribute (rule 1.2.3): `\"`, `\'` and `\|` are the character, a line
 # break is one space, any other `\` and a character reference are recorded as mistakes.
-read_quoted_value <- function(x) {
+read_quoted_value <- function(x, strip = 0L) {
   cs <- strsplit(x, "")[[1L]]
   out <- character()
   bad_bs <- FALSE
@@ -565,17 +565,61 @@ read_quoted_value <- function(x) {
     } else if (c1 == "\r" && k < m && cs[k + 1L] == "\n") {
       out <- c(out, " ")
       k <- k + 2L
+      k <- k + skip_indent(cs, k, strip)
     } else if (c1 == "\n") {
       out <- c(out, " ")
       k <- k + 1L
+      k <- k + skip_indent(cs, k, strip)
     } else {
       out <- c(out, c1)
       k <- k + 1L
     }
   }
   val <- paste(out, collapse = "")
-  ref <- regmatches(val, regexpr("&(?:#[0-9]+|#[xX][0-9a-fA-F]+|[A-Za-z][A-Za-z0-9]*);", val, perl = TRUE))
-  list(value = val, bad_bs = bad_bs, ref = if (length(ref)) ref else NA_character_)
+  list(value = val, bad_bs = bad_bs, ref = find_char_ref(val))
+}
+
+# The number of leading spaces (at most `strip`) at `k`: Pandoc strips a list item's content indent from
+# a continuation line, so a quoted value that crosses a line break in a list item does not keep it (R2).
+skip_indent <- function(cs, k, strip) {
+  n <- 0L
+  while (n < strip && k + n <= length(cs) && cs[k + n] == " ") n <- n + 1L
+  n
+}
+
+# The first character reference (`&name;`, `&#n;`, `&#xh;`) in a value, or NA: Pandoc decodes it in a
+# quoted value and the writer would carry it on, so it is an error in every value (M3, R1).
+CHARREF_RE <- "&(?:#[0-9]+|#[xX][0-9a-fA-F]+|[A-Za-z][A-Za-z0-9]*);"
+find_char_ref <- function(val) {
+  ref <- regmatches(val, regexpr(CHARREF_RE, val, perl = TRUE))
+  if (length(ref)) ref else NA_character_
+}
+
+# True when a value starts with white space of any kind, a no-break space included (R3).
+starts_with_space <- function(val) grepl("^(?:\\s|\\p{Z})", val, perl = TRUE)
+
+msg_char_ref <- function(ref, key) {
+  sprintf(paste0("A character reference, `%s`, in the value of `%s` (rule 1.2.3): Pandoc reads ",
+                 "it as the character it names. Write the character itself."), ref, key)
+}
+msg_lead_space <- function(key) {
+  sprintf(paste0("The value of `%s` starts with white space (rules 1.2.3, 1.12.6): Pandoc does not read ",
+                 "the block as attributes, or drops the space. Remove the space."), key)
+}
+msg_bq_value <- function(key) {
+  sprintf(paste0("The value of `%s`: a quoted value in a block quote must fit on one line (rule 1.2.3); ",
+                 "Pandoc strips the `>` of the next line only in part. Put the value on one line."), key)
+}
+
+# How the line holding `{` at `i` starts: "bq" (after indentation, `>`), "li" with the list item's content
+# indent, or "" (R2).
+line_context <- function(ch, i) {
+  k <- i
+  while (k > 1L && ch[k - 1L] != "\n") k <- k - 1L
+  pre <- if (i > k) paste(ch[k:(i - 1L)], collapse = "") else ""
+  if (grepl("^[ \t]*>", pre)) return(list(kind = "bq", indent = 0L))
+  m <- regmatches(pre, regexpr("^[ ]*(?:[-+*]|[0-9]{1,9}[.)])[ ]+", pre, perl = TRUE))
+  if (length(m)) list(kind = "li", indent = nchar(m)) else list(kind = "", indent = 0L)
 }
 
 # True when a raw value holds a `|` that is not part of a `\|` (a `\` and the character after it go
@@ -611,10 +655,18 @@ parse_block_strict <- function(ch, i, lim) {
     while (p <= lim && !(ch[p] %in% stops)) p <- p + 1L
     p - 1L
   }
+  last_q <- ""   # the quote of the value just before this token ("" when the last token was not one)
+  # an escaped quote of the value followed by what looks like the next key: the closing quote was escaped
+  esc_close <- function(a, b, q) {
+    if (b < a) return(FALSE)
+    grepl(paste0("\\\\", q, "[ \t\r\n]+[^ \t\r\n=}\"']+="), paste(ch[a:b], collapse = ""), perl = TRUE)
+  }
   repeat {
     while (pos <= lim && ch[pos] %in% ws) pos <- pos + 1L
     if (pos > lim) return(fail("other"))
     c <- ch[pos]
+    lq <- last_q
+    last_q <- ""
     if (c == "}") break
     if (c == "#" || c == ".") {
       e <- token_end(pos)
@@ -631,12 +683,14 @@ parse_block_strict <- function(ch, i, lim) {
     }
     ke <- pos
     while (ke <= lim && !(ch[ke] %in% c(ws, "}", "=", "\"", "'", "{"))) ke <- ke + 1L
-    if (ke == pos || ke > lim) return(fail("other"))
+    other <- function() fail(if (nzchar(lq)) (if (lq == "\"") "q2" else "q1") else "other")
+    if (ke == pos || ke > lim) return(other())
     if (ch[ke] != "=") {
       # white space before `=`
       k2 <- ke
       while (k2 <= lim && ch[k2] %in% ws) k2 <- k2 + 1L
-      return(fail(if (k2 <= lim && ch[k2] == "=" && k2 > ke) "space" else "other"))
+      if (k2 <= lim && ch[k2] == "=" && k2 > ke) return(fail("space"))
+      return(other())
     }
     key <- paste(ch[pos:(ke - 1L)], collapse = "")
     vp <- ke + 1L
@@ -657,22 +711,27 @@ parse_block_strict <- function(ch, i, lim) {
           j <- j + 1L
         }
       }
-      if (is.na(cl)) return(fail("open"))
+      if (is.na(cl)) return(fail(if (esc_close(vp + 1L, lim, q)) "esc" else "open"))
       pos <- cl + 1L
       if (pos <= lim && !(ch[pos] %in% stops)) {
         # a closing quote glued to what follows: does another quote of its kind follow in the block?
         e <- pos
         while (e <= lim && ch[e] != "}") e <- e + 1L
         later <- e > pos && any(ch[pos:(e - 1L)] == q)
+        if (esc_close(vp + 1L, cl - 1L, q)) return(fail("esc"))
         return(fail(if (!later) "glued" else if (q == "\"") "q2" else "q1"))
       }
       raw <- if (cl > vp + 1L) paste(ch[(vp + 1L):(cl - 1L)], collapse = "") else ""
-      rd <- read_quoted_value(raw)
+      lc <- if (grepl("\n", raw, fixed = TRUE)) line_context(ch, i) else list(kind = "", indent = 0L)
+      rd <- read_quoted_value(raw, if (lc$kind == "li") lc$indent else 0L)
       val <- rd$value
+      if (lc$kind == "bq") probs[[length(probs) + 1L]] <- list(type = "M6", key = key)
+      if (starts_with_space(val)) probs[[length(probs) + 1L]] <- list(type = "M7", key = key)
       if (rd$bad_bs) probs[[length(probs) + 1L]] <- list(type = "M1", key = key)
       if (!is.na(rd$ref)) probs[[length(probs) + 1L]] <- list(type = "M3", key = key, ref = rd$ref)
       if (is.na(bar_key) && has_bare_bar(raw)) bar_key <- key
       qq <- q
+      last_q <- q
     } else {
       e <- vp
       while (e <= lim && !(ch[e] %in% stops)) {
@@ -685,6 +744,8 @@ parse_block_strict <- function(ch, i, lim) {
         probs[[length(probs) + 1L]] <- list(type = "M2", key = key)
       }
       val <- gsub("\\|", "|", raw, fixed = TRUE)
+      rf <- find_char_ref(val)
+      if (!is.na(rf)) probs[[length(probs) + 1L]] <- list(type = "M3", key = key, ref = rf)
       if (is.na(bar_key) && has_bare_bar(raw)) bar_key <- key
       pos <- e + 1L
       qq <- ""
@@ -977,6 +1038,7 @@ msg_broken_block <- function(cause) {
     q1 = "a `'` inside a value in single quotes ends it early",
     glued = "a closing quote must be followed by a space or `}`",
     open = "a quoted value is not closed in its paragraph",
+    esc = "the closing quote is escaped, so the value runs on",
     space = "spaces around `=` are not allowed",
     novalue = "a key has no value",
     marker = "a `#` or `.` has nothing after it",
@@ -985,6 +1047,7 @@ msg_broken_block <- function(cause) {
     q2 = " Write it as `\\\"`, or put the value in single quotes.",
     q1 = " Write it as `\\'`, or put the value in double quotes.",
     open = " A `\\` before a quote escapes it.",
+    esc = " A `\\` before a quote escapes it; remove it from the closing quote.",
     "")
   paste0("The attribute block does not parse: ", txt, " (rules 1.2.3, 1.2.9).", hint)
 }
@@ -1010,9 +1073,12 @@ block_errors <- function(S, blk, kind) {
   }
   p3 <- first_prob("M3")
   if (!is.null(p3)) {
-    e <- c(e, sprintf(paste0("A character reference, `%s`, in the value of `%s` (rule 1.2.3): Pandoc reads ",
-                             "it as the character it names. Write the character itself."), p3$ref, p3$key))
+    e <- c(e, msg_char_ref(p3$ref, p3$key))
   }
+  p6 <- first_prob("M6")
+  if (!is.null(p6)) e <- c(e, msg_bq_value(p6$key))
+  p7 <- first_prob("M7")
+  if (!is.null(p7)) e <- c(e, msg_lead_space(p7$key))
   # a ladder in `unit` (4.4.23): an empty or a repeated rung; in a pipe-table cell its `|` is `\|`
   for (uv in blk$values[tolower(blk$names) == "unit"]) {
     if (grepl("|", uv, fixed = TRUE)) {
