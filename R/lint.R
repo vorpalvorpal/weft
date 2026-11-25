@@ -498,9 +498,9 @@ lints <- function(path = ".", files = NULL, rules = NULL, tier = 1, reader = c("
   full <- normalizePath(path, winslash = "/", mustWork = TRUE)
   root <- normalizePath(find_project_root(full), winslash = "/", mustWork = FALSE)
   all_files <- lint_files_under(root)
-  # the scripts, less those the project's `scripts_skip` leaves out (C1, C2); the settings are read here, so a
-  # bad one stops the run whatever the project holds
-  all_scripts <- if (reader == "weft") project_script_paths(root, lint_config(root)$scripts_skip) else character()
+  # the scripts, less those `scripts_skip` leaves out (C1, C2, K4), whatever the reader (K7); the settings are
+  # read here, so a bad one stops the run whatever the project holds
+  all_scripts <- project_script_paths(root)
   # files to report on
   files_rel <- NULL
   if (!is.null(files)) {
@@ -527,12 +527,31 @@ lints <- function(path = ".", files = NULL, rules = NULL, tier = 1, reader = c("
   } else {
     character()
   }
+  # a file named in `files`, or as `path`, that is not read gets a note saying why (K6)
+  named <- if (!is.null(files_rel)) files_rel else if (!dir.exists(full)) rel_to(full, root) else character()
+  notes <- c(notes, left_out_notes(root, named, c(all_files, all_scripts)))
   pre <- paste0(rel_to(full, root), "/")
   keep_project <- function(f) {
     f %in% report | (is.null(files_rel) & dir.exists(full) & (identical(full, root) | startsWith(f, pre)))
   }
   lint_run(root, all_files, report, sel, tier, rules, reader, notes = notes, keep_project = keep_project,
            scripts = scripts)
+}
+
+# The notes for the files named by the caller (`files`, or a file given as `path`) that are not read: a script
+# `scripts_skip` leaves out, or a file the document rules leave out (K6).
+left_out_notes <- function(root, named, read) {
+  named <- setdiff(unique(named), read)
+  vapply(named, function(rel) {
+    skip <- if (is_script_path(rel)) {
+      sr <- script_settings_root(root, rel)
+      inner <- if (nzchar(sr)) substring(rel, nchar(sr) + 2L) else rel
+      tryCatch(script_skipped(inner, lint_config(if (nzchar(sr)) file.path(root, sr) else root)$scripts_skip),
+               error = function(e) FALSE)
+    } else FALSE
+    if (skip) sprintf("`%s` is left out by `scripts_skip` (rule 5.1.9).", rel)
+    else sprintf("`%s` is left out by the document rules (rule 5.1.8).", rel)
+  }, "", USE.NAMES = FALSE)
 }
 
 # The documents of `all_files` that `path` (a folder or a file, normalised, inside `root`) covers.
@@ -573,8 +592,11 @@ lint_run <- function(root, all_files, report, sel, tier, rules, reader, notes = 
     }
   }
   ssel <- sel[sel$scope == "file" & sel$scripts, , drop = FALSE]
+  n_scripts <- 0L
   for (rel in scripts) {
     src <- ctx$source(rel)
+    # a script that holds no weft() literal, or does not parse, is not counted among the files read (K8)
+    if (isTRUE(src$invalid) || !isTRUE(src$skip)) n_scripts <- n_scripts + 1L
     if (isTRUE(src$invalid)) {
       if ("read" %in% sel$id) {
         parts[[length(parts) + 1L]] <- new_findings(
@@ -606,7 +628,7 @@ lint_run <- function(root, all_files, report, sel, tier, rules, reader, notes = 
   }
   out <- bind_findings(parts)
   if (nrow(out)) out <- out[out$tier %in% tier, , drop = FALSE]
-  finish_findings(out, ctx$notes, length(report) + length(scripts))
+  finish_findings(out, ctx$notes, length(report) + n_scripts)
 }
 
 # ---- construct (L17) --------------------------------------------------------------------------------

@@ -731,7 +731,7 @@ checks <- function(path = ".", files = NULL, repeats = 3L) {
   }
   full <- normalizePath(path, winslash = "/", mustWork = TRUE)
   root <- normalizePath(find_project_root(full), winslash = "/", mustWork = FALSE)
-  all_files <- c(lint_files_under(root), project_script_paths(root, lint_config(root)$scripts_skip))
+  all_files <- c(lint_files_under(root), project_script_paths(root))
   files_rel <- NULL
   if (!is.null(files)) {
     if (!is.character(files) || anyNA(files)) lint_abort("`files` must be paths to .qmd, .Rmd or .R files.")
@@ -753,7 +753,8 @@ checks <- function(path = ".", files = NULL, repeats = 3L) {
   }
   if (!is.null(files_rel)) report <- intersect(report, files_rel)
   report <- sort(report, method = "radix")
-  notes <- character()
+  named <- if (!is.null(files_rel)) files_rel else if (!dir.exists(full)) rel_to(full, root) else character()
+  notes <- left_out_notes(root, named, all_files)
   parts <- list()
   n_docs <- 0L
   for (rel in report) {
@@ -762,7 +763,11 @@ checks <- function(path = ".", files = NULL, repeats = 3L) {
       notes <- c(notes, sprintf("%s is not valid UTF-8, so its checks were not read (rule 5.1.3).", rel))
       next
     }
-    # a script that holds no weft() literal, or does not parse, has no checks to read (C15)
+    if (isTRUE(src$noparse)) {
+      notes <- c(notes, sprintf("`%s` does not parse as R, so its weft() strings were not read.", rel))
+      next
+    }
+    # a script that holds no weft() literal has no checks to read (C15)
     if (isTRUE(src$skip)) next
     n_docs <- n_docs + 1L
     r <- checks_read(src)

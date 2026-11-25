@@ -1384,7 +1384,7 @@ changes_added_lines <- function(root, commit, docs) {
 changes_tier2 <- function(root, commit, files = NULL) {
   empty <- data.frame(file = character(), line = integer(), rule = character(), message = character(),
                       stringsAsFactors = FALSE)
-  docs <- tryCatch(c(lint_files_under(root), project_script_paths(root, lint_config(root)$scripts_skip)),
+  docs <- tryCatch(c(lint_files_under(root), project_script_paths(root)),
                    error = function(e) e)
   if (inherits(docs, "error")) {
     return(list(table = empty, notes = paste0("tier-2 findings were not listed: ", conditionMessage(docs))))

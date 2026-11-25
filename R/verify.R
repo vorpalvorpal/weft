@@ -38,7 +38,7 @@ verify <- function(files = NULL, since = NULL, static = FALSE, path = ".") {
     verify_abort("`path` must be one existing file or folder (rule 8.1.1).")
   }
   if (!is.null(files) && (!is.character(files) || !length(files) || anyNA(files) || any(!nzchar(files)))) {
-    verify_abort("`files` must be NULL or the paths of documents (rule 8.1.1).")
+    verify_abort("`files` must be paths to .qmd, .Rmd or .R files.")
   }
   if (!is.null(since) && (!is.character(since) || length(since) != 1L || is.na(since) || !nzchar(since))) {
     verify_abort("`since` must be NULL or one string naming a commit (rule 8.1.1).")
@@ -64,7 +64,8 @@ verify <- function(files = NULL, since = NULL, static = FALSE, path = ".") {
   # the documents verified
   docs <- lint_files_under(root)
   all_docs <- docs
-  scripts <- project_script_paths(root, cfg$scripts_skip)
+  scripts <- project_script_paths(root)
+  all_scripts <- scripts
   files_rel <- NULL
   if (!is.null(files)) {
     absf <- ifelse(grepl("^(/|[A-Za-z]:)", files), files, file.path(root, files))
@@ -73,7 +74,7 @@ verify <- function(files = NULL, since = NULL, static = FALSE, path = ".") {
       !grepl("\\.(qmd|Rmd|rmd|R|r)$", files)
     if (any(prob)) {
       verify_abort(paste0("`files` must name existing .qmd, .Rmd or .R files under the project root; not so: ",
-                          paste0("`", files[prob], "`", collapse = ", "), " (rule 8.1.1)."))
+                          paste0("`", files[prob], "`", collapse = ", "), " (rule 5.1.1)."))
     }
     files_rel <- unique(rel_to(nf, root))
     docs <- files_rel[!is_script_path(files_rel)]
@@ -99,7 +100,9 @@ verify <- function(files = NULL, since = NULL, static = FALSE, path = ".") {
   # git: the commit to compare with (G23)
   gi <- verify_git(root)
   since_sha <- NA_character_
-  notes <- character()
+  full <- normalizePath(path, winslash = "/", mustWork = FALSE)
+  named <- if (!is.null(files_rel)) files_rel else if (!dir.exists(full)) rel_to(full, root) else character()
+  notes <- left_out_notes(root, named, c(all_docs, all_scripts))
   if (!is.null(since)) {
     if (is.null(gi)) verify_abort("`since` was given, but the project is not in a git work tree (rule 8.2.2).")
     if (grepl("^-", since)) verify_abort(sprintf("`since` must name a commit; `%s` does not (rule 8.2.2).", since))

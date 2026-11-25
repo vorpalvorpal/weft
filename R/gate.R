@@ -310,7 +310,7 @@ gate_side_results <- function(g, s, p, ids) {
       lroot <- normalizePath(find_project_root(root), winslash = "/", mustWork = FALSE)
       all_files <- lint_files_under(lroot)
       # the scripts this side reads: its own `scripts_skip` (C17)
-      all_scripts <- project_script_paths(lroot, lint_config(lroot)$scripts_skip)
+      all_scripts <- project_script_paths(lroot)
       tab <- lint_rule_table()
       want <- c(if (length(miss)) ids$file, if (need_proj) ids$project)
       sel <- tab[tab$tier == 1L & tab$id %in% want, , drop = FALSE]

@@ -273,12 +273,16 @@ project_only_settings <- function() c("draft", "decisions", "verify_skip", "scri
 # The names and paths of `scripts_skip` (C2): a list of non-empty strings, or one string; NULL when it is
 # neither.
 scripts_skip_list <- function(v) {
-  if (is.null(v) || (is.list(v) && !length(v))) return(character())
+  # a null value (an emptied or commented-out list) is the default; `[]` reads every script (K5)
+  if (is.null(v)) return("tests")
+  if (is.list(v) && !length(v)) return(character())
   u <- if (is.list(v)) {
     if (!is.null(names(v)) || any(!vapply(v, function(e) is.character(e) && length(e) == 1L, NA))) return(NULL)
     unlist(v, use.names = FALSE)
   } else v
   if (!is.character(u) || anyNA(u) || any(!nzchar(trimws(u)))) return(NULL)
+  # no globs, no leading slash, no backslash: such an entry would match nothing (K11)
+  if (any(grepl("[*?\\\\]", u)) || any(startsWith(trimws(u), "/"))) return(NULL)
   u
 }
 

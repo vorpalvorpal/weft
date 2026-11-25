@@ -263,18 +263,65 @@ project_doc_paths <- function(root, use = c("lint", "anchors", "setup"), pattern
   sort(enc2utf8(f), method = "radix")
 }
 
-# The scripts of the project at `root` (C1, C2): `.R` and `.r` files, as sorted relative paths with "/", less
-# the folders and files the documents' rule leaves out and those `skip` names. An entry of `skip` with no "/"
-# is a name: a folder on the script's path or its file name. One with a "/" is a path from the root (a leading
-# "./" and a trailing "/" dropped): that script, or every script under that folder. No globs.
+# The `.R` and `.r` files under `root` as relative paths with "/", in folders the documents' rule reads
+# (not a dot-folder, a vendored folder, a folder Quarto writes to, or a `_` folder). Those folders are pruned
+# as the walk goes, so renv's library is not walked, and a symbolic link to one is not followed (K15).
+script_files_under <- function(root) {
+  out <- character()
+  walk <- function(rel) {
+    dir <- if (nzchar(rel)) file.path(root, rel) else root
+    ents <- list.files(dir, all.files = FALSE, no.. = TRUE)
+    if (!length(ents)) return(invisible())
+    isd <- dir.exists(file.path(dir, ents))
+    for (e in ents[isd]) {
+      if (e %in% DOC_VENDORED_DIRS || startsWith(e, "_")) next
+      walk(if (nzchar(rel)) paste0(rel, "/", e) else e)
+    }
+    f <- ents[!isd & grepl(SCRIPT_EXT_RE, ents)]
+    if (length(f)) out <<- c(out, if (nzchar(rel)) paste0(rel, "/", f) else f)
+  }
+  walk("")
+  out
+}
+
+# The scripts of the project at `root` (C1, C2, K4): `.R` and `.r` files, as sorted relative paths with "/",
+# less the folders and files the documents' rule leaves out and those `scripts_skip` names. Each script is
+# judged by the `scripts_skip` of its own settings root (the nearest `_weft.yml`, `root`'s when none lies
+# below it), with its path relative to that folder. An entry of `scripts_skip` with no "/" is a name: a folder
+# on the script's path or its file name. One with a "/" is a path from that folder (a leading "./" and a
+# trailing "/" dropped): that script, or every script under that folder. No globs. The settings of `root` are
+# read whatever it holds, so a bad one stops the run.
 SCRIPT_EXT_RE <- "\\.[rR]$"
 
-project_script_paths <- function(root, skip = "tests") {
-  f <- list.files(root, pattern = SCRIPT_EXT_RE, recursive = TRUE, include.dirs = FALSE)
+project_script_paths <- function(root) {
+  skips <- list()
+  skip_of <- function(sroot) {
+    key <- if (nzchar(sroot)) sroot else "."
+    if (is.null(skips[[key]])) {
+      skips[[key]] <<- list(scripts_skip_list(lint_config(if (nzchar(sroot)) file.path(root, sroot) else root)$scripts_skip))
+    }
+    skips[[key]][[1L]]
+  }
+  skip_of("")
+  f <- script_files_under(root)
   if (!length(f)) return(character())
-  f <- enc2utf8(f[doc_path_ok(f, "lint")])
-  f <- f[!script_skipped(f, skip)]
-  sort(f, method = "radix")
+  f <- enc2utf8(f)
+  keep <- vapply(f, function(rel) {
+    sroot <- script_settings_root(root, rel)
+    inner <- if (nzchar(sroot)) substring(rel, nchar(sroot) + 2L) else rel
+    !script_skipped(inner, skip_of(sroot))
+  }, NA, USE.NAMES = FALSE)
+  sort(f[keep], method = "radix")
+}
+
+# The settings root of a script, as a path from `root` ("" for `root`).
+script_settings_root <- function(root, rel) {
+  d <- dirname(rel)
+  while (!identical(d, ".") && nzchar(d)) {
+    if (file.exists(file.path(root, d, "_weft.yml"))) return(d)
+    d <- dirname(d)
+  }
+  ""
 }
 
 script_skipped <- function(rel, skip) {
