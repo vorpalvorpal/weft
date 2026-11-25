@@ -427,6 +427,22 @@ source_pieces <- function(lines, ls, chunks, chs, front_ff) {
         }
       }
     }
+    # a weft() string in a computed caption: `!expr`, or a header option such as `fig.cap = weft(...)`
+    # (F4, F5); read as the weft() strings of chunk code are
+    add_lits <- function(code, first) {
+      lit <- chunk_literals(code, first, ls, "weft")
+      if (nrow(lit)) add("weft", NA_character_, lit$start, lit$start + nchar(lit$raw) - 1, by_row = TRUE)
+    }
+    for (o in ch$optblk) {
+      if (!(o$name %in% CAPTION_OPTIONS) || !identical(o$form, "expr")) next
+      ec <- expr_option_code(lines, o)
+      if (!is.null(ec)) add_lits(ec$code, ec$first)
+    }
+    for (nm in names(ch$hdr$opts)) {
+      if (!(nm %in% CAPTION_OPTIONS) || !is.null(ch$hdr$opts[[nm]]$literal)) next
+      code <- header_option_code(lines[ch$open], nm, ch$hdr$opts[[nm]]$text)
+      if (!is.null(code)) add_lits(code, ch$open)
+    }
     # header literals
     for (nm in names(ch$hdr$opts)) {
       if (!(nm %in% setdiff(CAPTION_OPTIONS, "tab.cap"))) next
@@ -439,7 +455,7 @@ source_pieces <- function(lines, ls, chunks, chs, front_ff) {
       }
       qs <- "\"(?:[^\"\\\\]|\\\\.)*\"|'(?:[^'\\\\]|\\\\.)*'"
       nmp <- paste0("(?<![A-Za-z0-9_.])", gsub(".", "\\.", nm, fixed = TRUE), "[ \t]*=[ \t]*")
-      hl <- lines[ch$open]
+      hl <- sub("[ \t\r]+$", "", lines[ch$open])
       mm <- regexpr(paste0(nmp, "c[ \t]*\\("), hl, perl = TRUE)
       if (mm > 0L) {
         st <- mm + attr(mm, "match.length")

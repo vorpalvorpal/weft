@@ -775,31 +775,14 @@ caption_code_rows <- function(lines, ch, label, hdr, optblk, file, config, dq, f
   }
   for (o in optblk) {
     if (!(o$name %in% CAPTION_OPTIONS) || !identical(o$form, "expr") || !caption_is_code(o, lines)) next
-    idx <- o$first:o$last
-    code <- lines[idx]
-    # blank what is not code: the `#|` prefix, the key and the tag
-    pre <- regexpr("^[ \t]*#\\|[ ]?[ \t]*[A-Za-z0-9_.-]+[ \t]*:[ \t]*!expr", code[1L], perl = TRUE)
-    if (pre < 0L) next
-    code[1L] <- paste0(strrep(" ", attr(pre, "match.length")), substring(code[1L], attr(pre, "match.length") + 1L))
-    if (length(code) > 1L) code[-1L] <- sub("^([ \t]*)#\\|", "\\1  ", code[-1L])
-    scan(code, o$first, o$name)
+    ec <- expr_option_code(lines, o)
+    if (is.null(ec)) next
+    scan(ec$code, o$first, o$name)
   }
   for (nm in names(hdr$opts)) {
     if (!(nm %in% CAPTION_OPTIONS) || !is.null(hdr$opts[[nm]]$literal)) next
-    hl <- lines[ch$open]
-    st <- regexpr(paste0("(?<![A-Za-z0-9_.])", gsub(".", "\\.", nm, fixed = TRUE), "[ \t]*=[ \t]*"), hl, perl = TRUE)
-    if (st < 0L) next
-    from <- st + attr(st, "match.length")
-    ends <- c(gregexpr(",", hl, fixed = TRUE)[[1L]], nchar(hl))
-    ends <- ends[ends >= from]
-    for (e in sort(unique(ends))) {
-      ex <- tryCatch(parse(text = substr(hl, from, e - 1L), keep.source = FALSE), error = function(err) NULL)
-      if (!is.null(ex) && length(ex) == 1L &&
-          identical(paste(deparse(ex[[1L]], width.cutoff = 500L), collapse = " "), hdr$opts[[nm]]$text)) {
-        scan(paste0(strrep(" ", from - 1L), substr(hl, from, e - 1L)), ch$open, nm)
-        break
-      }
-    }
+    code <- header_option_code(lines[ch$open], nm, hdr$opts[[nm]]$text)
+    if (!is.null(code)) scan(code, ch$open, nm)
   }
   if (!length(parts)) return(NULL)
   bind_scan_rows(parts)
@@ -809,12 +792,48 @@ caption_code_rows <- function(lines, ch, label, hdr, optblk, file, config, dq, f
 # holds, and not scanned as markup (C10). Any other `!expr` stays as it was: an expression that holds a
 # string with a construct is the error of 1.10.3 and 1.10.4.
 caption_is_code <- function(o, lines) {
-  txt <- paste(c(sub("^.*!expr[ \t]*", "", lines[o$first]), lines[setdiff(o$first:o$last, o$first)]), collapse = "\n")
-  txt <- gsub("(^|\n)[ \t]*#\\|[ ]?", "\\1", txt)
-  ex <- tryCatch(parse(text = txt, keep.source = TRUE), error = function(e) NULL)
+  ec <- expr_option_code(lines, o)
+  if (is.null(ec)) return(FALSE)
+  ex <- tryCatch(parse(text = paste(ec$code, collapse = "\n"), keep.source = TRUE), error = function(e) NULL)
   if (is.null(ex)) return(FALSE)
   pd <- utils::getParseData(ex)
   !is.null(pd) && length(weft_calls(pd)) > 0L
+}
+
+# The R code of a `!expr` option of a `#|` block (one line, continuation lines, or a block scalar
+# `!expr |` with the code on the lines that follow, F4), on lines that keep the code where it is in the
+# document: the `#|` prefix, the key, the tag and a block scalar's indicator are blanked to spaces.
+# list(code, first), or NULL when the first line is not a `!expr` line.
+expr_option_code <- function(lines, o) {
+  code <- lines[o$first:o$last]
+  pre <- regexpr("^[ \t]*#\\|[ ]?[ \t]*[A-Za-z0-9_.-]+[ \t]*:[ \t]*!expr", code[1L], perl = TRUE)
+  if (pre < 0L) return(NULL)
+  plen <- attr(pre, "match.length")
+  rest <- substring(code[1L], plen + 1L)
+  code[1L] <- paste0(strrep(" ", plen), rest)
+  if (length(code) > 1L) code[-1L] <- sub("^([ \t]*)#\\|", "\\1  ", code[-1L])
+  if (grepl("^[ \t]*[|>][-+0-9]*[ \t]*(#.*)?$", rest)) code[1L] <- strrep(" ", nchar(code[1L]))
+  list(code = code, first = o$first)
+}
+
+# The R code of the header option `nm` of a chunk header line (an rmarkdown `fig.cap = weft(...)`), padded
+# so that it keeps its columns, or NULL. `text` is the option's deparsed value. Trailing white space after
+# the closing brace is not part of the header (F12).
+header_option_code <- function(hl, nm, text) {
+  hl <- sub("[ \t\r]+$", "", hl)
+  st <- regexpr(paste0("(?<![A-Za-z0-9_.])", gsub(".", "\\.", nm, fixed = TRUE), "[ \t]*=[ \t]*"), hl, perl = TRUE)
+  if (st < 0L) return(NULL)
+  from <- st + attr(st, "match.length")
+  ends <- c(gregexpr(",", hl, fixed = TRUE)[[1L]], nchar(hl))
+  ends <- ends[ends >= from]
+  for (e in sort(unique(ends))) {
+    ex <- tryCatch(parse(text = substr(hl, from, e - 1L), keep.source = FALSE), error = function(err) NULL)
+    if (!is.null(ex) && length(ex) == 1L &&
+        identical(paste(deparse(ex[[1L]], width.cutoff = 500L), collapse = " "), text)) {
+      return(paste0(strrep(" ", from - 1L), substr(hl, from, e - 1L)))
+    }
+  }
+  NULL
 }
 
 # ---- putting the rows together ----------------------------------------------
