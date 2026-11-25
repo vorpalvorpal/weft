@@ -248,6 +248,44 @@ Over a whole project the tier-2 rules can list a great deal. They are meant
 for new material: `changes()` and `verify()` run them over the lines added
 since a commit.
 
+## Scripts
+
+Plot titles and console text are written in scripts as often as in chunks, so
+`lints()` also reads the `.R` and `.r` files of the project, but only for the
+literal strings they pass to `weft()`. A call is `weft(...)`, `weft::weft(...)`
+or `weft:::weft(...)`, or the right-hand side of a pipe; the argument read is the
+one R matches to `x`: a string (a raw string too) or the literal elements of a
+`c()`. A computed argument (`paste0()`, `sprintf()`, a name) is skipped. The code
+around the call is not read, nor are `claim()` calls, the phrases of `lookup()`
+and `brk()`, or strings given to other functions.
+
+```{r}
+dir.create("R")
+writeLines(c(
+  "library(ggplot2)",
+  "p <- labs(title = weft(\"We found 12 sites\"))"), "R/plots.R")
+lints()
+unlink("R", recursive = TRUE)
+```
+
+The finding is placed at the character of the script that holds it, through
+escapes and raw strings. The rules that read scripts are the ones marked
+`scripts` in `lint_rules()`: `numeral`, `construct`, `read`, `block-start`,
+`lone-bar`, `if-zero`, `name`, `inert-check`, `long-guard`, `claim-word`,
+`literal-value`, `value-constant` and `value-format`. The rules that read
+across documents (cross-references, citations, hygiene) read documents only.
+
+A script is left out when it is in a folder that starts with `.` or `_`, or in
+`renv`, `packrat`, `node_modules`, `_site`, `_book`, `_freeze` or `_extensions`.
+The setting `scripts_skip` in `_weft.yml` names more: a name with no `/` is
+matched against each folder and the file name, and an entry with a `/` is a path
+from the project root. It is `[tests]` unless set, because test files hold typed
+numbers and broken markup on purpose, and a list that you give replaces it, so
+keep `tests` in it. A script whose bytes do not hold `weft` is never read, one
+that is not UTF-8 gives the `read` finding, and one that does not parse as R gives
+a note and no findings. The commit gate counts a script's findings and
+constructs as it counts a document's.
+
 ## Settings
 
 | Setting | Default | Governs |
@@ -260,6 +298,7 @@ since a commit.
 | `guard_words` | `25` | the length of an `if` arm that `long-guard` lists |
 | `expected_names` | `[]` | classes (`.foo`) and keys (`foo`) from other tools that `name` should accept |
 | `strict` | `[]` | tier-1 rules whose every instance fails `verify()` |
+| `scripts_skip` | `[tests]` | folders and files whose `.R` scripts are not read (project setting) |
 | `anchor_calls` | `[]` | helper calls that define anchors, for `xref`, `anchor-twice` and `anchor-unused` |
 
 `strict` is for the end of adoption. Once a project has removed every typed

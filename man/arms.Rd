@@ -7,7 +7,7 @@
 arms(file)
 }
 \arguments{
-\item{file}{One path, or several, to documents.}
+\item{file}{One path, or several, to documents or scripts.}
 }
 \value{
 A data frame of class \code{weft_arms}, one row per arm, with the
@@ -20,7 +20,7 @@ written, trimmed), and \code{parent_span} and \code{parent_arm} (the span and ar
 it is nested in, or \code{NA}).
 }
 \description{
-Reads one or more \code{.qmd} or \code{.Rmd} files with the scanner and lists, for
+Reads one or more \code{.qmd}, \code{.Rmd} or \code{.R} files with the scanner and lists, for
 every \code{n}, \code{if}, \code{sign} and \code{list} span, each of its arms: the span's place, the
 key and its expression, the arm's role and the text the author wrote. The
 spans are those in prose, in captions, in front-matter fields and in
@@ -34,6 +34,13 @@ attribute \code{errors}, and the print method ends with them. A span whose arm
 count is not one the key accepts is not listed; it is one of the errors.
 So is an \code{n} span with more than one arm in a document whose \code{lang} is not
 English, because weft ships no other plural rules (rules 1.6.4, 1.6.5).
+
+A file whose name ends \code{.R} or \code{.r} is read as a script: its spans are those
+of the literal strings it passes to \code{weft()} (\code{weft(...)}, \code{weft::weft(...)},
+or the right-hand side of a pipe), with the settings of its project and
+English plural rules, and context \code{"weft"}. The setting \code{scripts_skip} is not
+applied: a script that is named is read. A script that does not parse lists
+no spans and no errors.
 
 Only the spans of the files given are listed; a document that a chunk
 includes with \verb{child=} is listed only when it is given too.

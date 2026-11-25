@@ -12,7 +12,7 @@ checks(path = ".", files = NULL, repeats = 3L)
 \arguments{
 \item{path}{One existing file or folder. The project root is found from it.}
 
-\item{files}{\code{NULL}, or documents (relative to the root or absolute under it) to report on.}
+\item{files}{\code{NULL}, or documents and scripts (relative to the root or absolute under it) to report on.}
 
 \item{repeats}{A whole number from 2: how many places make a hint.}
 
@@ -34,6 +34,9 @@ are compared: a comparison whose sides are names, dictionary reads, expressions 
 literals, or a bool name; the rest are listed under \verb{not read}. Nothing in a document is run.
 }
 \details{
+The \code{.R} scripts of the project are read too, for the guards and the \code{claim()} calls inside the values of
+the literal strings they pass to \code{weft()} (see \code{\link[=lints]{lints()}}); a \code{claim()} in a script's code is not read.
+
 A value is \emph{flagged} when two of its checks compare it with the same other operand under operators that
 differ only in strictness (\code{operators}), or with different literals in one direction (\code{literals}). The
 report hints at checks made in \code{repeats} places or more with the same condition: check once, where the

@@ -3,7 +3,7 @@
 \name{print.weft_findings}
 \alias{print.weft_findings}
 \alias{lints}
-\title{Lint a project's documents without running them}
+\title{Lint a project's documents and scripts without running them}
 \usage{
 \method{print}{weft_findings}(x, max = 200, ...)
 
@@ -24,9 +24,9 @@ lints(
 
 \item{path}{One existing file or folder. The project root is found from it.}
 
-\item{files}{\code{NULL}, or documents (relative to the root or absolute under it)
-to report on. File-scope rules run on these only; project-scope rules
-still read every document.}
+\item{files}{\code{NULL}, or documents and scripts (relative to the root or
+absolute under it) to report on. File-scope rules run on these only;
+project-scope rules still read every document.}
 
 \item{rules}{\code{NULL} (every rule of the tiers asked for), or ids from
 \code{\link[=lint_rules]{lint_rules()}}.}
@@ -45,4 +45,22 @@ with columns \code{file}, \code{line}, \code{col}, \code{end_line}, \code{rule},
 Reads \code{.qmd} and \code{.Rmd} documents as text and returns the typed numbers,
 construct errors and other problems the rules of \code{\link[=lint_rules]{lint_rules()}} find.
 Nothing in a document is run.
+}
+\details{
+The \code{.R} and \code{.r} files of the project (its scripts) are read too, but only
+for the literal strings they pass to \code{weft()}: in a script, \code{weft("We found 12 sites")} is prose like any other and its \code{12} is a finding, placed at its
+line and column in the script. A call is \code{weft(...)}, \code{weft::weft(...)} or
+\code{weft:::weft(...)}, or the right-hand side of a pipe; the argument read is the
+one R matches to \code{x}, a string literal (a raw string too) or the literal
+elements of a \code{c()}. The code around the call is not read, and neither are
+\code{claim()} calls, phrases or strings given to other functions. The rules that
+read scripts are those with \code{scripts} \code{TRUE} in \code{\link[=lint_rules]{lint_rules()}}; the project
+rules read documents only. A script is left out when it is in a folder
+whose name starts with \code{.} or \verb{_}, or in \code{renv}, \code{packrat}, \code{node_modules},
+\verb{_site}, \verb{_book}, \verb{_freeze} or \verb{_extensions}, or when it matches the setting
+\code{scripts_skip} of \verb{_weft.yml}: a list of folder or file names, or paths from
+the project root. Its default is \verb{[tests]}, and a list that is given
+replaces it, so keep \code{tests} in it. A script whose bytes do not hold \code{weft}
+is not read, one that is not valid UTF-8 gives the \code{read} finding, and one
+that does not parse as R gives a note and no findings.
 }

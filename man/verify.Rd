@@ -10,9 +10,10 @@ verify(files = NULL, since = NULL, static = FALSE, path = ".")
 \method{print}{weft_verify}(x, ...)
 }
 \arguments{
-\item{files}{\code{NULL} (every document of the project), or documents to verify (relative to
-the project root, or absolute under it). Only these are rendered, stamped, judged for
-ledgers and listed; the rules that read across files still read the whole project.}
+\item{files}{\code{NULL} (every document and script of the project), or documents and scripts to verify
+(relative to the project root, or absolute under it). Only these are rendered, stamped, judged for
+ledgers and listed (a script is only linted: see \code{\link[=lints]{lints()}}); the rules that read across files still
+read the whole project.}
 
 \item{since}{\code{NULL} (the commit \code{HEAD}, when there is one) or one string naming a commit.}
 
