@@ -152,12 +152,18 @@ no `\` but `\|`: `{n=k}`, `{digits=2}`.
 **1.2.3** weft reads a value as Pandoc reads it, and accepts only part of
 what Pandoc accepts, so that a block weft reads means the same to Pandoc.
 In a quoted value `\"`, `\'` and `\|` stand for `"`, `'` and `|`, a quote of
-the other kind needs no escape, and a line break reads as one space. In a
-bare value `\|` stands for `|`. In the block of a weft construct these are
-construct errors (§5.3): any other `\` in a value; a `"`, `'` or `\` in a
-bare value, but for `\|`; a character reference (`&amp;`, `&#39;`) in a
-quoted value. The message for a `\` says to bind the expression to a name in
-a chunk.
+the other kind needs no escape, and a line break reads as one space; in a
+list item, the item's content indent after the break is dropped, as Pandoc
+drops it. In a bare value `\|` stands for `|`. In the block of a weft
+construct these are construct errors (§5.3): any other `\` in a value; a `"`,
+`'` or `\` in a bare value, but for `\|`; a character reference (`&amp;`,
+`&#39;`, `&#x41;`) in any value, quoted or bare; a quoted value that starts
+with white space of any kind, a no-break space included, for every key; a
+quoted value that crosses a line break in a block quote. The message for a `\`
+says to bind the expression to a name in a chunk. The same holds when weft
+writes a value back (a pass-through key, a literal): it refuses a character
+reference or a leading space with a construct error and never writes the block
+differently from what the author typed.
 
 **1.2.9** An unescaped quote of a value's own kind ends the value early, and
 what is left is no longer an attribute block. So braces that directly follow
@@ -4682,7 +4688,9 @@ A line inside a span that Pandoc cuts a paragraph at is a separate rule,
   them on a value (1.1.5, 1.3.3)
 - a code span that opens with `r` and a line break (5.3.4)
 - in a value, a `\` that does not escape `"`, `'` or `|`; a `"`, `'` or `\` in
-  a bare value, but for `\|`; a character reference in a quoted value (1.2.3)
+  a bare value, but for `\|`; a character reference in a value; a quoted value
+  that starts with white space, or that crosses a line break in a block quote
+  (1.2.3)
 - braces after a bracket, inline code or a `.weft-literal` div's colons that do
   not parse and hold a key of 1.2.5 (1.2.9)
 - a key written twice in one block, in any letter case (1.2.10)
@@ -6767,14 +6775,24 @@ before Pandoc does (the hooks, the lints, `weft_str()`) and the filter reads
 Pandoc's tree; a block read two ways would mean two things in one project.
 Pandoc also takes a `\` before any character that is not a letter or digit,
 decodes character references in quoted values, and reads quotes in a bare
-value. weft refuses these: none is needed to write an expression or a
+value. weft refuses these, and a character reference in a bare value too (the
+writer puts every value in quotes, where Pandoc would then decode what the
+author left bare, so `title=R&amp;D` would change meaning on its way out; to
+refuse it is symmetric with the quoted case): none is needed to write an expression or a
 reason, a refusal is loud where a misreading is silent, and decoding
 references would put Pandoc's entity table in every reader. A bare value
 with an escape is a trap besides: a construct in a YAML double-quoted string
 reaches the scanner with YAML's `\"` still in it (`{if=\"flag\"}`), and a
 bare value read with escapes would test the string `"flag"` statically while
 the render evaluates `flag`. A line break reads as a space because an
-editor's re-wrap may put one inside a long value. `commonmark_x` reads
+editor's re-wrap may put one inside a long value. In a list item Pandoc strips
+the item's indent from the next line, so weft does too. In a block quote the
+scanner works on raw lines and does not know the quote's depth, so it cannot
+strip the `>` markers as Pandoc does; a value that crosses a line break there
+is an error, since an error never misreads. A value that starts with white
+space makes Pandoc read the block as text (or, after a no-break space, as a
+bare value that keeps its quotes), so the rule holds for every key and not
+only for governors. `commonmark_x` reads
 neither single quotes nor `\"`, but weft's lints mask constructs before
 Pandoc reads the text, so this does not reach them. The broken-block error
 covers `label`, `why` and `decision` because an apostrophe in a single-quoted
@@ -8282,7 +8300,7 @@ The forms the writer produced (check, 2026-11-11):
 | An unknown key: Pandoc warns ("citation … not found"), exits 0 and prints "(key?)"; with no bibliography there is no warning at all; Typst fails the render | both |
 | `@{key with spaces}` resolves in a bibliography and is left as literal text by Pandoc | both |
 | A `"` inside a double-quoted value ends the value, and the block becomes prose with no error | both |
-| Not writable as a value: a prefix or locator needing a backslash (1.2.3). Pandoc decodes `&quot;` in a quoted value; weft refuses a character reference (1.2.3) | both |
+| Not writable as a value: a prefix or locator needing a backslash (1.2.3). Pandoc decodes `&quot;` in a quoted value; weft refuses a character reference in any value (1.2.3) | both |
 | check, 2026-11-25: Pandoc 3.8.3 reads `\` before any character that is not a letter or digit as that character, in quoted and bare values, and keeps a `\` before a letter or digit; decodes character references in a quoted value only; reads a line break in a quoted value as a space; reads `{k=x"y}`, `{k="x".c}` and `{k="m\"}` (as the bare value `"m"`) as spans and `{k=' x'}` as text; its writer writes `\` as `\\`, `"` as `\"` and `\|` as `|` | Pandoc |
 | With no hooks, `why` on a span or div reaches HTML as an attribute (`data-why`) and is invisible in docx, Typst and LaTeX | Pandoc |
 | The hook removes `why` and leaves the class, for a span and for a div: nested in a div, a list or a block quote; with its two fences in different text blocks; with a comma, apostrophe, `#`, `\|` or brackets in the `why` | both (html, docx, Typst) |

@@ -365,10 +365,13 @@ as Pandoc read it; a `.weft-literal` span or div by `decision` likewise.
 `{`, a space, a tab or a line break, reads the value written after `=`, and
 counts the occurrence when that reading equals the tree's value. The reading
 here is Pandoc's, not weft's subset, so that a document weft would refuse
-still gets its lines: in a quoted value `\` before a character that is not an
-ASCII letter or digit is that character (a whole UTF-8 character), `\`
-before a letter or digit stays, a line break is a space; in a bare value
-(up to white space or `}`) `\` before a non-alphanumeric is that character.
+still gets its lines: in a quoted value `\` before a character that is not a
+letter or digit (Unicode ones included) is that character (a whole UTF-8
+character), `\` before a letter or digit stays, as does `\` before a line
+break, and a line break is a space (in a list item the item's indent after
+it is dropped; a value that crosses a line break in a block quote has no
+line); in a bare value (up to white space or `}`) `\` before a
+non-alphanumeric is that character.
 Character references are not decoded: such a span has no line (a limit; it
 is a construct error to the lints). The cursor of 2.13.6 is kept per key and
 value (the next occurrence after the previous one *with the same key and
