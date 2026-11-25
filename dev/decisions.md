@@ -834,3 +834,24 @@ that change behaviour. Details are in the design and review notes named.
   collector for scripts. `scripts_skip` replaces its `[tests]` default
   when given, as `strict` does. Computed captions are read as code from
   E1 on.
+- **A leading space in a value is written `\ `** (`last="\ plus "`;
+  `dev/review-q.md` R3a). `last=" plus "` was never a Pandoc attribute:
+  it worked only because the hooks consumed the block. Alternatives:
+  exempt `sep` and `last` from the leading-space error (they would print
+  as text in a filter document); have weft pad `last` itself (changes the
+  meaning of `last=", and"`).
+- **Review of E1** (`dev/review-e1.md`). A folder with no `_weft.yml`
+  means the default units, never another project's or a knit's: the
+  origin of the units in force is tracked. The plain reader follows
+  Pandoc on split emphasis runs, code-span trimming and `\ ` in
+  super/subscripts. Outside a knit a `weft()` failure keeps the prefix
+  "weft: a weft() string: ".
+- **Review of E2** (`dev/review-e2.md`). The host language never
+  publishes a function (the name is left to the filter, which takes a
+  guest's value), instead of an error record that collided with the
+  guest's. Governor names in an unresolved caption are never published
+  (the draft-mode secret leak). The stale-session check notes a read only
+  when no executed chunk above it assigns the name, and counts any code it
+  cannot read as assigning (it errs towards not failing a correct render).
+  Alternative for the last: compare object identity after each chunk;
+  there is no supported cheap identity for every object.
