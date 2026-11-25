@@ -1,6 +1,6 @@
 # Package E3 (dev/design-e3.md): cli (C8 to C11; T8 to T11).
 
-e3c_ESC <- "\033"
+e3c_ESC <- "\u001b"
 e3c_ansi_on <- function(env = parent.frame()) {
   withr::local_options(cli.num_colors = 256L, .local_envir = env)
 }
@@ -17,7 +17,7 @@ test_that("T8 C9: cli_format() with styles on is a bare character vector of the 
   out <- cli::cli_format(w)
   expect_identical(class(out), "character")
   expect_identical(attributes(out), list(names = c("p", "q")))
-  expect_identical(out[["p"]], "a \033[3mb\033[23m")
+  expect_identical(out[["p"]], "a \u001b[3mb\u001b[23m")
   expect_identical(out[["q"]], "c")
 })
 
@@ -36,7 +36,7 @@ test_that("T8 C9: cli_format() writes NA as 'NA' and ignores style", {
 test_that("T8 C9: {.val {w}} draws the emphasis, unquoted", {
   e3c_ansi_on()
   out <- cli::format_inline("Got {.val {weft('a *b*')}}.")
-  expect_true(grepl("\033[3mb\033[23m", out, fixed = TRUE))
+  expect_true(grepl("\u001b[3mb\u001b[23m", out, fixed = TRUE))
   expect_identical(cli::ansi_strip(out), "Got a b.")
 })
 
@@ -53,7 +53,7 @@ test_that("T9 C10: {w} gives plain text, with no ESC from weft", {
   w <- weft("a *b*")
   out <- cli::format_inline("Got {w}.")
   expect_identical(cli::ansi_strip(out), "Got a b.")
-  expect_false(grepl("\033[3m", out, fixed = TRUE))
+  expect_false(grepl("\u001b[3m", out, fixed = TRUE))
 })
 
 # ---- T10: braces (C11) -------------------------------------------------------------------------

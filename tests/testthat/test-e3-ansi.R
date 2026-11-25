@@ -4,7 +4,7 @@
 
 # design ambiguity: the design asks for these helpers in helper-0-common.R; the test-writer may not
 # modify existing files, so they live here under e3_ names.
-e3_ESC <- "\033"
+e3_ESC <- "\u001b"
 e3_ansi_on <- function(env = parent.frame()) {
   withr::local_options(cli.num_colors = 256L, .local_envir = env)
 }
@@ -13,25 +13,25 @@ e3_fmt <- function(m) unname(format(weft(m), target = "ansi"))
 # ---- T1: run kinds (C1, C2) --------------------------------------------------------------------
 
 e3_rows <- list(
-  list("a *b* c", "a \033[3mb\033[23m c"),
-  list("a _b_ c", "a \033[3mb\033[23m c"),
-  list("**b**", "\033[1mb\033[22m"),
-  list("__b__", "\033[1mb\033[22m"),
-  list("***b***", "\033[1m\033[3mb\033[23m\033[22m"),
-  list("*a **b** c*", "\033[3ma \033[1mb\033[22m c\033[23m"),
-  list("*m^2^*", "\033[3mm\u00b2\033[23m"),
+  list("a *b* c", "a \u001b[3mb\u001b[23m c"),
+  list("a _b_ c", "a \u001b[3mb\u001b[23m c"),
+  list("**b**", "\u001b[1mb\u001b[22m"),
+  list("__b__", "\u001b[1mb\u001b[22m"),
+  list("***b***", "\u001b[1m\u001b[3mb\u001b[23m\u001b[22m"),
+  list("*a **b** c*", "\u001b[3ma \u001b[1mb\u001b[22m c\u001b[23m"),
+  list("*m^2^*", "\u001b[3mm\u00b2\u001b[23m"),
   list("10^*2*^", "10\u00b2"),
-  list("x^*ab*^", "x^(\033[3mab\033[23m)"),
+  list("x^*ab*^", "x^(\u001b[3mab\u001b[23m)"),
   list("CO~2~", "CO\u2082"),
   list("`code` here", "code here"),
   list("$x^2$ and $y$", "$x^2$ and $y$"),
   list("[3]{.smallcaps}", "3"),
-  list("*1*<!-- -->*2*", "\033[3m1\033[23m\033[3m2\033[23m"),
+  list("*1*<!-- -->*2*", "\u001b[3m1\u001b[23m\u001b[3m2\u001b[23m"),
   list("<<weft: failed claim, chunk fig-a>>",
-       "\033[1m\033[31m<<weft: failed claim, chunk fig-a>>\033[39m\033[22m"),
+       "\u001b[1m\u001b[31m<<weft: failed claim, chunk fig-a>>\u001b[39m\u001b[22m"),
   list("see <<weft: no value, line 4>> here",
-       "see \033[1m\033[31m<<weft: no value, line 4>>\033[39m\033[22m here"),
-  list("[x]{.em}", "\033[3mx\033[23m"),
+       "see \u001b[1m\u001b[31m<<weft: no value, line 4>>\u001b[39m\u001b[22m here"),
+  list("[x]{.em}", "\u001b[3mx\u001b[23m"),
   list("`r 2`{.num} m^2^", "2 m\u00b2"),
   list("plain words", "plain words")
 )
@@ -54,7 +54,7 @@ test_that("T1 C2: the result is a bare character string, with no cli_ansi_string
 test_that("T1 C2: a full reset (ESC[0m) is never written", {
   e3_ansi_on()
   for (row in e3_rows) {
-    expect_false(grepl("\033[0m", e3_fmt(row[[1]]), fixed = TRUE), label = row[[1]])
+    expect_false(grepl("\u001b[0m", e3_fmt(row[[1]]), fixed = TRUE), label = row[[1]])
   }
 })
 
@@ -62,7 +62,7 @@ test_that("T1 C2: a weft text inside a cli colour keeps the colour around it", {
   e3_ansi_on()
   out <- cli::col_blue(paste0("A ", e3_fmt("*b*"), " C"))
   # the colour is closed once, at the end, not by anything weft wrote
-  expect_identical(sum(gregexpr("\033[39m", out, fixed = TRUE)[[1]] > 0), 1L)
+  expect_identical(sum(gregexpr("\u001b[39m", out, fixed = TRUE)[[1]] > 0), 1L)
 })
 
 # ---- T2: strip gives plain (C3) ----------------------------------------------------------------
@@ -125,7 +125,7 @@ test_that("T3 C5: R_CLI_NUM_COLORS = 256 turns styles on", {
   w <- weft("a *b*")
   withr::local_options(cli.num_colors = NULL, crayon.enabled = NULL, knitr.in.progress = NULL)
   withr::local_envvar(NO_COLOR = NA, R_CLI_NUM_COLORS = "256")
-  expect_identical(unname(format(w, target = "ansi")), "a \033[3mb\033[23m")
+  expect_identical(unname(format(w, target = "ansi")), "a \u001b[3mb\u001b[23m")
 })
 
 test_that("T3 C5: crayon.enabled = FALSE gives the plain text", {
@@ -150,7 +150,7 @@ test_that("T4 C6: format(target = 'ansi') keeps names and writes NA as 'NA'", {
   w <- weft(c(p = "a *b*", q = NA))
   out <- format(w, target = "ansi")
   expect_identical(names(out), c("p", "q"))
-  expect_identical(out[["p"]], "a \033[3mb\033[23m")
+  expect_identical(out[["p"]], "a \u001b[3mb\u001b[23m")
   expect_identical(out[["q"]], "NA")
 })
 
@@ -159,8 +159,8 @@ test_that("T4 C6: format(target = 'ansi') keeps names and writes NA as 'NA'", {
 test_that("T5 C7: print() writes each element on its own line, styled when stdout() has colours", {
   e3_ansi_on()
   out <- capture.output(print(weft(c("a *b*", "c"))))
-  expect_identical(out, c("a \033[3mb\033[23m", "c"))
-  expect_output(print(weft(c("a *b*", "c"))), "a \033[3mb\033[23m\nc", fixed = TRUE)
+  expect_identical(out, c("a \u001b[3mb\u001b[23m", "c"))
+  expect_output(print(weft(c("a *b*", "c"))), "a \u001b[3mb\u001b[23m\nc", fixed = TRUE)
 })
 
 test_that("T5 C7: with cli.num_colors = 1 the lines are plain", {
@@ -226,7 +226,7 @@ test_that("T7 C4: an element joined in by c() is its plain text, unstyled", {
   x <- c(weft("*a*"), "*b* m^2^")
   out <- format(x, target = "ansi")
   expect_identical(out[[2]], "*b* m^2^")
-  expect_identical(out[[1]], "\033[3ma\033[23m")
+  expect_identical(out[[1]], "\u001b[3ma\u001b[23m")
 })
 
 test_that("T7 C4: an element set by [<- is its plain text, unstyled", {
