@@ -212,8 +212,30 @@ local function block_end(text, s)
   return nil
 end
 
+-- quoted values emptied, one left-to-right pass: a `\` and the character after it go together (rule 1.2.3), so
+-- `\"` does not close a value and text inside one cannot pass for a key
+local function strip_quoted(s)
+  local out, i, n = {}, 1, #s
+  while i <= n do
+    local c = s:sub(i, i)
+    if c == '"' or c == "'" then
+      local j = i + 1
+      while j <= n and s:sub(j, j) ~= c do
+        if s:sub(j, j) == "\\" then j = j + 1 end
+        j = j + 1
+      end
+      out[#out + 1] = c .. c
+      i = j + 1
+    else
+      out[#out + 1] = c
+      i = i + 1
+    end
+  end
+  return table.concat(out)
+end
+
 local function carries_weft(block)
-  local bare = block:gsub('"[^"]*"', '""'):gsub("'[^']*'", "''")
+  local bare = strip_quoted(block)
   for c in bare:gmatch("%.([%w_]+)") do
     if FORMATTER_CLASSES[c] or TEXT_CLASSES[c] or c == "val" then return true end
   end
