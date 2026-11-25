@@ -263,6 +263,38 @@ project_doc_paths <- function(root, use = c("lint", "anchors", "setup"), pattern
   sort(enc2utf8(f), method = "radix")
 }
 
+# The scripts of the project at `root` (C1, C2): `.R` and `.r` files, as sorted relative paths with "/", less
+# the folders and files the documents' rule leaves out and those `skip` names. An entry of `skip` with no "/"
+# is a name: a folder on the script's path or its file name. One with a "/" is a path from the root (a leading
+# "./" and a trailing "/" dropped): that script, or every script under that folder. No globs.
+SCRIPT_EXT_RE <- "\\.[rR]$"
+
+project_script_paths <- function(root, skip = "tests") {
+  f <- list.files(root, pattern = SCRIPT_EXT_RE, recursive = TRUE, include.dirs = FALSE)
+  if (!length(f)) return(character())
+  f <- enc2utf8(f[doc_path_ok(f, "lint")])
+  f <- f[!script_skipped(f, skip)]
+  sort(f, method = "radix")
+}
+
+script_skipped <- function(rel, skip) {
+  skip <- scripts_skip_list(skip) %||% character()
+  if (!length(rel) || !length(skip)) return(rep(FALSE, length(rel)))
+  skip <- sub("/+$", "", sub("^\\./", "", trimws(skip)))
+  skip <- skip[nzchar(skip)]
+  parts <- strsplit(rel, "/", fixed = TRUE)
+  vapply(seq_along(rel), function(i) {
+    for (e in skip) {
+      if (grepl("/", e, fixed = TRUE)) {
+        if (rel[i] == e || startsWith(rel[i], paste0(e, "/"))) return(TRUE)
+      } else if (e %in% parts[[i]]) {
+        return(TRUE)
+      }
+    }
+    FALSE
+  }, NA)
+}
+
 # ---- writing --------------------------------------------------------------------------------------
 
 # Write `bytes` (raw) to `path` by writing a temporary file in the same folder

@@ -20,10 +20,16 @@ lint_rule_table <- function() {
   hit
 }
 
+# The file-scope rules that run on a script (C13): the ones that read only the rows and prose of its
+# `weft()` literals.
+LINT_SCRIPT_RULES <- c("numeral", "construct", "read", "block-start", "lone-bar", "if-zero", "name",
+                       "inert-check", "long-guard", "claim-word", "literal-value", "value-constant",
+                       "value-format")
+
 lint_rule_table_build <- function() {
   r <- function(id, spec, tier, scope, what) {
     data.frame(id = id, spec = spec, tier = as.integer(tier), scope = scope, what = what,
-               stringsAsFactors = FALSE)
+               scripts = id %in% LINT_SCRIPT_RULES, stringsAsFactors = FALSE)
   }
   do.call(rbind, list(
     r("numeral", "5.2.1", 1, "file", "A number typed in prose, a caption, front matter, a string or math."),
@@ -385,7 +391,7 @@ lint_read <- function(path, root, cfg) {
 # One document, read with its own settings.
 lint_open <- function(root, rel) {
   path <- file.path(root, rel)
-  cfg <- lint_config(settings_root(root, rel), doc_front(path))
+  cfg <- lint_config(settings_root(root, rel), if (is_script_path(rel)) list() else doc_front(path))
   lint_read(path, root, cfg)
 }
 
@@ -411,16 +417,34 @@ new_lint_ctx <- function(root, files, md_files, report, tier, rules, reader) {
   ctx
 }
 
-#' Lint a project's documents without running them
+#' Lint a project's documents and scripts without running them
 #'
 #' Reads `.qmd` and `.Rmd` documents as text and returns the typed numbers,
 #' construct errors and other problems the rules of [lint_rules()] find.
 #' Nothing in a document is run.
 #'
+#' The `.R` and `.r` files of the project (its scripts) are read too, but only
+#' for the literal strings they pass to `weft()`: in a script, `weft("We found
+#' 12 sites")` is prose like any other and its `12` is a finding, placed at its
+#' line and column in the script. A call is `weft(...)`, `weft::weft(...)` or
+#' `weft:::weft(...)`, or the right-hand side of a pipe; the argument read is the
+#' one R matches to `x`, a string literal (a raw string too) or the literal
+#' elements of a `c()`. The code around the call is not read, and neither are
+#' `claim()` calls, phrases or strings given to other functions. The rules that
+#' read scripts are those with `scripts` `TRUE` in [lint_rules()]; the project
+#' rules read documents only. A script is left out when it is in a folder
+#' whose name starts with `.` or `_`, or in `renv`, `packrat`, `node_modules`,
+#' `_site`, `_book`, `_freeze` or `_extensions`, or when it matches the setting
+#' `scripts_skip` of `_weft.yml`: a list of folder or file names, or paths from
+#' the project root. Its default is `[tests]`, and a list that is given
+#' replaces it, so keep `tests` in it. A script whose bytes do not hold `weft`
+#' is not read, one that is not valid UTF-8 gives the `read` finding, and one
+#' that does not parse as R gives a note and no findings.
+#'
 #' @param path One existing file or folder. The project root is found from it.
-#' @param files `NULL`, or documents (relative to the root or absolute under it)
-#'   to report on. File-scope rules run on these only; project-scope rules
-#'   still read every document.
+#' @param files `NULL`, or documents and scripts (relative to the root or
+#'   absolute under it) to report on. File-scope rules run on these only;
+#'   project-scope rules still read every document.
 #' @param rules `NULL` (every rule of the tiers asked for), or ids from
 #'   [lint_rules()].
 #' @param tier A subset of `1:2`. The default is tier 1.
@@ -474,21 +498,28 @@ lints <- function(path = ".", files = NULL, rules = NULL, tier = 1, reader = c("
   full <- normalizePath(path, winslash = "/", mustWork = TRUE)
   root <- normalizePath(find_project_root(full), winslash = "/", mustWork = FALSE)
   all_files <- lint_files_under(root)
+  # the scripts, less those the project's `scripts_skip` leaves out (C1, C2); the settings are read here, so a
+  # bad one stops the run whatever the project holds
+  all_scripts <- if (reader == "weft") project_script_paths(root, lint_config(root)$scripts_skip) else character()
   # files to report on
   files_rel <- NULL
   if (!is.null(files)) {
-    if (!is.character(files) || anyNA(files)) lint_abort("`files` must be paths to .qmd or .Rmd documents.")
+    if (!is.character(files) || anyNA(files)) lint_abort("`files` must be paths to .qmd, .Rmd or .R files.")
     absf <- ifelse(grepl("^(/|[A-Za-z]:)", files), files, file.path(root, files))
     nf <- normalizePath(absf, winslash = "/", mustWork = FALSE)
-    prob <- !file.exists(absf) | !startsWith(nf, paste0(root, "/")) | !grepl("\\.(qmd|Rmd|rmd)$", files)
+    prob <- !file.exists(absf) | !startsWith(nf, paste0(root, "/")) | !grepl("\\.(qmd|Rmd|rmd|R|r)$", files)
     if (any(prob)) {
-      lint_abort(paste0("`files` must name existing .qmd or .Rmd documents under the project root; not so: ",
+      lint_abort(paste0("`files` must name existing .qmd, .Rmd or .R files under the project root; not so: ",
                         paste0("`", files[prob], "`", collapse = ", "), " (rule 5.1.1)."))
     }
     files_rel <- rel_to(nf, root)
   }
   report <- lint_report_under(all_files, full, root)
-  if (!is.null(files_rel)) report <- intersect(report, files_rel)
+  scripts <- lint_report_under(all_scripts, full, root)
+  if (!is.null(files_rel)) {
+    report <- intersect(report, files_rel)
+    scripts <- intersect(scripts, files_rel)
+  }
   sel <- tab[tab$tier %in% tier & (is.null(rules) | tab$id %in% rules), , drop = FALSE]
   notes <- if (length(skipped)) {
     sprintf("Not run, because its tier is not in `tier`: %s (rule 5.1.2).",
@@ -500,11 +531,13 @@ lints <- function(path = ".", files = NULL, rules = NULL, tier = 1, reader = c("
   keep_project <- function(f) {
     f %in% report | (is.null(files_rel) & dir.exists(full) & (identical(full, root) | startsWith(f, pre)))
   }
-  lint_run(root, all_files, report, sel, tier, rules, reader, notes = notes, keep_project = keep_project)
+  lint_run(root, all_files, report, sel, tier, rules, reader, notes = notes, keep_project = keep_project,
+           scripts = scripts)
 }
 
 # The documents of `all_files` that `path` (a folder or a file, normalised, inside `root`) covers.
 lint_report_under <- function(all_files, full, root) {
+  if (!length(all_files)) return(all_files)
   if (!dir.exists(full)) return(intersect(all_files, rel_to(full, root)))
   if (identical(full, root)) return(all_files)
   pre <- paste0(rel_to(full, root), "/")
@@ -513,9 +546,10 @@ lint_report_under <- function(all_files, full, root) {
 
 # Run the rules of `sel` (rows of the rule table) over a project: each file-scope rule on the documents of
 # `file_report`, each project-scope rule once, keeping the findings whose file `keep_project` accepts (all of
-# them when it is NULL). Every document of `report` is opened. Returns the findings, with the notes.
+# them when it is NULL). Every document of `report` is opened. The `scripts` (relative paths) are read too,
+# and the rules that read scripts run on them (C12, C13). Returns the findings, with the notes.
 lint_run <- function(root, all_files, report, sel, tier, rules, reader, notes = character(),
-                     file_report = report, keep_project = NULL) {
+                     file_report = report, keep_project = NULL, scripts = character()) {
   md_files <- lint_files_under(root, "\\.md$")
   ctx <- new_lint_ctx(root, all_files, md_files, report, tier, rules, reader)
   for (m in notes) ctx$note(m)
@@ -527,13 +561,36 @@ lint_run <- function(root, all_files, report, sel, tier, rules, reader, notes = 
       if ("read" %in% sel$id) {
         parts[[length(parts) + 1L]] <- new_findings(
           file = rel, line = 1L, col = 1L, rule = "read", context = "project", text = rel,
-          message = sprintf("%s is not valid UTF-8; save the file as UTF-8 (rule 5.1.3).", rel),
+          message = sprintf("`%s` is not valid UTF-8; save the file as UTF-8 (rule 5.1.3).", rel),
           hint = "Save the file as UTF-8.")
       }
       next
     }
     for (i in which(sel$scope == "file")) {
       fn <- lint_rule_fun(sel$id[i])
+      if (is.null(fn)) next
+      parts[[length(parts) + 1L]] <- fn(src, ctx)
+    }
+  }
+  ssel <- sel[sel$scope == "file" & sel$scripts, , drop = FALSE]
+  for (rel in scripts) {
+    src <- ctx$source(rel)
+    if (isTRUE(src$invalid)) {
+      if ("read" %in% sel$id) {
+        parts[[length(parts) + 1L]] <- new_findings(
+          file = rel, line = 1L, col = 1L, rule = "read", context = "weft", text = rel,
+          message = sprintf("`%s` is not valid UTF-8; save the file as UTF-8 (rule 5.1.3).", rel),
+          hint = "Save the file as UTF-8.")
+      }
+      next
+    }
+    if (isTRUE(src$noparse)) {
+      ctx$note(sprintf("`%s` does not parse as R, so its weft() strings were not read.", rel))
+      next
+    }
+    if (isTRUE(src$skip)) next
+    for (i in seq_len(nrow(ssel))) {
+      fn <- lint_rule_fun(ssel$id[i])
       if (is.null(fn)) next
       parts[[length(parts) + 1L]] <- fn(src, ctx)
     }
@@ -549,7 +606,7 @@ lint_run <- function(root, all_files, report, sel, tier, rules, reader, notes = 
   }
   out <- bind_findings(parts)
   if (nrow(out)) out <- out[out$tier %in% tier, , drop = FALSE]
-  finish_findings(out, ctx$notes, length(report))
+  finish_findings(out, ctx$notes, length(report) + length(scripts))
 }
 
 # ---- construct (L17) --------------------------------------------------------------------------------

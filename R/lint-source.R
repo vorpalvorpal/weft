@@ -255,7 +255,15 @@ chunk_literals <- function(code, first_line, ls, which = c("weft", "phrase")) {
   which <- match.arg(which)
   out <- data.frame(start = numeric(), raw = character(), token = character(),
                     line = integer(), stringsAsFactors = FALSE)
-  fns <- if (which == "weft") "weft" else c("lookup", "brk")
+  if (which == "weft") {
+    # the one reader of the scanner and the lints (C9)
+    lit <- weft_literals(code)
+    if (!nrow(lit)) return(out)
+    line <- first_line + lit$line - 1L
+    return(data.frame(start = ls[line] + lit$col - 1 + lit$open, raw = lit$raw, token = lit$text,
+                      line = as.integer(line), stringsAsFactors = FALSE))
+  }
+  fns <- c("lookup", "brk")
   if (!length(code) || !any(vapply(fns, function(f) any(grepl(f, code, fixed = TRUE)), NA))) return(out)
   p <- tryCatch(parse(text = paste(code, collapse = "\n"), keep.source = TRUE), error = function(e) NULL)
   if (is.null(p)) return(out)
@@ -263,19 +271,12 @@ chunk_literals <- function(code, first_line, ls, which = c("weft", "phrase")) {
   if (is.null(pd)) return(out)
   par <- stats::setNames(pd$parent, pd$id)
   root_ids <- integer()
-  if (which == "weft") {
-    for (call_id in weft_calls(pd)) {
-      ex <- weft_call_arg(pd, call_id)
-      if (!is.na(ex)) root_ids <- c(root_ids, ex)
-    }
-  } else {
-    fn <- pd[pd$token == "SYMBOL_FUNCTION_CALL" & pd$text %in% fns, , drop = FALSE]
-    for (id in fn$id) {
-      fexpr <- pd$parent[pd$id == id]
-      call_id <- pd$parent[pd$id == fexpr]
-      if (!length(call_id) || call_id == 0L) next
-      root_ids <- c(root_ids, call_id)
-    }
+  fn <- pd[pd$token == "SYMBOL_FUNCTION_CALL" & pd$text %in% fns, , drop = FALSE]
+  for (id in fn$id) {
+    fexpr <- pd$parent[pd$id == id]
+    call_id <- pd$parent[pd$id == fexpr]
+    if (!length(call_id) || call_id == 0L) next
+    root_ids <- c(root_ids, call_id)
   }
   if (!length(root_ids)) return(out)
   sc <- pd[pd$token == "STR_CONST", , drop = FALSE]
@@ -347,6 +348,15 @@ source_pieces <- function(lines, ls, chunks, chs, front_ff) {
                                          end = end[ok], grp = rep_len(g, k),
                                          stringsAsFactors = FALSE)
     }
+  }
+  # the prose of the literals given to weft(): each literal one block, its escapes not prose
+  add_weft <- function(lit) {
+    if (!nrow(lit)) return(invisible())
+    ex <- literal_ranges(lit$start, lit$raw, grepl("^[rR]", lit$token))
+    if (!nrow(ex)) return(invisible())
+    g0 <- gid
+    add("weft", NA_character_, ex$start, ex$end, grp = g0 + ex$idx)
+    gid <<- g0 + nrow(lit)
   }
   # strip wrapping quotes of a one-line scalar: returns the ranges to keep
   value_range <- function(l, from_col) {
@@ -430,8 +440,7 @@ source_pieces <- function(lines, ls, chunks, chs, front_ff) {
     # a weft() string in a computed caption: `!expr`, or a header option such as `fig.cap = weft(...)`
     # (F4, F5); read as the weft() strings of chunk code are
     add_lits <- function(code, first) {
-      lit <- chunk_literals(code, first, ls, "weft")
-      if (nrow(lit)) add("weft", NA_character_, lit$start, lit$start + nchar(lit$raw) - 1, by_row = TRUE)
+      add_weft(chunk_literals(code, first, ls, "weft"))
     }
     for (o in ch$optblk) {
       if (!(o$name %in% CAPTION_OPTIONS) || !identical(o$form, "expr")) next
@@ -487,10 +496,9 @@ source_pieces <- function(lines, ls, chunks, chs, front_ff) {
       if (!identical(tolower(chunks$engine[k]), "r") || isFALSE(chunks$eval[k])) next
       code <- chunks$code[[k]]
       if (!length(code)) next
-      for (w in c("weft", "phrase")) {
-        lit <- chunk_literals(code, chunks$code_line[k], ls, w)
-        if (nrow(lit)) add(w, NA_character_, lit$start, lit$start + nchar(lit$raw) - 1, by_row = TRUE)
-      }
+      add_weft(chunk_literals(code, chunks$code_line[k], ls, "weft"))
+      lit <- chunk_literals(code, chunks$code_line[k], ls, "phrase")
+      if (nrow(lit)) add("phrase", NA_character_, lit$start, lit$start + nchar(lit$raw) - 1, by_row = TRUE)
     }
   }
   if (!length(P)) {
@@ -986,6 +994,7 @@ build_blocks <- function(S) {
 # ---- reading a document ------------------------------------------------------------------------
 
 read_source <- function(path, root, cfg) {
+  if (is_script_path(path)) return(read_script_source(path, root, cfg))
   rel <- lint_rel_path(path, root)
   ext <- sub("^.*\\.", "", basename(path))
   text <- read_source_text_or_null(path)
@@ -1062,6 +1071,15 @@ read_source <- function(path, root, cfg) {
     }
   }
   pieces <- source_pieces(lines, ls, chunks, chs, ff)
+  source_assemble(rel, path, ext, cfg, text, lines, ls, inmeta, infence, pieces, rows, chunks, ff, meta,
+                  front, lang)
+}
+
+# The rest of reading a source, shared by documents and scripts (D1): the regions, the prose mask and the
+# blocks over the pieces and rows.
+source_assemble <- function(rel, path, ext, cfg, text, lines, ls, inmeta, infence, pieces, rows, chunks, ff,
+                            meta, front, lang, script = FALSE) {
+  nl <- length(lines)
   S <- new.env(parent = emptyenv())
   S$text <- text; S$lines <- lines; S$line_start <- ls
   S$inmeta <- inmeta; S$infence <- infence; S$pieces <- pieces; S$rows <- rows
@@ -1120,7 +1138,7 @@ read_source <- function(path, root, cfg) {
   regions <- regions[order(regions$start, regions$end), , drop = FALSE]
   rownames(regions) <- NULL
   structure(list(
-    file = rel, path = path, ext = ext, invalid = FALSE, cfg = cfg, text = text, lines = lines,
+    file = rel, path = path, ext = ext, invalid = FALSE, script = script, cfg = cfg, text = text, lines = lines,
     line_start = ls, lang = lang, rows = rows, prose = mp$prose, regions = regions,
     blocks = bb$blocks, chunks = chunks, meta = meta, front = front, divs = S$divs,
     cache = new.env(parent = emptyenv())), class = "weft_source")
@@ -1175,4 +1193,67 @@ source_sentences <- function(src) {
   r <- r[order(r$start, -r$end), , drop = FALSE]
   rownames(r) <- NULL
   r
+}
+
+# ---- reading a script (D1, C3, C4) -----------------------------------------------------------------
+
+is_script_path <- function(path) grepl("\\.[rR]$", path)
+
+# Whether the bytes of a script hold the ASCII letters `weft` (C3). A NUL byte does not stop the search.
+bytes_mention_weft <- function(bytes) {
+  bytes[bytes == as.raw(0L)] <- as.raw(32L)
+  grepl("weft", rawToChar(bytes), fixed = TRUE, useBytes = TRUE)
+}
+
+# What reading a script's `weft()` literals gives (C3, C4): `status` is "invalid" (not text), "skip" (no
+# `weft` in its bytes, or no literal), "noparse", or "ok", with the text, lines, line starts, the literals and
+# the scanner's rows (an empty table when none of them holds a construct).
+script_scan <- function(path, rel, cfg) {
+  none <- function(status) list(status = status, text = "", lines = character(), ls = numeric(), lit = NULL,
+                                rows = NULL)
+  bytes <- read_source_bytes(path)
+  if (!bytes_mention_weft(bytes)) return(none("skip"))
+  text <- read_source_text_or_null(path)
+  if (is.null(text)) return(none("invalid"))
+  lines <- split_source_lines(text)
+  p <- tryCatch(parse(text = lines, keep.source = TRUE), error = function(e) NULL)
+  if (is.null(p)) return(none("noparse"))
+  pd <- utils::getParseData(p)
+  if (is.null(pd)) return(none("skip"))
+  ls <- line_starts(lines)
+  lit <- weft_literals(lines, pd)
+  if (!nrow(lit)) return(none("skip"))
+  rows <- scan_weft_code(lines, 1L, NA_character_, rel, cfg, NULL, ls, lit = lit)
+  if (is.null(rows)) {
+    rows <- scan_rows("", file = rel, first_line = 1L, config = cfg)
+    rows$fstart <- rows$fend <- rows$fblock <- numeric()
+    rows$context <- rows$chunk <- rows$option <- character()
+  }
+  list(status = "ok", text = text, lines = lines, ls = ls, lit = lit, rows = rows)
+}
+
+# A script is a second kind of source: its text, lines and line starts, the rows of its `weft()` literals, a
+# prose mask that is their pieces, and no chunks, metadata or blocks of its own. One that does not mention
+# `weft`, or does not parse, has `skip` set (the second also `noparse`) and no rows; one that is not text is
+# `invalid`.
+read_script_source <- function(path, root, cfg) {
+  rel <- lint_rel_path(path, root)
+  ext <- sub("^.*\\.", "", basename(path))
+  sc <- script_scan(path, rel, cfg)
+  if (sc$status != "ok") {
+    return(structure(list(file = rel, path = path, ext = ext, script = TRUE, cfg = cfg, text = "",
+                          lines = character(), line_start = numeric(), rows = NULL, chunks = NULL,
+                          invalid = sc$status == "invalid", skip = sc$status != "invalid",
+                          noparse = sc$status == "noparse"), class = "weft_source"))
+  }
+  lines <- sc$lines
+  lit <- sc$lit
+  nl <- length(lines)
+  ex <- literal_ranges(sc$ls[lit$line] + lit$col - 1 + lit$open, lit$raw, lit$open > 1L)
+  pieces <- data.frame(kind = rep("weft", nrow(ex)), name = rep(NA_character_, nrow(ex)), start = ex$start,
+                       end = ex$end, grp = ex$idx, stringsAsFactors = FALSE)
+  chunks <- chunk_table(lines, list())
+  ff <- front_fields(character())
+  source_assemble(rel, path, ext, cfg, sc$text, lines, sc$ls, logical(nl), rep(TRUE, nl), pieces, sc$rows,
+                  chunks, ff, list(), list(), "en", script = TRUE)
 }

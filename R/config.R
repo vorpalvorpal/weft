@@ -106,6 +106,7 @@ default_config <- function() {
     anchor_calls = list(),
     strict = character(),
     verify_skip = character(),
+    scripts_skip = "tests",
     names_from = NULL,
     weft_version = NULL
   )
@@ -267,7 +268,19 @@ read_config_ <- function(dir, front, doc, explicit = TRUE) {
 
 # The settings that belong to the project, not to a document (rule 9.1.4); the
 # `config-place` lint and read_config() both read this list.
-project_only_settings <- function() c("draft", "decisions", "verify_skip")
+project_only_settings <- function() c("draft", "decisions", "verify_skip", "scripts_skip")
+
+# The names and paths of `scripts_skip` (C2): a list of non-empty strings, or one string; NULL when it is
+# neither.
+scripts_skip_list <- function(v) {
+  if (is.null(v) || (is.list(v) && !length(v))) return(character())
+  u <- if (is.list(v)) {
+    if (!is.null(names(v)) || any(!vapply(v, function(e) is.character(e) && length(e) == 1L, NA))) return(NULL)
+    unlist(v, use.names = FALSE)
+  } else v
+  if (!is.character(u) || anyNA(u) || any(!nzchar(trimws(u)))) return(NULL)
+  u
+}
 
 # An unknown setting is kept, with a warning that names it (a misspelt
 # setting would otherwise do nothing).
@@ -562,6 +575,10 @@ validate_lint_config <- function(cfg, raw = NULL) {
     } else v
     if (!is.character(u) || anyNA(u) || any(!nzchar(u)) || any(grepl("[[:space:]]", u))) return(NULL)
     u
+  }
+  if (is.null(scripts_skip_list(cfg$scripts_skip))) {
+    weft_abort(paste0("The setting `scripts_skip` must be a list of folder or file names, or paths from ",
+                      "the project root (rule 9.1.4)."), "weft_config_error")
   }
   if (is.null(words(cfg$label_words))) bad("label_words", "a list of words without spaces", "5.2.4")
   nu <- cfg$numeral_years

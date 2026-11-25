@@ -453,6 +453,36 @@ lit_offsets <- function(raw, f0) {
   f0 + as.numeric(m) - 1
 }
 
+# The file ranges of a string literal's contents that are prose: its characters less the escape sequences
+# (`\n`, `\"`, `\u00e9`), which stand for one value character each and are not prose as typed. `start` is
+# the file offset of the first character of `raw`, the contents as typed. A raw string has no escapes. The
+# ranges, with `idx` the number of the literal each belongs to.
+literal_ranges <- function(start, raw, is_raw = rep(FALSE, length(raw))) {
+  out <- list()
+  for (k in seq_along(raw)) {
+    n <- nchar(raw[k])
+    if (n == 0L) next
+    if (is_raw[k] || !grepl("\\", raw[k], fixed = TRUE)) {
+      out[[length(out) + 1L]] <- data.frame(start = start[k], end = start[k] + n - 1, idx = k)
+      next
+    }
+    m <- gregexpr(paste0("(?s)\\\\(?:u\\{[0-9A-Fa-f]+\\}|u[0-9A-Fa-f]{1,4}|U\\{[0-9A-Fa-f]+\\}|",
+                         "U[0-9A-Fa-f]{1,8}|x[0-9A-Fa-f]{1,2}|[0-7]{1,3}|.)"), raw[k], perl = TRUE)[[1L]]
+    keep <- rep(TRUE, n)
+    if (m[1L] > 0L) {
+      for (j in seq_along(m)) keep[m[j]:(m[j] + attr(m, "match.length")[j] - 1L)] <- FALSE
+    }
+    if (!any(keep)) next
+    r <- rle(keep)
+    ends <- cumsum(r$lengths)
+    begs <- ends - r$lengths + 1L
+    out[[length(out) + 1L]] <- data.frame(start = start[k] + begs[r$values] - 1,
+                                          end = start[k] + ends[r$values] - 1, idx = k)
+  }
+  if (!length(out)) return(data.frame(start = numeric(), end = numeric(), idx = integer()))
+  do.call(rbind, out)
+}
+
 # Piece offsets `p` mapped through the table `off` (NA past its end).
 map_offsets <- function(p, off) {
   out <- rep(NA_real_, length(p))
@@ -671,8 +701,8 @@ weft_calls <- function(pd) {
   out
 }
 
-# The expression a call passes as `x` (ST2): the argument named `x`, else the first given without a
-# name. NA when there is none.
+# The expression a call passes as `x` (ST2, C6): the argument named `x`, else the first given without a
+# name, else, for the right-hand side of `|>` or `%>%`, the left-hand side. NA when there is none.
 weft_call_arg <- function(pd, call_id) {
   kids <- pd[pd$parent == call_id, , drop = FALSE]
   kids <- kids[order(kids$line1, kids$col1), , drop = FALSE]
@@ -691,7 +721,17 @@ weft_call_arg <- function(pd, call_id) {
       name <- NA_character_
     }
   }
-  first
+  if (!is.na(first)) return(first)
+  # no argument of the call is `x` and none is unnamed: a pipe supplies it
+  pe <- pd$parent[pd$id == call_id]
+  if (length(pe) && pe != 0L) {
+    sib <- pd[pd$parent == pe, , drop = FALSE]
+    sib <- sib[order(sib$line1, sib$col1), , drop = FALSE]
+    at <- match(call_id, sib$id)
+    if (!is.na(at) && at >= 3L && sib$token[at - 1L] %in% c("PIPE", "SPECIAL") &&
+        sib$text[at - 1L] %in% c("|>", "%>%") && sib$token[at - 2L] == "expr") return(sib$id[at - 2L])
+  }
+  NA_integer_
 }
 
 # ---- (the strings given to weft()) ----
@@ -701,58 +741,124 @@ scan_chunk_strings <- function(lines, ch, first, label, file, config, dq = NULL)
   scan_weft_code(lines[first:(ch$close - 1L)], first, label, file, config, dq, line_starts(lines))
 }
 
-# The literal strings given to weft() in `code`, whose first line is line `first` of the document
-# (`ls`, the line starts of the document, `dq` what dequoting took off each line). `option` names
-# the chunk option the code is the value of (C10), NA for a chunk's code.
-scan_weft_code <- function(code, first, label, file, config, dq = NULL, ls = NULL, option = NA_character_) {
-  if (!any(grepl("weft", code, fixed = TRUE))) return(NULL)
-  p <- tryCatch(parse(text = paste(code, collapse = "\n"), keep.source = TRUE),
-                error = function(e) NULL)
-  if (is.null(p)) return(NULL)
-  pd <- utils::getParseData(p)
-  if (is.null(pd)) return(NULL)
-  rows <- list()
+# The `STR_CONST` tokens a `weft()` call reads (C7): the argument is one string literal, or a `c()` (or
+# `base::c()`) whose literal arguments are each read. The ids of the tokens.
+weft_arg_literals <- function(pd, argid) {
+  one <- function(id) {
+    k <- pd[pd$parent == id, , drop = FALSE]
+    if (nrow(k) == 1L && k$token == "STR_CONST") k$id else integer()
+  }
+  top <- one(argid)
+  if (length(top)) return(top)
+  kids <- pd[pd$parent == argid, , drop = FALSE]
+  kids <- kids[order(kids$line1, kids$col1), , drop = FALSE]
+  op <- which(kids$token == "'('")
+  if (!length(op) || op[1L] < 2L || kids$token[1L] != "expr") return(integer())
+  fk <- pd[pd$parent == kids$id[1L], , drop = FALSE]
+  fk <- fk[order(fk$line1, fk$col1), , drop = FALSE]
+  is_c <- (nrow(fk) == 1L && fk$token == "SYMBOL_FUNCTION_CALL" && fk$text == "c") ||
+    (nrow(fk) == 3L && identical(fk$token, c("SYMBOL_PACKAGE", "NS_GET", "SYMBOL_FUNCTION_CALL")) &&
+       fk$text[1L] == "base" && fk$text[3L] == "c")
+  if (!is_c) return(integer())
+  out <- integer()
+  for (id in kids$id[seq_len(nrow(kids)) > op[1L] & kids$token == "expr"]) out <- c(out, one(id))
+  out
+}
+
+# Where a parser column falls in a line: R counts a tab as reaching the next multiple of 8.
+parse_char_col <- function(line_text, col) {
+  if (!grepl("\t", line_text, fixed = TRUE)) return(col)
+  ch <- strsplit(line_text, "")[[1L]]
+  pos <- 0L
+  for (i in seq_along(ch)) {
+    pos <- if (ch[i] == "\t") (pos %/% 8L + 1L) * 8L else pos + 1L
+    if (pos >= col) return(i)
+  }
+  length(ch) + 1L
+}
+
+# The width of what opens and closes a string token: `"`, or `r"(`, `R'--[`. `open` and `close` in
+# characters, and whether it is a raw string.
+str_token_shape <- function(tok) {
+  m <- regexec("^[rR]([\"'])(-*)([(\\[{])", tok)[[1L]]
+  if (m[1L] > 0L) {
+    ml <- attr(m, "match.length")
+    return(list(open = ml[1L], close = 1L + ml[3L] + 1L, raw = TRUE))
+  }
+  list(open = 1L, close = 1L, raw = FALSE)
+}
+
+# The literal strings given to weft() in parse data `pd` (C5 to C8): one row each, in order: `line` and
+# `col` (of the token's first character, within the code, a tab one character), `text` (the whole token),
+# `value`, `raw` (the contents as typed), `open` (the characters before them). The one reader the scanner
+# and the lints share (C9).
+empty_literals <- function() {
+  data.frame(line = integer(), col = integer(), text = character(), value = character(),
+             raw = character(), open = integer(), stringsAsFactors = FALSE)
+}
+
+weft_literals_pd <- function(pd, code) {
+  none <- empty_literals()
+  ids <- integer()
   for (call_id in weft_calls(pd)) {
     argid <- weft_call_arg(pd, call_id)
-    if (is.na(argid)) next
-    arg <- pd[pd$id == argid, , drop = FALSE]
-    toks <- pd[pd$parent == arg$id, , drop = FALSE]
-    consts <- NULL
-    if (nrow(toks) == 1L && toks$token == "STR_CONST") {
-      consts <- toks
-    } else {
-      sub <- pd[pd$parent %in% c(arg$id, pd$id[pd$parent == arg$id & pd$token == "expr"]), , drop = FALSE]
-      isc <- sub$token == "STR_CONST"
-      txt <- paste(utils::getParseText(pd, arg$id), collapse = " ")
-      ex <- tryCatch(parse(text = txt, keep.source = FALSE)[[1L]], error = function(e) NULL)
-      if (is.call(ex) && identical(ex[[1L]], quote(c)) && length(ex) > 1L &&
-          all(vapply(as.list(ex)[-1L], function(a) is.character(a) && length(a) == 1L, NA)) &&
-          sum(isc) == length(ex) - 1L) {
-        consts <- sub[isc, , drop = FALSE]
-        consts <- consts[order(consts$line1, consts$col1), , drop = FALSE]
-      }
-    }
-    if (is.null(consts)) next
-    for (q in seq_len(nrow(consts))) {
-      val <- tryCatch(eval(parse(text = consts$text[q], keep.source = FALSE)[[1L]]),
-                      error = function(e) NULL)
-      if (!is.character(val) || length(val) != 1L) next
-      line <- first + consts$line1[q] - 1L
-      r <- scan_rows(val, file = file, first_line = line, config = config)
-      if (!nrow(r)) next
-      tok <- consts$text[q]
-      off <- rep(NA_real_, nchar(val))
-      if (grepl("^[\"']", tok)) {
-        cc <- consts$col1[q]
-        raw <- substr(tok, 2L, nchar(tok) - 1L)
-        o <- lit_offsets(raw, ls[line] + cc + (if (is.null(dq)) 0 else dq[line]))
-        if (length(o) == nchar(val)) off <- o
-      }
-      r$fstart <- map_offsets(r$start, off)
-      r$fend <- map_offsets(r$end, off)
-      r$fblock <- map_offsets(r$block_start, off)
-      rows[[length(rows) + 1L]] <- r
-    }
+    if (!is.na(argid)) ids <- c(ids, weft_arg_literals(pd, argid))
+  }
+  ids <- unique(ids)
+  if (!length(ids)) return(none)
+  rows <- lapply(ids, function(id) {
+    d <- pd[pd$id == id, , drop = FALSE]
+    tok <- paste(utils::getParseText(pd, id), collapse = "\n")
+    val <- tryCatch(eval(parse(text = tok, keep.source = FALSE)[[1L]]), error = function(e) NULL)
+    if (!is.character(val) || length(val) != 1L || is.na(val)) return(NULL)
+    sh <- str_token_shape(tok)
+    data.frame(line = d$line1, col = parse_char_col(code[d$line1], d$col1), text = tok, value = val,
+               raw = substr(tok, sh$open + 1L, nchar(tok) - sh$close), open = sh$open,
+               stringsAsFactors = FALSE)
+  })
+  out <- do.call(rbind, rows)
+  if (is.null(out)) return(none)
+  out <- out[order(out$line, out$col), , drop = FALSE]
+  rownames(out) <- NULL
+  out
+}
+
+weft_literals <- function(code, pd = NULL) {
+  if (is.null(pd)) {
+    if (!length(code) || !any(grepl("weft", code, fixed = TRUE))) return(empty_literals())
+    p <- tryCatch(parse(text = paste(code, collapse = "\n"), keep.source = TRUE), error = function(e) NULL)
+    pd <- if (is.null(p)) NULL else utils::getParseData(p)
+  }
+  if (is.null(pd)) return(empty_literals())
+  weft_literals_pd(pd, code)
+}
+
+# The scanner's rows for the literal strings given to weft() in `code`, whose first line is line `first` of
+# the document (`ls`, the line starts of the document, `dq` what dequoting took off each line). `option`
+# names the chunk option the code is the value of (C10), NA for a chunk's code. `lit` is the literals
+# when the caller has them.
+scan_weft_code <- function(code, first, label, file, config, dq = NULL, ls = NULL, option = NA_character_,
+                           lit = NULL) {
+  if (is.null(lit)) lit <- weft_literals(code)
+  if (!nrow(lit)) return(NULL)
+  rows <- list()
+  for (q in seq_len(nrow(lit))) {
+    val <- lit$value[q]
+    line <- first + lit$line[q] - 1L
+    r <- scan_rows(val, file = file, first_line = line, config = config)
+    if (!nrow(r)) next
+    tokstart <- ls[line] + lit$col[q] - 1 + (if (is.null(dq)) 0 else dq[line])
+    off <- rep(NA_real_, nchar(val))
+    o <- if (lit$open[q] > 1L) tokstart + lit$open[q] + seq_len(nchar(val)) - 1 else
+      lit_offsets(lit$raw[q], tokstart + 1)
+    if (length(o) == nchar(val)) off <- o
+    r$fstart <- map_offsets(r$start, off)
+    r$fend <- map_offsets(r$end, off)
+    r$fblock <- map_offsets(r$block_start, off)
+    # a character that cannot be placed takes the place of the literal's first character (C11)
+    r$fstart[is.na(r$fstart)] <- tokstart
+    r$fend[is.na(r$fend)] <- r$fstart[is.na(r$fend)]
+    rows[[length(rows) + 1L]] <- r
   }
   if (!length(rows)) return(NULL)
   rows <- bind_scan_rows(rows)
