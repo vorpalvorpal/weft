@@ -125,7 +125,7 @@ test_that("T1, 1.2.3: a quote of the other kind needs no escape and a closing qu
 test_that("T1, M1: a backslash that does not escape a quote or a bar is the M1 error naming the first such key", {
   expect_identical(q_first(r"{[a | b]{if="grepl('\\d', s)"}}"), M1("if"))
   expect_identical(q_first(r"{[a | b]{if='grepl("\d+", s)'}}"), M1("if"))
-  expect_identical(q_first(r"{[a | b]{if="a\ b"}}"), M1("if"))
+  expect_identical(q_first(r"{[a | b]{if="a\~b"}}"), M1("if"))  # review-q R3a: `\ ` is an escape now
   expect_identical(q_first("[a | b]{if=\"a\\\nb\"}"), M1("if"))
   expect_identical(q_first(r"{`r x`{.num title="a\\b"}}"), M1("title"))
   expect_identical(q_first(r"{`r x`{.num title="a\}b"}}"), M1("title"))
