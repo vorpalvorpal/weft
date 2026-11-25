@@ -65,8 +65,9 @@ test_that("5.3.5: a sign governor that does not parse is a construct error", {
   b_expect_scan_error("[a | b]{sign=\"d +* 1\"}", "[a | b]{sign=\"d + 1\"}")
 })
 
-test_that("1.2.3: a quote or a backslash in the sign governor is a construct error", {
-  b_expect_scan_error("[a | b]{sign='d'}", "[a | b]{sign=\"d\"}")
+test_that("1.2.3: a backslash that escapes nothing in the sign governor is a construct error; single quotes are read", {
+  b_expect_scan_error("[a | b]{sign=\"d\\e\"}", "[a | b]{sign=\"d\"}")
+  b_expect_scan_error("[a | b]{sign=\"d\\e\"}", "[a | b]{sign='d'}")
 })
 
 test_that("1.7.6: sign takes a back-reference as the whole value; the row's expr is #id", {

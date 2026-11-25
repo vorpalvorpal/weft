@@ -260,8 +260,9 @@ test_that("pre-render script: a file holding the condition stops the render exac
   d <- gr_table()
   r <- d[d$kind == "cond" & !grepl("[\r\n]", d$text), , drop = FALSE]
   expect_gt(nrow(r), 50L)
+  # the condition sits in a double-quoted value, so a `"` of the condition is written `\"` (package Q, D2)
   doc <- function(cond) c("---", "title: t", "---", "",
-                          sprintf("The level [rose | fell]{if=\"%s\"} again.", cond))
+                          sprintf("The level [rose | fell]{if=\"%s\"} again.", gsub("\"", "\\\"", cond, fixed = TRUE)))
   files <- c(list("_quarto.yml" = c("project:", "  type: default", "format: html")),
              stats::setNames(lapply(r$text, doc), sprintf("c%03d.qmd", r$id)))
   root <- lint_proj(files)

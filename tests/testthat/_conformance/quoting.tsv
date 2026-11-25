@@ -1,0 +1,37 @@
+written	verdict	value
+"a%20b"	ok	a%20b
+'a%20b'	ok	a%20b
+ab	ok	ab
+""	ok	
+''	ok	
+'say%20"hi"'	ok	say%20"hi"
+"say%20\"hi\""	ok	say%20"hi"
+"it's"	ok	it's
+'it\'s'	ok	it's
+"it\'s"	ok	it's
+'a\"b'	ok	a"b
+"a\|b"	ok	a|b
+'a\|b'	ok	a|b
+a\|b	ok	a|b
+"a|b"	ok	a|b
+"line%20one%0Aline%20two"	ok	line%20one%20line%20two
+"a%0A%20%20%20b"	ok	a%20%20%20%20b
+R&amp;D	ok	R&amp;D
+"a}b"	ok	a}b
+'{x}'	ok	{x}
+"a\\b"	M1	
+"a\db"	M1	
+'a\%20b'	M1	
+"a\%0Ab"	M1	
+"a\}b"	M1	
+a"b	M2	
+a'b	M2	
+\"a\"	M2	
+a\}b	M2	
+"R&amp;D"	M3	
+'&#39;'	M3	
+"&#x41;"	M3	
+"a"b"	M4	
+'it's'	M4	
+"m\"	M4	
+"k".c	M4	

@@ -136,7 +136,14 @@ attribute_rows <- list(
   ok("1.2.2: unquoted n", r"---([# site | # sites]{n=k .word})---", "three sites"),
   ok("1.2.2: unquoted digits", r"---(`r x`{.num digits=2})---", "1.20"),
   ok("1.2.2: unquoted if", r"---([a | b]{if=flag})---", "a"),
-  ok("1.2.2 + 1.5.4: unquoted condition list", r"---([yes | no]{if=x>1,k>=3})---", "yes")
+  ok("1.2.2 + 1.5.4: unquoted condition list", r"---([yes | no]{if=x>1,k>=3})---", "yes"),
+  ok("1.2.3: a single-quoted n (was a construct error)", r"---([# site | # sites]{n='k'})---", "3 sites"),
+  ok("1.2.3: a single-quoted digits on inline code (was a construct error)", r"---(`r x`{.num digits='2'})---", "1.20"),
+  ok("1.2.3: a \\\" inside a double-quoted value (was a construct error)", r"---([a | b]{if="solo == \"A\""})---", "a"),
+  ok("1.2.3: the same block single-quoted", r"---([a | b]{if='solo == "A"'})---", "a"),
+  ok("1.2.3: the same block single-quoted, other arm", r"---([a | b]{if='solo == "B"'})---", "b"),
+  ok("1.2.3: an escaped single quote in a single-quoted value", r"---([a | b]{if='solo == \'A\''})---", "a"),
+  ok("1.2.3: single quotes outside, a string with double quotes inside, in a table cell", "| name | value |\n|------|-------|\n| [x \\| y]{if='solo == \"A\"'} | `r k`{.word} |", "| name | value |\n|------|-------|\n| x | three |")
 )
 
 governor_rows <- list(
@@ -278,10 +285,7 @@ OK_ROWS <- c(values, collapse_rows, stage_rows, attribute_rows, governor_rows,
 # ---- the rows that are construct errors --------------------------------------
 
 BAD_ROWS <- list(
-  bad("1.2.3: a single-quoted value", "Intro.\n\nSee [a | b]{n='k'} here.\n\nOutro.", 3, "chunk", quarto = TRUE),
-  bad("1.2.3: a double quote inside a value", "Intro.\n\nSee [a | b]{if=\"x == \\\"a\\\"\"} here.\n\nOutro.", 3, "chunk"),
   bad("1.2.9: a double quote ends the value early", "Intro.\n\nSee [a | b]{if=\"tier == \"sev\"\"} here.\n\nOutro.", 3, quarto = TRUE),
-  bad("1.2.3: single-quoted value on inline code", "Intro.\n\nValue `r x`{.num digits='2'} here.\n\nOutro.", 3, "chunk"),
   bad("1.1.5: two governor keys", "Intro.\n\nSee [a | b]{n=\"k\" if=\"flag\"} here.\n\nOutro.", 3, quarto = TRUE),
   bad("1.2.10: a key written twice in different letter case", "Intro.\n\nSee [a | b]{n=\"k\" N=\"k\"} here.\n\nOutro.", 3),
   bad("1.2.10: a key written twice", "Intro.\n\nSee [a | b]{if=\"flag\" if=\"flag\"} here.\n\nOutro.", 3),

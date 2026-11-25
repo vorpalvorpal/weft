@@ -194,8 +194,9 @@ test_that("1.3.3 + 5.3.1: cite on a value is a construct error", {
   b_expect_scan_error("`r x`{cite=\"@smith2020\"}", "`r x`{.num}")
 })
 
-test_that("1.2.3: a quote or backslash in a cite value is a construct error", {
-  b_expect_scan_error("[x]{cite='@smith2020'}", "[x]{cite=\"@smith2020\"}")
+test_that("1.2.3: a backslash that escapes nothing in a cite value is a construct error; single quotes are read", {
+  b_expect_scan_error("[x]{cite=\"@smith\\2020\"}", "[x]{cite=\"@smith2020\"}")
+  b_expect_scan_error("[x]{cite=\"@smith\\2020\"}", "[x]{cite='@smith2020'}")
 })
 
 test_that("1.9.1: a Pandoc citation bracket is not a construct (left alone)", {

@@ -522,17 +522,18 @@ test_that("1.3.3, 5.3.1: a governor key on a value is an error", {
   for (s in bad) expect_gte(length(errs(s)), 1L, label = s)
 })
 
-test_that("1.2.3, 5.3.1: a single-quoted value is an error that says to bind a name", {
-  bad <- c(
-    "`r x`{.num digits='2'}",
-    "[a | b]{if='x > 0'}",
-    "[a | b]{n='k'}"
-  )
-  for (s in bad) {
-    e <- errs(s)
-    expect_gte(length(e), 1L, label = s)
-    expect_match(e[1], "name|bind", ignore.case = TRUE, label = s)
-  }
+test_that("1.2.3: a single-quoted value is read (package Q: loosened quoting)", {
+  r <- sc("`r x`{.num digits='2'}")
+  expect_identical(r$error, NA_character_)
+  expect_equal(unname(r$keys[[1]][["digits"]]), "2")
+  r <- sc("[a | b]{if='x > 0'}")
+  expect_identical(r$error, NA_character_)
+  expect_equal(r$kind, "if")
+  expect_equal(r$expr, "x > 0")
+  r <- sc("[a | b]{n='k'}")
+  expect_identical(r$error, NA_character_)
+  expect_equal(r$kind, "n")
+  expect_equal(r$expr, "k")
 })
 
 test_that("1.2.3, 5.3.1: a backslash inside a value is an error", {

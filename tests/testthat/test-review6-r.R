@@ -58,7 +58,7 @@ test_that("review-6 #2 control: a trailing space stays legal, and a leading spac
   expect_true(all(is.na(rmd$error)))
 })
 
-test_that("review-6 #2 control: the single-quoted form `{if=' ok'}` is already a construct error (rule 1.2.3, single quotes), and stays one", {
+test_that("review-6 #2 control: the single-quoted form `{if=' ok'}` is the 1.12.6 leading-space error, as the double-quoted form is (package Q, D12)", {
   lines <- w6d_doc(c("Intro.", "", "A [one | many]{if=' ok'} B."))
   r <- sp2_rows(w6d_scan(lines))
   expect_identical(nrow(r), 1L)

@@ -45,10 +45,11 @@ ed("E16", "reflow line wraps only (72 -> 55)", function(d) d, width = 55)
 ed("E16b", "reflow (55) with plain strwrap: wraps can land '# ' / '> ' at a line start and break right after `r", function(d) d, width = 55, hash_safe = FALSE,
    sem = "a line starting '# ' is a heading to Pandoc, '> ' a block quote, and knitr needs '`r ' + space: such a reflow really changes the render")
 ed("E17", "change only arm text", function(d) subt(d, "I1", "[a site | # sites]", "[one site | # sites]"))
-ed("E18", "reorder attributes, add spaces in braces", function(d) {
+ed("E18", "reorder attributes, add spaces in braces, requote a value", function(d) {
    d <- subt(d, "R3", "{#dmax .num}", "{.num #dmax}")
+   d <- subt(d, "I1", "n=\"n_sites\"", "n='n_sites'")
    subt(d, "R5", "`{.num}", "`{ .num }") },
-   sem = "the spike also single-quoted n='n_sites'; a single-quoted value is a construct error (rule 1.2.3), so it is left out")
+   sem = "n=\"n_sites\" requoted to n='n_sites': a spelling change only, the decoded value and so the key are the same (package Q, D3)")
 ed("E19", "add an #id to an existing construct", function(d) subt(d, "I2", "`r mean(depth)`{.num}", "`r mean(depth)`{#dmean .num}"))
 ed("E20", "remove an #id from a construct", function(d) subt(d, "R3", "{#dmax .num}", "{.num}"))
 ed("E21", "two adjacent paragraphs both edited (I2, I3)", function(d) { d <- subt(d, "I2", "mean(depth)", "median(depth)"); subt(d, "I3", "mean(rain)", "median(rain)") })

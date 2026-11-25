@@ -99,15 +99,15 @@ test_that("trial 4 + 2.6.2 + 2.4.4: failed checks in one chunk are one entry eac
 
 # ---- 6: a quote inside a value -------------------------------------------------------
 
-test_that("trial 6 + 1.2.3: if=\"x == \\\"a\\\"\" reports the quoting rule and says to bind a name, not 'spaces around ='", {
+test_that("trial 6 + 1.2.3 (package Q): if=\"x == \\\"a\\\"\" is valid now: it parses with expr x == \"a\"; the 'spaces around =' control stays", {
   x <- weft:::scan_text("See [a | b]{if=\"x == \\\"a\\\"\"} here.")
-  err <- x$error[!is.na(x$error)]
-  expect_gte(length(err), 1L)
-  expect_match(err[1], "bind", ignore.case = TRUE)
-  expect_false(grepl("spaces around", err[1], ignore.case = TRUE))
+  expect_true(all(is.na(x$error)))
+  expect_identical(x$kind, "if")
+  expect_identical(x$expr, "x == \"a\"")
   # control: the message for a genuinely spaced block is the other one
   y <- weft:::scan_text("See [a | b]{if = \"x\"} here.")
   expect_true(any(!is.na(y$error)))
+  expect_match(y$error[!is.na(y$error)][1], "spaces around", ignore.case = TRUE)
   expect_false(grepl("bind", y$error[!is.na(y$error)][1], ignore.case = TRUE))
 })
 

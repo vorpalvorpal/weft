@@ -320,7 +320,7 @@ test_that("N45: strings in single quotes are removed from a governor value, numb
   expect_false("e" %in% got)
 })
 
-test_that("N45: a key written with spaces, or single quotes, or no quotes, is not read", {
+test_that("N45 (package Q): a key written with single quotes, or no quotes, is read; one written with spaces around = is not", {
   p <- b6_write_doc(c(
     "[a | b]{n = \"spaced\"}",
     "[a | b]{n='single'}",
@@ -328,8 +328,8 @@ test_that("N45: a key written with spaces, or single quotes, or no quotes, is no
     "[a | b]{n=\"good\"}"
   ))
   got <- weft:::values_source_names(p)
-  expect_true("good" %in% got)
-  expect_false(any(c("spaced", "single", "bare") %in% got))
+  expect_true(all(c("good", "single", "bare") %in% got))
+  expect_false("spaced" %in% got)
 })
 
 test_that("N45/N6: a reserved word is never a name", {

@@ -125,19 +125,31 @@ test_that("2h 1.5.13: a table cell with a unit of one rung needs no escape (cont
 # ---- a \ elsewhere stays the 1.2.3 error (controls) -------------------------------------------------------------------
 
 test_that("2h 1.2.3 control: a \\ elsewhere in unit stays an error", {
-  for (bad in c("m\\x", "m\\\\km", "mm\\ m", "\\m", "m\\")) {
+  for (bad in c("m\\x", "m\\\\km", "mm\\ m", "\\m")) {
     e <- h2_scan_errs(sprintf("`r x`{unit=\"%s\"}", bad))
     expect_gte(length(e), 1L, label = bad)
     expect_match(e[1], "rule 1.2.3", fixed = TRUE, label = bad)
   }
+  # `unit="m\"` is a quote escaped by the backslash, so the value never closes: package Q, M4 cause open
+  e <- h2_scan_errs("`r x`{unit=\"m\\\"}")
+  expect_gte(length(e), 1L)
+  expect_match(e[1], "1.2.9", fixed = TRUE)
 })
 
-test_that("2h 1.2.3 control: \\| in a key other than unit stays an error", {
-  for (src in c("`r x`{digits=\"1\\|2\"}", "[a | b]{if=\"x\\|y\"}", "[a | b]{n=\"x\\|y\"}", "`r x`{.num sigfig=\"2\\|3\"}")) {
-    e <- h2_scan_errs(src)
-    expect_gte(length(e), 1L, label = src)
-    expect_match(e[1], "rule 1.2.3", fixed = TRUE, label = src)
-  }
+test_that("2h 1.2.3 (package Q): \\| in a key other than unit is read as a bar, in any key", {
+  r <- sc2("`r x`{digits=\"1\\|2\"}")
+  expect_true(is.na(r$error) || !grepl("1.2.3", r$error, fixed = TRUE))
+  expect_equal(unname(r$keys[[1]][["digits"]]), "1|2")
+  r <- sc2("`r x`{.num sigfig=\"2\\|3\"}")
+  expect_equal(unname(r$keys[[1]][["sigfig"]]), "2|3")
+  r <- sc2("[a | b]{if=\"x\\|y\"}")
+  expect_true(is.na(r$error))
+  expect_equal(r$kind, "if")
+  expect_equal(r$expr, "x|y")
+  r <- sc2("[a | b]{n=\"x\\|y\"}")
+  expect_true(is.na(r$error))
+  expect_equal(r$kind, "n")
+  expect_equal(r$expr, "x|y")
 })
 
 test_that("2h 1.2.3 control: a \\ in a value that is not \\| in unit is the error, with a ladder beside it", {
