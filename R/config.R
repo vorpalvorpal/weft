@@ -25,12 +25,23 @@ weft_env <- new.env(parent = emptyenv())
 # configuration read (rule 9.1.7).
 current_config <- function() {
   units_ready()
-  weft_env$config %||% {
+  # outside a knit the configuration is the project's, as weft() reads it (A1)
+  weft_env$config %||% project_config() %||% {
     cfg <- default_config()
     cfg$units <- weft_env$units %||% list()
     cfg$units_default <- weft_env$units_default %||% ud_state$default_entries %||% list()
     cfg
   }
+}
+
+# Outside a knit: the cached configuration of the working directory's project when it has a
+# `_weft.yml` (A1), so a formatter and weft() print one value one way. NULL with none, or while a
+# configuration is being read, and the defaults serve.
+project_config <- function() {
+  if (isTRUE(weft_env$reading)) return(NULL)
+  root <- find_project_root(getwd())
+  if (!file.exists(file.path(root, "_weft.yml"))) return(NULL)
+  string_config()
 }
 
 # ---- defaults -----------------------------------------------------------

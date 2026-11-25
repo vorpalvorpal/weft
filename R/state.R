@@ -3,10 +3,10 @@
 # hook call of a top-level knit and kept after the knit, so `last_knit()` can
 # be read once the knit has ended or failed.
 
-new_state <- function() {
+new_state <- function(config = NULL) {
   s <- new.env(parent = emptyenv())
   s$finished <- FALSE
-  s$config <- default_config()
+  s$config <- config %||% default_config()
   s$input_path <- NA_character_
   s$input_name <- NA_character_
   s$front <- list()
@@ -104,9 +104,9 @@ unlabelled_chunk_line <- function(s, chunk) {
   map_lines(F, v)$line
 }
 
-# Where a string (a caption, a weft_str() argument) is, for a message.
+# Where a string (a caption, a weft() argument) is, for a message.
 str_where <- function(chunk, option = NA_character_) {
-  if (is.null(chunk) || is.na(chunk)) return("a weft_str() string")
+  if (is.null(chunk) || is.na(chunk)) return("a weft() string")
   sprintf("chunk %s%s", chunk,
           if (is.null(option) || is.na(option)) "" else paste0(", ", option))
 }

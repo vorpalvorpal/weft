@@ -349,7 +349,7 @@ starts_sentence <- function(st, text, nlpos, first_ink) {
 
 # Resolve one piece of markup. `block` is the located block of prose the
 # `text` hook hands over (its inline code is parked as placeholders). With no
-# `block` the markup is a string (a caption, or the argument of weft_str()):
+# `block` the markup is a string (a caption, or the argument of weft()):
 # `ctx` names its chunk and option, the environment its code is evaluated in,
 # and whether a failure stops at once (`strict`, outside a knit, 3.6.3) or is
 # collected (2.4.1).
@@ -387,7 +387,7 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
                              paste(R$error[hit], F$id_errors$error[m[hit]], sep = "\n"))
     }
   }
-  R$context <- rep(if (is_str) (ctx$context %||% "weft_str") else "prose", nr)
+  R$context <- rep(if (is_str) (ctx$context %||% "weft") else "prose", nr)
   R$chunk <- rep(if (is_str) as.character(ctx$chunk %||% NA_character_) else NA_character_, nr)
   R$option <- rep(if (is_str) as.character(ctx$option %||% NA_character_) else NA_character_, nr)
   R$evaluated <- rep(FALSE, nr)
@@ -549,10 +549,18 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
     marker(kind, R$line[k], chunk_label)
   }
 
+  # a failure that stops at once says where the string is (WS13): "weft: a weft() string: ..."
+  rethrow <- function(k, e) {
+    m <- conditionMessage(e)
+    where <- paste0("weft: ", loc_str(k), ": ")
+    if (!startsWith(m, where)) e$message <- paste0(where, sub("^weft: ", "", m))
+    stop(e)
+  }
+
   # a condition raised by the expression, or an error it raised (2.6.4, 2.6.9)
   fail_from_error <- function(k, e, label) {
     if (strict && !inherits(e, "weft_construct_error")) {
-      if (inherits(e, c("weft_claim_failed", "weft_no_value", "weft_value_error"))) stop(e)
+      if (inherits(e, c("weft_claim_failed", "weft_no_value", "weft_value_error"))) rethrow(k, e)
       # an expression that cannot be evaluated is a missing value (2.6.4, 2.6.8)
       return(record_fail(k, "no value", label,
                          sprintf("error evaluating %s: %s", label, conditionMessage(e))))
@@ -758,6 +766,7 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
       if (inherits(e, c("weft_no_value", "weft_value_error")) && !is.na(k)) {
         return(fail_from_error(k, e, label))
       }
+      if (strict && inherits(e, "weft_claim_failed")) rethrow(k, e)
       stop(e)
     }
     if (!is.null(ev$aux)) {
@@ -1226,7 +1235,7 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
       fail <- bare_aux$failed
       return(list(file = wh$file, section = wh$section, kind = "bare",
                   expr = expr_key(unwrap_quarto(trim_ws(p$code))), id = NULL,
-                  context = if (wh$front) "front-matter" else (if (is_str) (ctx$context %||% "weft_str") else "prose"),
+                  context = if (wh$front) "front-matter" else (if (is_str) (ctx$context %||% "weft") else "prose"),
                   text = if (is.na(fail)) out else NULL, arm = NULL, rel = NULL,
                   raw = if (is.na(bare_aux$raw)) NULL else bare_aux$raw,
                   unit = if (is.na(bare_aux$raw) || is.na(bare_aux$unit)) NULL else bare_aux$unit,
@@ -1335,11 +1344,11 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
         construct_fail(k, conditionMessage(e))
       },
       weft_value_error = function(e) {
-        if (strict) stop(e)
+        if (strict) rethrow(k, e)
         record_fail(k, "value error", source_label(text, R$start[k], R$end[k]), conditionMessage(e))
       },
       weft_no_value = function(e) {
-        if (strict) stop(e)
+        if (strict) rethrow(k, e)
         record_fail(k, "no value", source_label(text, R$start[k], R$end[k]), conditionMessage(e))
       })
     # a value that failed still defined its id: a reference to it follows

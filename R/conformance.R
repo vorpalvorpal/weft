@@ -156,10 +156,10 @@ conf_numbers_rows <- function() {
   conf_add_records(d)
 }
 
-# a plural form printed by an `n` span, as weft_str() resolves it
+# a plural form printed by an `n` span, as weft() resolves it (its markdown)
 conf_n_text <- function(value, one, many) {
   x <- eval(parse(text = value), envir = baseenv())
-  weft_str(paste0("[# ", one, " | # ", many, "]{n=\"x\"}"))
+  unname(format(weft(paste0("[# ", one, " | # ", many, "]{n=\"x\"}")), target = "markdown"))
 }
 
 conf_words_rows <- function() {
@@ -259,7 +259,7 @@ conf_with_config <- function(cfg, expr) {
   expr
 }
 
-# What the row prints: a governed span through weft_str(), anything else through apply_formatters().
+# What the row prints: a governed span through weft(), anything else through apply_formatters().
 conf_row_text <- function(value, classes, keys) {
   x <- eval(parse(text = value), envir = baseenv())
   k <- conf_parse_keys(keys)
@@ -270,7 +270,7 @@ conf_row_text <- function(value, classes, keys) {
       fcl <- setdiff(toks, gov)
       attrs <- c(if (length(fcl)) paste0(".", fcl), sprintf("%s=\"x\"", gov),
                  vapply(names(k$opts), function(nm) sprintf("%s=\"%s\"", nm, k$opts[[nm]]), ""))
-      as.character(weft_str(paste0(k$span, "{", paste(attrs, collapse = " "), "}")))
+      unname(format(weft(paste0(k$span, "{", paste(attrs, collapse = " "), "}")), target = "markdown"))
     } else {
       # a vector that no collapse class joins prints joined by ", " (rule 1.4.10)
       paste(suppressWarnings(as.character(unclass(

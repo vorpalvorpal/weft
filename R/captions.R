@@ -84,9 +84,19 @@ caption_option_hook <- function(options, o) {
   if (is.null(v)) return(options)
   ensure_knit()
   install_chunk_wrapper()
-  # a caption that R computes (a call, a name, `!expr`) is data (2.2.4): knitr
-  # evaluates it after the chunk as it does without weft, and it goes through
-  # `weft_str()` when it holds markup. Only a literal string is resolved.
+  # a caption that R computes (a call, a name, `!expr`) is data (2.2.4): knitr evaluates it after the
+  # chunk as it does without weft. One that comes out a `weft` object is given to knitr as its
+  # markdown, or as its plain text for `fig.alt` (WS16). Only a literal string is resolved.
+  if (inherits(v, "weft")) {
+    options[[o]] <- caption_weft_text(v, o)
+    return(options)
+  }
+  # knitr holds the option unevaluated: a call, a name, or (from a `!expr` in a `#|` line) an expression
+  if (is.expression(v) && length(v) == 1L) v <- v[[1L]]
+  if (is.call(v) || is.name(v)) {
+    options[[o]] <- as.call(list(caption_weft_text, v, o))
+    return(options)
+  }
   if (!is.character(v)) return(options)
   kinds <- caption_construct_kinds(v)
   if (!length(kinds)) return(options)
@@ -98,6 +108,15 @@ caption_option_hook <- function(options, o) {
   # a call: evaluated by knitr after the chunk, in the chunk's environment
   options[[o]] <- as.call(list(caption_resolver, v, o))
   options
+}
+
+# A computed caption knitr has evaluated: a `weft` object becomes its markdown (its plain text for
+# the alt text), anything else is left as it is.
+caption_weft_text <- function(x, option) {
+  if (!inherits(x, "weft")) return(x)
+  out <- if (identical(option, "fig.alt")) weft_plain(x) else weft_markdown(x)
+  out[is.na(out)] <- NA_character_
+  out
 }
 
 # A construct in a caption that cannot be resolved, found when the chunk's

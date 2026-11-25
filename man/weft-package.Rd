@@ -2,7 +2,6 @@
 % Please edit documentation in R/weft-package.R
 \docType{package}
 \name{weft-package}
-\alias{weft}
 \alias{weft-package}
 \title{weft: Computed Values and Checks for Quarto and R Markdown Prose}
 \description{
