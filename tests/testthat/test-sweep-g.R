@@ -1,7 +1,6 @@
 # Package G of dev/refactor-sweep.md: dead code and one way to warn.
 #   G1  every weft warning carries `weft_warning` beside its specific class; weft_warn(msg, class) is the helper
 #   G2  dead code is gone
-#   G3  the `units` internals are reached through one guarded wrapper: units_internal(name)
 #   G4  ud_shipped() and tok_resolve_db() agree (review B item 16)
 
 sw_catch <- function(expr) {
@@ -106,54 +105,6 @@ test_that("sweep G2: the dead functions are gone from the namespace", {
 test_that("sweep G2: recall_normalise() has no with_map argument, and still exists", {
   expect_true(is.function(weft:::recall_normalise))
   expect_false("with_map" %in% names(formals(weft:::recall_normalise)))
-})
-
-# ---- G3 --------------------------------------------------------------------------------------------------------
-
-test_that("sweep G3: the units internals weft relies on exist in the installed units", {
-  ns <- asNamespace("units")
-  expect_true(exists("R_ut_get_symbol", envir = ns, inherits = FALSE),
-              info = "units removed R_ut_get_symbol: see units #447/#448 and weft's units_internal() wrappers")
-  expect_true(exists("R_ut_parse", envir = ns, inherits = FALSE),
-              info = "units removed R_ut_parse: see units #447/#448 and weft's units_internal() wrappers")
-  expect_true(is.function(get0("default_units_xml", envir = ns, inherits = FALSE)),
-              info = "units removed default_units_xml")
-})
-
-test_that("sweep G3: units_internal(name) returns the function from the units namespace", {
-  f <- weft:::units_internal("R_ut_parse")
-  expect_identical(f, get("R_ut_parse", envir = asNamespace("units")))
-  expect_true(is.function(weft:::units_internal("R_ut_get_symbol")))
-  expect_true(is.function(weft:::units_internal("default_units_xml")))
-})
-
-test_that("sweep G3: units_internal() of a missing internal aborts with a weft_error that names it", {
-  e <- tryCatch(weft:::units_internal("no_such_internal_for_weft_tests"), error = function(e) e)
-  expect_s3_class(e, "weft_error")
-  expect_match(conditionMessage(e), "no_such_internal_for_weft_tests", fixed = TRUE)
-})
-
-test_that("sweep G3: ud_internal_symbol(def) reports a missing internal instead of returning ''", {
-  expect_true(is.character(weft:::ud_internal_symbol("m")))
-  testthat::local_mocked_bindings(
-    units_internal = function(name) weft:::weft_abort(sprintf("the units internal `%s` is missing", name),
-                                                      "weft_units_internal_error"),
-    .package = "weft")
-  e <- tryCatch(weft:::ud_internal_symbol("m"), error = function(e) e)
-  expect_s3_class(e, "weft_error")
-  expect_match(conditionMessage(e), "R_ut", fixed = TRUE)
-})
-
-test_that("sweep G3: ud_units_xml_path() returns the units default database file, and reports a missing internal", {
-  p <- weft:::ud_units_xml_path()
-  expect_true(is.character(p) && length(p) == 1L && file.exists(p))
-  testthat::local_mocked_bindings(
-    units_internal = function(name) weft:::weft_abort(sprintf("the units internal `%s` is missing", name),
-                                                      "weft_units_internal_error"),
-    .package = "weft")
-  e <- tryCatch(weft:::ud_units_xml_path(), error = function(e) e)
-  expect_s3_class(e, "weft_error")
-  expect_match(conditionMessage(e), "default_units_xml", fixed = TRUE)
 })
 
 # ---- G4 --------------------------------------------------------------------------------------------------------

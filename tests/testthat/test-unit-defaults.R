@@ -383,7 +383,7 @@ test_that("2g G8: the first parse in a session registers the default table, with
 
 test_that("2g 4.4.21: a pH installed before weft's first use is accepted", {
   out <- g2_child(paste(
-    'units::install_unit("pH")',
+    'units::install_unit("pH", override = TRUE)',
     'cat("W=", paste(fmt_num(u(7.2, pH)), collapse = ""), "\\n", sep = "")',
     sep = "\n"))
   expect_equal(g2_kv(out, "W"), f2("pH~7.2"))
@@ -391,7 +391,7 @@ test_that("2g 4.4.21: a pH installed before weft's first use is accepted", {
 
 test_that("2g 4.4.21: an mph installed as 1 mi/h before weft's first use is accepted", {
   out <- g2_child(paste(
-    'units::install_unit("mph", "1 mi/h")',
+    'units::install_unit("mph", "1 mi/h", override = TRUE)',
     'cat("W=", paste(fmt_num(u(60, mph)), collapse = ""), "\\n", sep = "")',
     sep = "\n"))
   expect_equal(g2_kv(out, "W"), f2("60~mph"))
@@ -399,7 +399,7 @@ test_that("2g 4.4.21: an mph installed as 1 mi/h before weft's first use is acce
 
 test_that("2g 4.4.21: an mph installed as 1 km/h is the weft_unit_error, naming the token and the way out", {
   out <- g2_child(paste(
-    'units::install_unit("mph", "1 km/h")',
+    'units::install_unit("mph", "1 km/h", override = TRUE)',
     'e <- tryCatch(u(60, mph), error = function(e) e)',
     'cat("CLASS=", paste(class(e), collapse = ","), "\\n", sep = "")',
     'cat("MSG=", gsub("\\n", " ", conditionMessage(e)), "\\n", sep = "")',
@@ -413,7 +413,7 @@ test_that("2g 4.4.21: an mph installed as 1 km/h is the weft_unit_error, naming 
 
 test_that("2g 4.4.21: weft never removes what it did not install: an mph of someone else's stays under si", {
   out <- g2_child(paste(
-    'units::install_unit("mph", "1 mi/h")',
+    'units::install_unit("mph", "1 mi/h", override = TRUE)',
     'invisible(u(60, mph))',
     'weft:::read_config(tempdir())',
     'writeLines("unit_defaults: si", file.path(tempdir(), "_weft.yml"))',

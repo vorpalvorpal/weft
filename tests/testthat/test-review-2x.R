@@ -342,7 +342,19 @@ test_that("review 2x #9: a project unit defined as `1 degree` is not told to wri
     expect_false(is.null(e), label = def)
     expect_false(grepl("2 1 degree", f2_msg(e), fixed = TRUE), label = f2_msg(e))
     f2_msg_has(e, "hdg", def)
+    f2_msg_has(e, "`is` `1 degree` is the unit `\u00b0` already; write `\u00b0`")
+    expect_false(grepl("keeps one symbol", f2_msg(e), fixed = TRUE), label = f2_msg(e))
   }
+})
+
+test_that("review 2x #9: an `is:` of a database unit with no number is told to write the unit or give a factor (policy)", {
+  h2_restore()
+  e <- g2_cfg_err(c("units:", "  zzxdegb:", "    is: degree"))
+  f2_has_class(e, "weft_config_error")
+  f2_msg_has(e, "`zzxdegb`",
+             "`is` `degree` is the unit `\u00b0` already; write `\u00b0`, or give a factor (`2 degree`)")
+  expect_false(grepl("keeps one symbol", f2_msg(e), fixed = TRUE), label = f2_msg(e))
+  expect_true(inherits(f2_cond(g2_u(2, "zzxdegb")), "weft_unit_error"))
 })
 
 test_that("review 2x #9: a `display:` that is not a well-formed ladder is not quoted back as a ladder (ruling 9)", {
@@ -502,9 +514,34 @@ test_that("review 2x #10: a refused `is:` of exactly a non-ASCII-symbol unit lea
     expect_false(grepl("ERROR", before[["num"]]), label = paste(cs$name, before[["num"]]))
     e <- g2_cfg_err(c("units:", paste0("  ", cs$key, ":"), paste0("    is: ", cs$def)))
     expect_false(is.null(e), label = paste(cs$def, "is refused"))
+    f2_msg_has(e, sprintf("`is` `%s` is the unit `%s` already; write `%s`", cs$def, cs$sym, cs$sym))
     expect_identical(snap(), before, label = paste("after the refused", cs$def))
     expect_true(Encoding(snap()[["num"]]) != "bytes", label = "not raw bytes")
     expect_true(inherits(f2_cond(g2_u(2, cs$key)), "weft_unit_error"), label = paste(cs$key, "is not a unit"))
+  }
+})
+
+test_that("review 2x #10: an `is:` of exactly a unit that has no symbol (gallon, Myr) is refused and leaves nothing installed (policy)", {
+  h2_restore()
+  for (cs in list(list(def = "1 gallon", name = "gallon", key = "zzxgal"),
+                  list(def = "1 Myr", name = "Myr", key = "zzxmyr"))) {
+    snap <- function() c(num = r2x_show(fmt_num(g2_u(5, cs$name))),
+                         word = r2x_show(fmt_num(g2_u(5, cs$name), unit_form = "name")))
+    before <- snap()
+    expect_false(grepl("ERROR", before[["num"]]), label = paste(cs$name, before[["num"]]))
+    e <- g2_cfg_err(c("units:", paste0("  ", cs$key, ":"), paste0("    is: ", cs$def)))
+    expect_false(is.null(e), label = paste(cs$def, "is refused"))
+    f2_has_class(e, "weft_config_error")
+    # Myr and gallon are also the unit of weft's default rows (Ma, gal): that row's message wins
+    f2_msg_has(e, paste0("`", cs$key, "`"))
+    expect_true(grepl("gives the same unit as `", f2_msg(e), fixed = TRUE) ||
+                  grepl(paste0("`is` `", cs$def, "` is the unit `"), f2_msg(e), fixed = TRUE), label = f2_msg(e))
+    expect_false(grepl("keeps one symbol", f2_msg(e), fixed = TRUE), label = f2_msg(e))
+    expect_identical(snap(), before, label = paste("after the refused", cs$def))
+    # the key must not have become the printed symbol of the unit (units' alias side effect)
+    expect_false(grepl(cs$key, snap()[["num"]], fixed = TRUE), label = snap()[["num"]])
+    expect_true(inherits(f2_cond(g2_u(2, cs$key)), "weft_unit_error"), label = paste(cs$key, "is not a unit"))
+    expect_equal(r2x_show(fmt_num(g2_u(5, cs$name))), before[["num"]], label = "alias left behind")
   }
 })
 

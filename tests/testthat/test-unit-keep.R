@@ -296,7 +296,7 @@ test_that("2g 4.2.6: read_dict() reads the same units under si", {
 
 test_that("2g 4.4.21: unit_defaults: si does not refuse a mph that someone else installed differently (child session)", {
   out <- g2_child(paste(
-    'units::install_unit("mph", "1 km/h")',
+    'units::install_unit("mph", "1 km/h", override = TRUE)',
     'd <- tempfile(); dir.create(d); writeLines("unit_defaults: si", file.path(d, "_weft.yml"))',
     'weft:::read_config(d)',
     'cat("OK=", !inherits(tryCatch(u(60, mph), error = function(e) e), "error"), "\\n", sep = "")',

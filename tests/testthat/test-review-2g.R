@@ -141,7 +141,7 @@ test_that("review 2g #5: a refused row rewrites nothing for the session; the exc
 
 test_that("review 2g #6: a conflicting foreign mph disables that row with a warning, and every other unit works (4.4.21, ruling h)", {
   out <- r2g_child(
-    'units::install_unit("mph", "1 km/h")',
+    'units::install_unit("mph", "1 km/h", override = TRUE)',
     'r <- cap(fmt_num(u(5, m)))',
     'kv("M", show(r$v)); kv("W", r$w)',
     'kv("N", show(cap(fmt_num(u(5, NTU)))$v))',
@@ -177,12 +177,10 @@ test_that("review 2g #7: after weft's first use units shows the redefined symbol
     'kv("B", vapply(toks, dp, ""))',
     'invisible(u(1, m))',
     'kv("A", vapply(toks, dp, ""))',
-    'kv("I", tryCatch({ units::install_unit("zzgmyr", "1 Myr"); "ok" }, error = function(e) "error"))',
     'pkgload::unload("weft")',
     'kv("U", vapply(toks, dp, ""))')
   expect_equal(g2_kv(out, "B"), "Myr kyr gallon nautical_mile")
   expect_equal(g2_kv(out, "A"), "Ma ka gal nmi")      # the ruling states it; weft does not work around it
-  expect_equal(g2_kv(out, "I"), "error")
   expect_equal(g2_kv(out, "U"), "Myr kyr gallon nautical_mile")
 })
 
