@@ -199,7 +199,7 @@ julia_take_claims <- function(s, label) {
 }
 
 # The records Julia's put() and @put handed over since the last call (N70), joined to the knit's waiting
-# names as weft_put()'s are. Starts no Julia.
+# names. Starts no Julia.
 julia_take_puts <- function(s) {
   if (!julia_running()) return(invisible())
   pairs <- guest_drain_json(JuliaCall::julia_call("WeftGuest.drain_puts"), "the Julia puts drain")

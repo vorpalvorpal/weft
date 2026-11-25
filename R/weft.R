@@ -75,6 +75,13 @@
 #' }
 #' @export
 weft <- function(x, .envir = parent.frame()) {
+  force(.envir)
+  weft_impl(x, .envir, read_names = TRUE)
+}
+
+# weft() with the internal option of E2 BN8: Python's `weft_str()` leaves a named value in its markup for the
+# filter (`read_names = FALSE`): in a Python chunk a name is Python's.
+weft_impl <- function(x, .envir, read_names = TRUE) {
   if (inherits(x, "weft")) return(x)
   if (is.factor(x)) x <- as.character(x)
   if (!is.character(x)) {
@@ -95,7 +102,8 @@ weft <- function(x, .envir = parent.frame()) {
   # the functions inline code calls are made visible to the strings, and to nothing else (WS3)
   env <- with_weft_functions(.envir)
   ctx <- list(chunk = chunk, option = NA_character_, envir = env, strict = strict,
-              context = "weft", file = where$file, line = where$line)
+              context = "weft", file = where$file, line = where$line,
+              named_env = .envir, read_names = read_names)
   md <- vapply(unname(x), function(el) {
     if (is.na(el)) return(NA_character_)
     resolve_string(s, el, ctx)
@@ -201,14 +209,14 @@ resolve_string <- function(s, x, ctx) {
   # inline code that carries an attribute block is a construct and is run
   x <- park_string(s, x, ctx$envir, bare = !identical(ctx$context, "caption"))
   if (!grepl("\ue000", x, fixed = TRUE) && !grepl("[", x, fixed = TRUE) &&
-      !grepl("]{", x, fixed = TRUE)) return(x)
+      !grepl("]{", x, fixed = TRUE) && !grepl("`{", x, fixed = TRUE)) return(x)
   resolve_markup(s, x, block = NULL, ctx = ctx)
 }
 
 # The functions inline code calls by name (`claim()`, `plural()`, `fmt_*()`), computed once per session.
 inline_function_names <- function() {
   if (is.null(weft_env$inline_names)) {
-    weft_env$inline_names <- c("claim", "weft_put", "plural", "glue_vec", "u", "dict_glossary", "py_value",
+    weft_env$inline_names <- c("claim", "plural", "glue_vec", "u", "dict_glossary", "py_value",
                                "jl_value", grep("^fmt_", getNamespaceExports(asNamespace("weft")), value = TRUE))
   }
   weft_env$inline_names

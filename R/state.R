@@ -36,14 +36,20 @@ new_state <- function(config = NULL) {
   s$exited <- FALSE
   s$dict <- NULL
   s$dict_local <- NULL
-  # values by name (N42, N43): the names waiting for the next block of prose, the
-  # label of the chunk that put them, the names the source names, and the last
-  # record read of each
+  # values by name: the guests' records waiting for the next block of prose, and the label of the chunk
+  # that put them
   s$waiting <- list()
   s$waiting_cell <- NULL
-  s$names <- character()
-  s$names_paths <- character()
-  s$auto <- list()
+  # what the hooks publish (E2 TR1 to TR4): the latest publication of each name by anyone and by a guest, each
+  # with the snapshot of R's binding at that moment, the names left for the filter, the lists read from the
+  # source, the values held before the render and the names read from them (BN11)
+  s$pub <- list()
+  s$guest_pub <- list()
+  s$left <- character()
+  s$lists <- list()
+  s$list_paths <- character()
+  s$held <- list()
+  s$noted <- list()
   s
 }
 

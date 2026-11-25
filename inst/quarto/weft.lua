@@ -332,9 +332,10 @@ local function lookup(name)
         kind = "no value",
         detail = string.format("no value is published under the name `%s` in this document (rule 1.12.7).", name),
         hint = string.format(
-          "Publish it in code in this document: weft_put(%s = ...) in R, put(%s=...) in Python, @put %s in Julia. "
+          "Publish it in code in this document: put(%s=...) in Python, @put %s in Julia, or a values file; "
+          .. "under knitr, set it in an R chunk, and pass text an R chunk prints through weft(). "
           .. "A cell with include: false or output: false publishes nothing on the jupyter and julia engines.",
-          name, name, name),
+          name, name),
       }
     end
     if fw.n > 1 then

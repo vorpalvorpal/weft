@@ -105,7 +105,7 @@ claim_decision <- function(d) {
 # value. Returns, for every check, whether it passed (`ok`), the message of the
 # error it raised (`errs`), the length of a result that was not a single value
 # (`lens`) and a hint (`hints`); the last three are NA where they do not apply.
-# `weft_put()` runs the checks of a claim it captures by this same function.
+# `weft_values_write()` runs the checks of a claim it captures by this same function.
 claim_run_checks <- function(checks, value, penv) {
   env <- new.env(parent = penv)
   assign(".", value, envir = env)

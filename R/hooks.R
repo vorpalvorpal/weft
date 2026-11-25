@@ -403,6 +403,8 @@ init_knit <- function() {
   init_dicts(s, root, path)
   weft_env$config <- cfg
   weft_env$state <- s
+  # the values the session holds for the document's names, before it renders (E2 BN11)
+  tryCatch(values_hold(s), error = function(e) NULL)
   if (!is.null(path)) {
     F <- current_file_state(s)
     check_static(s, F, isTRUE(cfg$draft))
@@ -472,6 +474,7 @@ finish_document <- function() {
   s <- active_state()
   if (is.null(s)) return(invisible())
   settle_pending(s)
+  values_stale(s)
   # what the chapter read, before the failures are counted (7.2.2, 7.4.1)
   tryCatch(chapter_reads(s), error = function(e) {
     ledger_warn(sprintf("weft: what the chapter reads could not be recorded: %s (rule 7.2.2).",

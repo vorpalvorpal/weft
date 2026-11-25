@@ -1,20 +1,15 @@
-# Values by name: the carrier and publishing from R (dev/design-6.md, section 2B
-# and 2C, N20 to N23 and N40 to N48).
+# Values by name: the carrier, and what the hooks publish (dev/design-6.md, section 2B and 2C; dev/design-e2.md).
 #
-# `weft_put()` publishes R values under names as a `weft-values` block (schema
-# 1): the filter, or any reader of the block, then prints them in prose. The
-# record of an R value is the record of rule 1.11 seen from the R side: the
-# kinds are R/guest.R's (`t` is one of bool, int, float, decimal, string, date,
-# list, missing, error; a list holds scalar records, `of` is the kind of its
-# elements, `keys` its names). The writer here makes the JSON text of a record
-# directly, so the key order is fixed: `t`, then `v`, then `of`, `keys`, `why`,
-# `checks`.
-#
-# In a knit with the hooks the names do not go to the output at once: they wait
-# in the knit's state (`s$waiting`), and the `text` hook writes them as one block
-# before the next block of prose, together with every name the document's source
-# names (N45) whose binding is new or has changed (N43). The `document` hook
-# writes whatever is left at the end.
+# R reads a named value in a knitr document itself (R/resolve.R, R/names.R). The hooks publish only what the
+# filter will resolve: the names of front matter, of captions the hooks do not resolve, and the names the hooks
+# left for the filter because R does not bind them where they stand (TR1). A guest's records (Python `put()`
+# and `auto()`, Julia `put` and `@put`) wait in the knit's state (`s$waiting`) and are written with them, as one
+# block before the next block of prose; the `document` hook writes whatever is left at the end.
+# `weft_values_write()` writes a values file; `values_block()` is the internal block maker the tests use. The
+# record of an R value is the record of rule 1.11 seen from the R side: the kinds are R/guest.R's (`t` is one of
+# bool, int, float, decimal, string, date, list, missing, error; a list holds scalar records, `of` is the kind of
+# its elements, `keys` its names). The writer here makes the JSON text of a record directly, so the key order is
+# fixed: `t`, then `v`, then `of`, `keys`, `why`, `checks`.
 
 # ---- names (N6) ---------------------------------------------------------------------------------------
 
@@ -249,7 +244,7 @@ is_claim_call <- function(e) {
   is.call(e) && (identical(e[[1L]], quote(claim)) || identical(e[[1L]], quote(weft::claim)))
 }
 
-# The parts of a `claim()` call that `weft_put()` captures, or NULL when the
+# The parts of a `claim()` call that `weft_values_write()` captures, or NULL when the
 # call is to be evaluated as it stands (so that claim() itself refuses it).
 values_claim_parts <- function(e, env) {
   mc <- tryCatch(match.call(claim, e, expand.dots = FALSE), error = function(err) NULL)
@@ -292,7 +287,8 @@ values_collect <- function(exprs, get, env, frames) {
     } else if (is.symbol(exprs[[i]])) {
       nm[i] <- as.character(exprs[[i]])
     } else {
-      values_abort("weft_put() takes named arguments or names: weft_put(n = nrow(d)) or weft_put(n) (rule 3.8).")
+      values_abort(paste0("weft_values_write() takes named arguments or names after the path: ",
+                          "weft_values_write(path, n = nrow(d)) or weft_values_write(path, n) (rule 3.8.5)."))
     }
     if (!values_name_ok(nm[i])) {
       values_abort(sprintf(paste0("`%s` is not a name weft can publish: ASCII letters, digits, _ and ., ",
@@ -301,7 +297,7 @@ values_collect <- function(exprs, get, env, frames) {
   }
   dup <- nm[duplicated(nm)]
   if (length(dup)) {
-    values_abort(sprintf("`%s` is given twice in one weft_put() call.", dup[1L]))
+    values_abort(sprintf("`%s` is given twice in one weft_values_write() call.", dup[1L]))
   }
   out <- vector("list", n)
   names(out) <- nm
@@ -325,59 +321,18 @@ values_collect <- function(exprs, get, env, frames) {
 
 # ---- exports --------------------------------------------------------------------------------------------------
 
-#' Publish values by name
-#'
-#' `weft_put()` publishes R values under names, so that prose can refer to
-#' them by name: a code span holding the name, with a formatter class,
-#' `` `depth`{.num} ``. The values travel in a `weft-values` block, which the
-#' resolver filter reads (rules 2.13, 3.8). In an R document the hooks publish
-#' a name that the source mentions and the knit has bound, so `weft_put()` is
-#' needed only for text a chunk prints with `results = "asis"`, for a claim that
-#' travels with its value, and from a chunk that has no value of its own to
-#' show.
-#'
-#' Each argument publishes one name: `weft_put(depth = mean(d$depth))`, or
-#' `weft_put(depth, n_sites)` for variables of the same names. A name is ASCII
-#' letters, digits, `_` and `.`, starting with a letter or `_`, at most 64
-#' characters. An argument that is a call of [claim()] is captured: its checks
-#' are run and recorded with the value, nothing is stopped, and each check counts
-#' where the name is used.
-#'
-#' A bool, a whole or decimal number, a string, a factor, a `Date`, an
-#' `integer64` or an atomic vector of these (up to 10000 elements) is published
-#' with its kind. `NA`, `NaN`, `Inf` and `NULL` are published as missing. A value
-#' with units is refused, and any other object (a data frame, a list, a
-#' `POSIXct`, a function) is published as an error that is reported where the name
-#' is used.
-#'
-#' In a knit with the hooks the block is written before the next block of prose,
-#' or at once in a chunk with `results = "asis"`. Outside a knit nothing is stored:
-#' the text of the block is returned.
-#'
-#' @param ... Named values, or names of variables. An argument may be a call of
-#'   [claim()].
-#' @return Inside a knit, `NULL`, invisibly. Outside one, the text of the block, of
-#'   class `weft_values`, which prints as the text.
-#' @examples
-#' depth <- c(1.5, 2.5, 6)
-#' weft_put(depth_mean = mean(depth), n = length(depth))
-#' weft_put(depth_mean = claim(mean(depth), . > 1, . < 10))
-#' @seealso [weft_values_write()]
-#' @export
-weft_put <- function(...) {
+# The block of the values it is given, as the text weft_values_write() would put in a file: an internal block
+# maker for tests (E2 PB3). It takes `weft_values_write()`'s value arguments, in or out of a knit, and stores
+# nothing.
+values_block <- function(...) {
   frames <- sys.calls()
   env <- parent.frame()
   self <- environment()
   exprs <- as.list(substitute(list(...)))[-1L]
   get <- function(i) eval(call("...elt", i), self)
   recs <- values_collect(exprs, get, env, frames)
-  s <- if (knit_in_progress()) active_state() else NULL
-  if (is.null(s)) {
-    block <- values_json(lapply(recs, `[[`, "json"))
-    return(structure(values_fenced(block), class = "weft_values"))
-  }
-  values_wait(s, recs)
-  invisible(NULL)
+  block <- values_json(lapply(recs, `[[`, "json"))
+  structure(values_fenced(block), class = "weft_values")
 }
 
 #' @export
@@ -390,22 +345,37 @@ print.weft_values <- function(x, ...) {
 #'
 #' `weft_values_write()` writes the values it is given to a JSON file in the
 #' form of a `weft-values` block (schema 1), for a document to read with a
-#' `weft-values` block that names the file. It works outside a knit, and in a
-#' `targets` pipeline. The arguments are those of [weft_put()]: named values, or
-#' names of variables, and calls of [claim()].
+#' `weft-values` block that names the file (rules 2.13.10, 3.8.5). It works
+#' outside a knit, and in a `targets` pipeline. In a knitr document R reads a
+#' named value itself, so a values file is for a document that runs no R, or
+#' for a pipeline that computes the values elsewhere.
+#'
+#' Each argument after `path` writes one name: `weft_values_write(f, depth =
+#' mean(d$depth))`, or `weft_values_write(f, depth, n_sites)` for variables of
+#' the same names. A name is ASCII letters, digits, `_` and `.`, starting with a
+#' letter or `_`, at most 64 characters. An argument that is a call of
+#' [claim()] is captured: its checks are run and recorded with the value,
+#' nothing is stopped, and each check counts where the name is used.
+#'
+#' A bool, a whole or decimal number, a string, a factor, a `Date`, an
+#' `integer64` or an atomic vector of these (up to 10000 elements) is written
+#' with its kind. `NA`, `NaN`, `Inf` and `NULL` are written as missing. A value
+#' with units is refused, and any other object (a data frame, a list, a
+#' `POSIXct`, a function) is written as an error that is reported where the
+#' name is used.
 #'
 #' The file is written atomically, as UTF-8 with `\\n` line ends. Nothing is
 #' written when an argument is refused, and the old file stays.
 #'
 #' @param path The file to write. A relative path is relative to the working
 #'   directory.
-#' @param ... Named values, as for [weft_put()].
+#' @param ... Named values, or names of variables, as above. An argument may be
+#'   a call of [claim()].
 #' @return `path`, invisibly.
 #' @examples
 #' f <- tempfile(fileext = ".json")
 #' weft_values_write(f, n = 12L, site = "north")
 #' cat(readLines(f), sep = "\n")
-#' @seealso [weft_put()]
 #' @export
 weft_values_write <- function(path, ...) {
   frames <- sys.calls()
@@ -491,38 +461,126 @@ values_source_scan <- function(path) {
 # The names a source names (N45), without repeats.
 values_source_names <- function(path) values_source_scan(path)$names
 
-# ---- publishing in a knit (N42, N43) --------------------------------------------------------------
+# ---- publishing in a knit (E2 TR1 to TR4) ------------------------------------------------------------
 
-values_unbound <- structure(list(), class = "weft_unbound")
-
-# The names the knit's source names, for the files seen so far. A top-level knit
-# reads its input once; a child knitted from a file adds its own.
-values_names <- function(s) {
-  path <- if (is_child_knit()) knit_input_path() else
-    if (is.na(s$input_path)) NULL else s$input_path
-  if (!is.null(path) && !(path %in% s$names_paths)) {
-    s$names_paths <- c(s$names_paths, path)
-    # a document with no named value publishes nothing by itself: its governors are R's
-    # and it must knit as it did before named values (N43)
-    sc <- values_source_scan(path)
-    if (sc$named) s$names <- union(s$names, sc$names)
+# The lists a source gives the hooks (TR1, TR4), for one file and the files it includes: `front` (the names of
+# the named values in front matter), `cap` (the names a caption the hooks do not resolve holds: named values,
+# and governor names of spans there), `auto` (the names Python's auto() is asked for: every named value of the
+# source, wherever it stands, and each governor name of a span in the code of a Python or Julia chunk or in
+# a chunk's options).
+values_scan_lists <- function(path, cfg) {
+  out <- list(front = character(), cap = character(), auto = character())
+  lines <- tryCatch(read_view_lines(path), error = function(e) character())
+  if (!length(lines)) return(out)
+  extra <- tryCatch(scan_extra_rows(lines, file = NA_character_, config = cfg, project = project_type(path)),
+                    error = function(e) NULL)
+  if (!is.null(extra) && nrow(extra)) {
+    named <- extra$kind == "named" & is.na(extra$error)
+    out$front <- extra$expr[named & extra$context == "front-matter"]
+    out$cap <- extra$expr[named & extra$context == "caption" & extra$resolver == "filter"]
+    gov <- which(extra$context == "caption" & extra$kind %in% c("n", "if", "sign", "list") &
+                   !is.na(extra$error) & grepl("2.3.5", extra$error, fixed = TRUE))
+    for (k in gov) {
+      e <- trim_ws(extra$expr[k])
+      out$cap <- c(out$cap, if (extra$kind[k] == "if") cond_names(e) else if (is_weft_name(e)) e)
+    }
   }
-  s$names
+  seen <- character()
+  walk <- function(p, depth) {
+    p <- normalizePath(p, winslash = "/", mustWork = FALSE)
+    if (p %in% seen || !file.exists(p) || dir.exists(p)) return(invisible())
+    seen <<- c(seen, p)
+    ln <- if (identical(p, normalizePath(path, winslash = "/", mustWork = FALSE))) lines else
+      tryCatch(read_source_lines(p), error = function(e) NULL)
+    if (is.null(ln)) return(invisible())
+    txt <- paste(ln, collapse = "\n")
+    out$auto <<- c(out$auto, values_text_names(txt)$code)
+    chs <- tryCatch(labelled_chunks(dequote_chunks(ln)), error = function(e) list())
+    if (length(chs)) {
+      tb <- chunk_table(ln, chs)
+      for (i in seq_len(nrow(tb))) {
+        opt <- if (tb$code_line[i] > tb$open[i]) ln[tb$open[i]:(tb$code_line[i] - 1L)] else ln[tb$open[i]]
+        code <- if (tolower(tb$engine[i]) %in% c("python", "julia")) tb$code[[i]] else character()
+        out$auto <<- c(out$auto, values_text_names(paste(c(opt, code), collapse = "\n"))$gov)
+      }
+    }
+    if (depth < 8L && grepl("{{<", txt, fixed = TRUE)) {
+      m <- regmatches(txt, gregexpr("\\{\\{<\\s*include\\s+[^>\\s]+\\s*>\\}\\}", txt, perl = TRUE))[[1L]]
+      for (inc in sub("^\\{\\{<\\s*include\\s+([^>\\s]+)\\s*>\\}\\}$", "\\1", m, perl = TRUE)) {
+        walk(file.path(dirname(p), gsub("^[\"']|[\"']$", "", inc)), depth + 1L)
+      }
+    }
+  }
+  walk(path, 0L)
+  ok <- function(x) { x <- unique(x); x[values_name_ok(x)] }
+  lapply(out, ok)
 }
 
-# The names put by weft_put() wait for the next block of prose.
-values_wait <- function(s, recs) {
-  values_wait_json(s, lapply(recs, `[[`, "json"))
+# The lists of the file knitr is reading (a child has its own), added to the knit's once.
+values_lists <- function(s) {
+  path <- if (is_child_knit()) knit_input_path() else if (is.na(s$input_path)) NULL else s$input_path
+  if (is.null(path) || path %in% s$list_paths) return(s$lists)
+  s$list_paths <- c(s$list_paths, path)
+  new <- values_scan_lists(path, s$config)
+  for (k in c("front", "cap", "auto")) s$lists[[k]] <- union(s$lists[[k]], new[[k]])
+  s$lists
 }
 
-# The same for records already written as JSON texts (a named list of strings): weft_put()'s, and those that
-# Python's put() and Julia's put hand over (N42, N70).
+# Whether the hooks publish by themselves: only where R reads the names (NS2).
+values_r_names <- function(s) identical(s$config$names_from %||% "r", "r")
+
+# R's list (TR1): front matter, unresolved captions, and what the hooks left for the filter.
+values_listed <- function(s) {
+  if (!values_r_names(s)) return(character())
+  L <- values_lists(s)
+  unique(c(L$front, L$cap, s$left))
+}
+
+# The values the R session holds for the names of the source before the render (BN11), taken when the knit
+# starts.
+values_hold <- function(s) {
+  if (!values_r_names(s)) return(invisible())
+  env <- tryCatch(knitr::knit_global(), error = function(e) NULL)
+  if (is.null(env)) return(invisible())
+  for (nm in values_lists(s)$auto) {
+    lk <- named_lookup(nm, env)
+    if (identical(lk$kind, "value")) s$held[nm] <- list(lk$value)
+  }
+  invisible()
+}
+
+# A guest published these names (Python put() or auto(), Julia put or @put): the snapshot of R's binding at
+# this moment decides, where the sentence stands, which of R and the guest is the later (BN7, TR3).
+values_note_guest <- function(s, nms) {
+  env <- tryCatch(knitr::knit_global(), error = function(e) NULL)
+  if (is.null(env)) return(invisible())
+  for (nm in nms) {
+    snap <- named_snapshot(named_lookup(nm, env))
+    s$guest_pub[[nm]] <- list(snap = snap)
+    s$pub[[nm]] <- list(snap = snap)
+  }
+  invisible()
+}
+
+# Python's auto() changes, fetched at the end of a Python chunk, each with that chunk's snapshot (TR4).
+values_take_auto <- function(s) {
+  nms <- values_lists(s)$auto
+  if (!length(nms)) return(invisible())
+  py <- guest_auto_changes(nms)
+  if (!length(py)) return(invisible())
+  for (nm in names(py)) s$waiting[[nm]] <- py[[nm]]
+  values_note_guest(s, names(py))
+  invisible()
+}
+
+# The records already written as JSON texts (a named list of strings) that Python's put() and Julia's put hand
+# over wait for the next block of prose (N70, TR3); in a chunk with `results = "asis"` Julia's are written at
+# once.
 values_wait_json <- function(s, jsons) {
   label <- tryCatch(knitr::opts_current$get("label"), error = function(e) NULL)
   cell <- if (is.character(label) && length(label) == 1L) label else NULL
+  values_note_guest(s, names(jsons))
   if (identical(tryCatch(knitr::opts_current$get("results"), error = function(e) NULL), "asis")) {
-    # the text the chunk prints after the call sees the names
-    values_note_put(s, names(jsons))
     cat("\n", values_fenced(values_json(jsons, cell = cell, run = values_run())), "\n", sep = "")
     return(invisible())
   }
@@ -531,46 +589,27 @@ values_wait_json <- function(s, jsons) {
   invisible()
 }
 
-# A name published by put is not published again by the hooks until its binding
-# changes: the record of the binding as it stands is taken as the last auto one.
-values_note_put <- function(s, nms) {
-  src <- intersect(nms, values_names(s))
-  if (!length(src)) return(invisible())
-  env <- knitr::knit_global()
-  for (nm in src) {
-    v <- get0(nm, envir = env, inherits = FALSE, ifnotfound = values_unbound)
-    if (!identical(v, values_unbound)) {
-      s$auto[[nm]] <- list(value = v, json = values_record(v)$json)
-    }
-  }
-  invisible()
-}
-
-# The text of the block to write now: the waiting names and the names the source
-# names that are bound and new or changed; NULL when there is none.
+# The text of the block to write now (TR2): each name on R's list that R binds, or binds to a function, and that
+# is not what its latest publication by anyone saw; and the guests' waiting records, where R's own record is
+# not the later. NULL when there is none.
 values_pending <- function(s) {
-  nms <- values_names(s)
+  nms <- values_listed(s)
   if (!length(nms) && !length(s$waiting)) return(NULL)
   env <- knitr::knit_global()
   fresh <- list()
   for (nm in nms) {
-    v <- get0(nm, envir = env, inherits = FALSE, ifnotfound = values_unbound)
-    if (identical(v, values_unbound)) next
-    last <- s$auto[[nm]]
-    # a binding that is the same object as when last read has the same record
-    if (!is.null(last) && identical(v, last$value)) next
-    json <- values_record(v)$json
-    s$auto[[nm]] <- list(value = v, json = json)
-    if (is.null(last) || !identical(json, last$json)) fresh[[nm]] <- json
+    lk <- named_lookup(nm, env)
+    if (!(lk$kind %in% c("value", "function"))) next
+    snap <- named_snapshot(lk)
+    last <- s$pub[[nm]]
+    if (!is.null(last) && identical(last$snap, snap)) next
+    s$pub[[nm]] <- list(snap = snap)
+    fresh[[nm]] <- values_record(if (lk$kind == "value") lk$value else function() NULL)$json
   }
-  # names bound in Python's __main__, after auto() was called in a Python chunk (N71)
-  py <- guest_auto_changes(nms)
-  for (nm in setdiff(names(py), names(fresh))) fresh[[nm]] <- py[[nm]]
   put <- s$waiting
   if (!length(fresh) && !length(put)) return(NULL)
-  # a name that put published wins over the auto value in the same block
-  values_note_put(s, names(put))
-  recs <- c(fresh[setdiff(names(fresh), names(put))], put)
+  # R's record differs from the guest's snapshot, so it is the later (TR3)
+  recs <- c(fresh, put[setdiff(names(put), names(fresh))])
   cell <- if (length(put)) s$waiting_cell else NULL
   s$waiting <- list()
   s$waiting_cell <- NULL
@@ -592,4 +631,24 @@ values_append <- function(s, x) {
   last <- x[n]
   x[n] <- paste0(last, if (nzchar(last) && !endsWith(last, "\n")) "\n", "\n", blk)
   x
+}
+
+# The end of the document (BN11, M3): a name R read above the code that sets it, from a value the session held
+# before the render, which the document later assigned a new value, is a "no value" failure at the construct.
+values_stale <- function(s) {
+  if (!length(s$noted)) return(invisible())
+  env <- tryCatch(knitr::knit_global(), error = function(e) NULL)
+  if (is.null(env)) return(invisible())
+  for (nm in names(s$noted)) {
+    lk <- named_lookup(nm, env)
+    if (identical(lk$kind, "value") && identical(lk$value, s$held[[nm]])) next
+    n <- s$noted[[nm]]
+    add_failure(s, "no value", file = n$file, line = n$line, chunk = n$chunk, expr = n$expr,
+                detail = sprintf(paste0("`%s` was read above the code that sets it in this render, from a value the R ",
+                                        "session held before the render began (rule 1.12.12)."), nm),
+                hint = paste0("Render in a fresh R session, as quarto render and the Knit button do, or move the ",
+                              "sentence below the code that sets it."))
+  }
+  s$noted <- list()
+  invisible()
 }

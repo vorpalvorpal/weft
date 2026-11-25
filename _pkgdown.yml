@@ -48,9 +48,8 @@ reference:
       - jl_value
 
   - title: Values by name
-    desc: Publish values under names, for prose that refers to them by name.
+    desc: Write a values file, for a document that runs no R.
     contents:
-      - weft_put
       - weft_values_write
 
   - title: Wording that depends on values

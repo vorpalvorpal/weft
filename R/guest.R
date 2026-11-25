@@ -299,6 +299,10 @@ guest_chunk_end <- function(options) {
                    function(t) list(class = "warning", text = t))
     err <- guest_take_error()
     if (!is.null(err)) mine <- c(mine, list(list(class = "error", text = err)))
+    # auto()'s changes are published with this chunk's snapshot of R's bindings (E2 TR4)
+    if (identical(tolower(as.character(options$engine %||% "")[1L]), "python") && values_r_names(s)) {
+      values_take_auto(s)
+    }
   }
   mark <- s$guest_mark %||% list(failures = length(s$failures), ledger = length(s$ledger))
   nf <- length(s$failures)
@@ -360,7 +364,8 @@ guest_form <- function(name) {
       env <- new.env(parent = if (knit_in_progress()) knitr::knit_global() else globalenv())
       env$x <- vals[[1L]]
       # PY1: R's weft() resolves it, and the markdown form goes back
-      w <- eval(quote(weft::weft(x, .envir = environment())), env)
+      # a named value in it is Python's: left for the filter (BN8)
+      w <- eval(quote(weft:::weft_impl(x, environment(), read_names = FALSE)), env)
       format(w, target = "markdown")
     } else {
       do.call(get(name, envir = asNamespace("weft")), vals)
@@ -414,7 +419,7 @@ guest_register_forms <- function(sys) {
 }
 
 # The knitr back end of Python's put() (N42, N70): the records go to the knit's
-# waiting names, as weft_put()'s do, so the next block of prose is preceded by
+# waiting names, so the next block of prose is preceded by
 # one block and nothing is printed into the output (except with `results = "asis"`). `values` is a Python dict
 # of name to the record's JSON text. FALSE when no knit is running: put() then
 # prints the block.
@@ -423,8 +428,12 @@ guest_knitr_put <- function(values) {
   if (is.null(s)) return(FALSE)
   # in a chunk with results = "asis" the block is written at once, and Python's print reaches the chunk's
   # output in order (R's cat from a callback would not): Python prints it
-  if (identical(tryCatch(knitr::opts_current$get("results"), error = function(e) NULL), "asis")) return(FALSE)
   jsons <- lapply(reticulate::py_to_r(values), as.character)
+  if (identical(tryCatch(knitr::opts_current$get("results"), error = function(e) NULL), "asis")) {
+    # R records the publication, as it does for one that waits (E2 TR3)
+    values_note_guest(s, names(jsons))
+    return(FALSE)
+  }
   values_wait_json(s, jsons)
   TRUE
 }
@@ -432,7 +441,7 @@ guest_knitr_put <- function(values) {
 # The names of `names` that Python's auto() found changed in __main__ since it
 # was last asked (N71), as a named list of record JSON texts; empty when auto()
 # was not called in this knit. Starts no Python. A list too long to publish
-# stops the knit with E42, as put() does.
+# stops the knit with E42, as put() does. Asked at the end of each Python chunk (E2 TR4).
 guest_auto_changes <- function(names) {
   if (!guest_running() || !length(names)) return(list())
   sys <- reticulate::import("sys", convert = FALSE)

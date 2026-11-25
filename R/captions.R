@@ -102,7 +102,9 @@ caption_option_hook <- function(options, o) {
   if (!length(kinds)) return(options)
   why <- caption_not_resolved(options)
   if (length(why)) {
-    caption_unresolvable(options, o, kinds[1L], why)
+    # a named value there is the filter's, with the name's last published value (E2 ST1): no error
+    other <- kinds[kinds != "named"]
+    if (length(other)) caption_unresolvable(options, o, other[1L], why)
     return(options)
   }
   # a call: evaluated by knitr after the chunk, in the chunk's environment

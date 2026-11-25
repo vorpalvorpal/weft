@@ -10,7 +10,8 @@ weft_values_write(path, ...)
 \item{path}{The file to write. A relative path is relative to the working
 directory.}
 
-\item{...}{Named values, as for \code{\link[=weft_put]{weft_put()}}.}
+\item{...}{Named values, or names of variables, as above. An argument may be
+a call of \code{\link[=claim]{claim()}}.}
 }
 \value{
 \code{path}, invisibly.
@@ -18,11 +19,25 @@ directory.}
 \description{
 \code{weft_values_write()} writes the values it is given to a JSON file in the
 form of a \code{weft-values} block (schema 1), for a document to read with a
-\code{weft-values} block that names the file. It works outside a knit, and in a
-\code{targets} pipeline. The arguments are those of \code{\link[=weft_put]{weft_put()}}: named values, or
-names of variables, and calls of \code{\link[=claim]{claim()}}.
+\code{weft-values} block that names the file (rules 2.13.10, 3.8.5). It works
+outside a knit, and in a \code{targets} pipeline. In a knitr document R reads a
+named value itself, so a values file is for a document that runs no R, or
+for a pipeline that computes the values elsewhere.
 }
 \details{
+Each argument after \code{path} writes one name: \code{weft_values_write(f, depth = mean(d$depth))}, or \code{weft_values_write(f, depth, n_sites)} for variables of
+the same names. A name is ASCII letters, digits, \verb{_} and \code{.}, starting with a
+letter or \verb{_}, at most 64 characters. An argument that is a call of
+\code{\link[=claim]{claim()}} is captured: its checks are run and recorded with the value,
+nothing is stopped, and each check counts where the name is used.
+
+A bool, a whole or decimal number, a string, a factor, a \code{Date}, an
+\code{integer64} or an atomic vector of these (up to 10000 elements) is written
+with its kind. \code{NA}, \code{NaN}, \code{Inf} and \code{NULL} are written as missing. A value
+with units is refused, and any other object (a data frame, a list, a
+\code{POSIXct}, a function) is written as an error that is reported where the
+name is used.
+
 The file is written atomically, as UTF-8 with \verb{\\\\n} line ends. Nothing is
 written when an argument is refused, and the old file stays.
 }
@@ -30,7 +45,4 @@ written when an argument is refused, and the old file stays.
 f <- tempfile(fileext = ".json")
 weft_values_write(f, n = 12L, site = "north")
 cat(readLines(f), sep = "\n")
-}
-\seealso{
-\code{\link[=weft_put]{weft_put()}}
 }
