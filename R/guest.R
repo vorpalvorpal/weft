@@ -360,13 +360,21 @@ guest_form <- function(name) {
     })
     names(vals) <- nms
     out <- if (identical(name, "weft_str")) {
-      # the markup's expressions are R, evaluated where the knit's chunks are
+      # the markup's expressions are R, evaluated in a fresh environment under the knit's global,
+      # with nothing bound in it (the markup goes in as a value, F2)
       env <- new.env(parent = if (knit_in_progress()) knitr::knit_global() else globalenv())
-      env$x <- vals[[1L]]
       # PY1: R's weft() resolves it, and the markdown form goes back
       # a named value in it is Python's: left for the filter (BN8)
-      w <- eval(quote(weft:::weft_impl(x, environment(), read_names = FALSE)), env)
-      format(w, target = "markdown")
+      v <- vals[[1L]]
+      # Python's None is a missing value (an NA of any type is a missing text)
+      if (is.null(v) || (length(v) == 1L && !is.object(v) && is.atomic(v) && is.na(v))) {
+        v <- NA_character_
+      }
+      w <- weft_impl(v, env, read_names = FALSE)
+      md <- weft_markdown(w)
+      # a missing result goes back to Python as None
+      if (length(md) == 1L && is.na(md)) return(NULL)
+      md
     } else {
       do.call(get(name, envir = asNamespace("weft")), vals)
     }
