@@ -3059,9 +3059,11 @@ its markup is left for the filter: in a Python chunk a name is Python's, publish
 plain form (1.4.24) with emphasis in italic, strong emphasis in bold, both for `***`, and each
 failure marker (2.6.8) in bold red; nothing else differs, so with the styles removed it is the plain
 form. A superscript or subscript that has Unicode characters takes no style from inside. An element
-joined by `c()` or `[<-`, or changed by a function, is plain. The styles are written only where cli
+joined by `c()` or `[<-`, or changed by a function, is plain, except that a failure marker in it is
+still drawn. The styles are written only where cli
 writes its own (`cli::num_ansi_colors()`): not under `NO_COLOR`, in a knit, into a sink or a file,
-or on a terminal without colour. `print()` uses the console form for standard output; `format(x)`
+or on a terminal without colour. `print()` uses the console form for standard output, and under an active sink only when cli's own
+count allows it too (`cli.num_colors` or `R_CLI_NUM_COLORS` can force it); `format(x)`
 and `as.character(x)` are always plain.
 
 **3.6.10** Inside cli's messages, `{.val {x}}` draws a `weft` text in its console form, unquoted, in

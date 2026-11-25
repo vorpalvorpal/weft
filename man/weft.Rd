@@ -110,7 +110,8 @@ red; with the styles removed it is the plain text. A superscript or subscript
 with Unicode characters takes no style, and an element joined by \code{c()} or
 \verb{[<-}, or changed by a function, is plain. \code{format(x, target = "ansi")} gives
 it, and \code{print()} writes it, but only where cli would write its own styles
-(\code{cli::num_ansi_colors()}; \code{print()} asks about \code{stdout()}): not under
+(\code{cli::num_ansi_colors()}; \code{print()} asks about \code{stdout()}, and about cli's
+own count as well under a sink): not under
 \code{NO_COLOR}, in a knit, into a sink or on a terminal without colour. \code{format(x)}
 and \code{as.character(x)} are always plain.
 
@@ -119,7 +120,8 @@ colour (\code{cli_format()}, which returns a bare character vector), and \code{{
 the plain text. A \code{weft} object given to cli as a value is never read as a
 template, so braces in it are text; given as the template itself
 (\code{cli_inform(x)}) it is read by cli, which evaluates what is in braces, so pass
-it as \code{"{x}"}. Markup is not written into a cli template: resolve it with
+it as \code{"{x}"}. Use \verb{\{.val \{x\}\}} alone: \verb{\{.val text \{x\}\}} pastes the value
+and quotes it. Markup is not written into a cli template: resolve it with
 \code{weft()} first.
 
 \if{html}{\out{<div class="sourceCode r">}}\preformatted{w <- weft("Depth at *[one site | # sites]\{n='k'\}*: `r d`\{.num unit='m'\}")

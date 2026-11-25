@@ -503,7 +503,7 @@ ansi_render <- function(runs) {
 }
 
 ansi_marker <- function(s) {
-  m <- gregexpr("<<weft: .*?>>", s, perl = TRUE)[[1L]]
+  m <- gregexpr("(?s)<<weft: .*?>>", s, perl = TRUE)[[1L]]
   if (m[[1L]] == -1L) return(s)
   len <- attr(m, "match.length")
   out <- character()
@@ -521,12 +521,20 @@ ansi_render_run <- function(r) {
   switch(
     r$type,
     text = ansi_marker(r$text),
-    code = , math = r$text,
-    em = as.character(cli::style_italic(ansi_render(r$kids))),
-    strong = as.character(cli::style_bold(ansi_render(r$kids))),
+    code = r$text,
+    math = ansi_marker(r$text),
+    em = ansi_styled(cli::style_italic, r$kids),
+    strong = ansi_styled(cli::style_bold, r$kids),
     span = ansi_render(r$kids),
     sup = ansi_script(r, PLAIN_SUP, "^"),
     sub = ansi_script(r, PLAIN_SUB, "_"))
+}
+
+# An empty styled run writes nothing.
+ansi_styled <- function(style, kids) {
+  inner <- ansi_render(kids)
+  if (!nzchar(inner)) return("")
+  as.character(style(inner))
 }
 
 # D8: the choice between Unicode characters and `^( )` is made on the plain content.
@@ -539,17 +547,32 @@ ansi_script <- function(r, map, open) {
 
 # The ANSI rendering of a `weft` object with `colors` colours (names kept, NA as "NA"). With one
 # colour, or for an element that is not the plain reading of its markdown (C4), the plain text.
-weft_ansi <- function(x, colors) {
+# With `breaks`, a line break in the markdown's reading may stand as a space in the element (cli
+# makes that change before `cli_format()`), and the rendering has the space.
+weft_ansi <- function(x, colors, breaks = FALSE) {
   p <- weft_plain(x)
-  p[is.na(p)] <- "NA"
+  na <- is.na(p)
+  p[na] <- "NA"
   if (!length(p) || colors <= 1L) return(p)
-  md <- weft_markdown(x)
+  md <- attr(x, "markdown")
+  if (is.null(md) || length(md) != length(p)) md <- unname(p)
   old <- options(cli.num_colors = colors)
   on.exit(options(old), add = TRUE)
+  nl <- function(s) if (breaks) gsub("\n", " ", s, fixed = TRUE) else s
+  read <- function(s) {
+    if (grepl(PLAIN_SPECIAL_RE, s, perl = TRUE)) plain_read(s) else list(plain_run("text", text = s))
+  }
   for (i in seq_along(p)) {
+    if (na[[i]] || is.na(md[[i]])) next
     m <- md[[i]]
-    if (is.na(m) || !identical(p[[i]], plain_text(m))) next
-    p[[i]] <- ansi_render(plain_read(m))
+    runs <- read(m)
+    if (!identical(nl(p[[i]]), nl(plain_render(runs)))) {
+      # changed by a function that kept the attributes (WS10): its markdown is its plain text
+      if (identical(p[[i]], m)) next
+      runs <- read(p[[i]])
+      if (!identical(p[[i]], plain_render(runs))) next
+    }
+    p[[i]] <- nl(ansi_render(runs))
   }
   p
 }

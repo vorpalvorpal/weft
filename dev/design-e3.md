@@ -79,7 +79,8 @@ plain rendering, byte for byte.
 **C4** An element whose plain text is not the PL reading of its markdown
 (a text joined by `c()` or `[<-`, E1 WS9, or changed by a function that kept
 the attributes, WS10) is rendered in ANSI as its plain text, unstyled. An
-`NA` element is `"NA"`, unstyled.
+`NA` element is `"NA"`, unstyled. (A failure marker in joined text is still
+drawn, bold red: it is the one thing that must be seen.)
 
 ### When styles are written
 
@@ -108,11 +109,15 @@ becomes: "`target` must be \"plain\", \"markdown\" or \"ansi\"; got %s."
 (`%s` as in rule 3.4.11: the value in double quotes, or `something else`).
 
 **C7** `print(x)` writes each element on its own line: its ANSI rendering
-with styles when `cli::num_ansi_colors(stdout()) > 1`, else its plain text
+with styles when `cli::num_ansi_colors(stdout()) > 1` (under an active sink,
+when the smaller of that and `cli::num_ansi_colors()` is above 1: `stdout()`
+does not see sinks), else its plain text
 exactly as E1 WS7 says. Names are not shown; `NA` prints `NA`; a length-0
 object prints `<weft[0]>`; the value is `x`, invisibly. (A styled print is
 the line of C1 and C2 even when `cli::num_ansi_colors()`, on the `"auto"`
-stream, would say no: the print goes to `stdout()`.)
+stream, would say no: the print goes to `stdout()`; but not into a sink, where
+`"auto"` is consulted too, unless `cli.num_colors` or `R_CLI_NUM_COLORS`
+forces colour.)
 
 **C8** Nothing else changes: `knitr::knit_print()` writes markdown, captions
 get markdown and `fig.alt` plain (WS16), and `cat()`, `paste()`,
@@ -173,7 +178,9 @@ and a test can check the two forms against each other. Alternatives:
   in a knit and printed later at the console.
 
 **D2 cli decides when; weft never does.** Styles follow
-`cli::num_ansi_colors()` (C5). Alternatives:
+`cli::num_ansi_colors()` (C5; `print()` also asks about `stdout()`, and under
+an active sink takes the smaller of the two counts, because `stdout()` skips
+cli's sink check). Alternatives:
 
 - *`format(target = "ansi")` always writes escapes*, and only `print()` and
   `cli_format()` check the console. Rejected: then

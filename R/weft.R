@@ -42,7 +42,8 @@
 #' with Unicode characters takes no style, and an element joined by `c()` or
 #' `[<-`, or changed by a function, is plain. `format(x, target = "ansi")` gives
 #' it, and `print()` writes it, but only where cli would write its own styles
-#' (`cli::num_ansi_colors()`; `print()` asks about `stdout()`): not under
+#' (`cli::num_ansi_colors()`; `print()` asks about `stdout()`, and about cli's
+#' own count as well under a sink): not under
 #' `NO_COLOR`, in a knit, into a sink or on a terminal without colour. `format(x)`
 #' and `as.character(x)` are always plain.
 #'
@@ -51,7 +52,8 @@
 #' the plain text. A `weft` object given to cli as a value is never read as a
 #' template, so braces in it are text; given as the template itself
 #' (`cli_inform(x)`) it is read by cli, which evaluates what is in braces, so pass
-#' it as `"{x}"`. Markup is not written into a cli template: resolve it with
+#' it as `"{x}"`. Use `{.val {x}}` alone: `{.val text {x}}` pastes the value
+#' and quotes it. Markup is not written into a cli template: resolve it with
 #' `weft()` first.
 #'
 #' ```r
@@ -330,17 +332,25 @@ print.weft <- function(x, ...) {
   if (!length(x)) {
     cat("<weft[0]>\n")
   } else {
-    p <- unname(weft_ansi(x, cli::num_ansi_colors(stdout())))
+    p <- unname(weft_ansi(x, print_colors()))
     cat(p, sep = "\n")
   }
   invisible(x)
+}
+
+# The colour count for `print()`: that of `stdout()`, which does not see a sink; under a sink, the
+# smaller of that and the "auto" count, which does (H1).
+print_colors <- function() {
+  n <- cli::num_ansi_colors(stdout())
+  if (sink.number() > 0L) n <- min(n, cli::num_ansi_colors())
+  n
 }
 
 #' @rdname weft
 #' @exportS3Method cli::cli_format
 #' @importFrom cli cli_format
 cli_format.weft <- function(x, style = NULL, ...) {
-  out <- weft_ansi(x, cli::num_ansi_colors())
+  out <- weft_ansi(x, cli::num_ansi_colors(), breaks = TRUE)
   attributes(out) <- list(names = names(out))
   out
 }
