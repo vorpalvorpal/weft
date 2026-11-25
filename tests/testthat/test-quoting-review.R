@@ -111,7 +111,6 @@ test_that("R2(a), T1: a quoted value over a line break inside a list item reads 
   expect_identical(why("- [lit]{.weft-literal why=\"one\n  two\"}"), "one two")
   expect_identical(why("1. [lit]{.weft-literal why=\"one\n   two\"}"), "one two")
   expect_identical(why("- [lit]{.weft-literal why='one\r\n  two'}"), "one two")
-  expect_identical(why("> - [lit]{.weft-literal why=\"one\n>   two\"}"), "one two")
 })
 
 test_that("R2(a), T3: Pandoc reads the same list-item values the scanner now reads (the subset rule)", {
@@ -229,6 +228,38 @@ test_that("R3, Pandoc pin: a leading space makes the block text, a no-break spac
   got <- qr_pandoc_first_span(c("[x]{title=\" a\"}", "", paste0("[x]{title=\"", qr_nbsp, "a\"}"), ""))
   expect_true(is.na(got[1]))
   expect_identical(got[2], paste0("\"", qr_nbsp, "a\""))
+})
+
+# ---- R3a: a leading space is written `\ ` (backslash, space) ------------------------------------------------
+
+test_that("R3a, T1: a backslash-space is an escape for a space in a quoted value, so a value may start with a space", {
+  r <- qr_scan(r"{`r s`{.and last="\ plus "}}")
+  expect_identical(nrow(r), 1L)
+  expect_true(is.na(r$error))
+  expect_identical(unname(r$keys[[1]][["last"]]), " plus ")
+  r <- qr_scan(r"{`r s`{.or last='\ or else '}}")
+  expect_true(is.na(r$error))
+  expect_identical(unname(r$keys[[1]][["last"]]), " or else ")
+  r <- qr_scan(r"{[lit]{.weft-literal why="a\ b"}}")
+  expect_true(is.na(r$error))
+  expect_identical(unname(r$keys[[1]][["why"]]), "a b")
+})
+
+test_that("R3a, M7: the leading-space error names the backslash-space escape", {
+  e <- qr_first(r"{`r s`{.and last=" plus "}}")
+  expect_match(e, "starts with white space", fixed = TRUE)
+  expect_match(e, "\\ ", fixed = TRUE)
+})
+
+test_that("R3a, Pandoc pin: Pandoc reads a leading backslash-space as a space", {
+  got <- qr_pandoc_first_span(c(r"{[x]{title="\ plus "}}", "", r"{[x]{title='\ a'}}", ""))
+  expect_identical(got, c(" plus ", " a"))
+})
+
+test_that("R3a, T4: the writer writes a leading space as a backslash-space, and Pandoc reads it back", {
+  out <- weft_md(r"{`r 1.2`{.num title="\ lead"}}")
+  expect_identical(out, r"{[1.2]{title="\ lead"}}")
+  expect_identical(qr_pandoc_first_span(c(out, "")), " lead")
 })
 
 # ---- R4: M4 names the quote cause for an apostrophe in a value ---------------------------------------------

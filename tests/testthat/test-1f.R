@@ -46,7 +46,7 @@ STYLE_CASES <- c(
   "`r 999`{.num}", "`r 1000`{.num}", "`r 1234.5`{.num}", "`r -4321`{.num}", "`r 10`{.pct}",
   "`r sites`{.and}", "`r sites`{.or}", "`r pair`{.and}", "`r means`{.pairs}",
   "`r many`{.and trunc=\"3\"}", "`r many`{.and trunc=\"2\"}", "`r many`{.and trunc=\"1\"}",
-  "`r four`{.and trunc=\"3\"}", "`r sites`{.and last=\" plus \"}", "`r pair`{.or}"
+  "`r four`{.and trunc=\"3\"}", "`r sites`{.and last=\"\\ plus \"}", "`r pair`{.or}"
 )
 
 # ---- 1. claim(level = "warn"), outside a knit ---------------------------------------
@@ -456,7 +456,7 @@ test_that("1f style: front matter overrides _weft.yml for thousands_from and ser
 })
 
 test_that("1f style: a last key on the construct wins over serial_comma, and serial_comma: false leaves lists alone", {
-  b <- f1_cases(c("`r sites`{.and last=\" plus \"}", "`r sites`{.or last=\" or else \"}", "`r sites`{.and}"),
+  b <- f1_cases(c("`r sites`{.and last=\"\\ plus \"}", "`r sites`{.or last=\"\\ or else \"}", "`r sites`{.and}"),
                 files = list("_weft.yml" = "serial_comma: true"))
   expect_equal(b$got, c("A, B plus C", "A, B or else C", "A, B, and C"))
   c2 <- f1_cases(c("`r sites`{.and}", "`r sites`{.and last=\", and \"}"),

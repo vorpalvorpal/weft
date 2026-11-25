@@ -85,3 +85,21 @@ its R mirror and the pre-render script; the left-to-right literal strip
 in R and Python; the governor-value regexes in R and Python; escapes in
 `attr_markup`, `attr_shown` and Lua's `shown_value`; the `find_attr`
 cursor; `values_file_attr` and the cite fallback decode.
+
+## Rulings after the fix round (2026-11-26)
+
+**R3a. A leading space is written `\ `.** The R3 fix made
+`{.and last=" plus "}` an error, and Pandoc does read that block as text:
+it only ever worked because the hooks consume the block first. Pandoc
+reads `"\ plus "` as ` plus ` (checked, 3.8.3). So `\ ` (backslash, space)
+joins `\"`, `\'` and `\|` as an escape in a quoted value, read as a space;
+M7's hint names it; the writer (`attr_markup`) writes a leading space as
+`\ ` instead of refusing it. Other leading white space (tab, no-break
+space) stays an error and is refused by the writer. Alternatives: exempt
+`sep` and `last` from R3 (they would print as text in a filter document,
+against P11); pad `last` with spaces itself (changes what `last=", and"`
+means, and `sep` has the same need).
+
+**R2a, case 4 of the list-item test** (`> - [lit]{... why="one⏎>   two"}`)
+is a block quote, so R2(b)'s error wins; the case moves to the error
+cases.

@@ -491,7 +491,7 @@ test_that("5.3.1: valid constructs carry no error (controls)", {
   ok <- c(
     "`r x`{.num}", "`r x`{.num digits=\"2\"}", "`r x`{.num sigfig=3}",
     "`r k`{.no .word}", "`r k`{.word .strong}", "`r k`{.count}",
-    "`r k`{.ord}", "`r s`{.and sep=\"; \"}", "`r s`{.or last=\" or else \"}",
+    "`r k`{.ord}", "`r s`{.and sep=\"; \"}", "`r s`{.or last=\"\\ or else \"}",
     "[a | b]{n=\"k\"}", "[a | b | c]{n=\"k\"}", "[a | b | c | d]{n=\"k\"}",
     "[a]{n=\"k\"}", "[a | b]{if=\"x\"}", "[a]{if=\"x\"}",
     "[a | b]{if=\"x\" .strong}", "[a | b]{n=\"k\" .num digits=\"1\"}",
