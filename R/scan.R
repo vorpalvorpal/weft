@@ -509,39 +509,89 @@ target_end <- function(S, k) {
 
 # ---- the attribute block ------------------------------------------------
 
-# Parse `{...}` starting at `i` on the one line. A block Pandoc would read
-# comes back with ok = TRUE. One that does not parse but holds a weft key
-# followed by `=` (1.2.9) comes back with ok = FALSE. Anything else is not a
-# block: NULL.
-parse_block <- function(S, i) {
+# Parse `{...}` starting at `i`. A block Pandoc would read comes back with ok = TRUE: its values are
+# read as rule 1.2.3 says (double-quoted, single-quoted or bare; `\"`, `\'` and `\|` unescaped in a
+# quoted value, `\|` in a bare one), with the mistakes of C2 recorded in `probs` and the first
+# unescaped `|` in `bar_key`. One that does not parse but holds a detection key followed by `=` (1.2.9)
+# comes back with ok = FALSE and the `cause` of the failure. Anything else is not a block: NULL.
+# `div`: the block is a fenced div's, where `.weft-literal` is a detection mark too.
+DETECT_KEYS <- c(WEFT_KEYS, "label", "why", "decision")
+
+parse_block <- function(S, i, div = FALSE) {
   ch <- S$chars
   n <- S$n
   if (i > n || ch[i] != "{") return(NULL)
   lim <- para_limit(S, i)
   blk <- parse_block_strict(ch, i, lim)
-  if (!is.null(blk)) {
+  if (isTRUE(blk$ok)) {
     blk$start <- i
-    # the `|` of a ladder in `unit` may be written `\|` (1.2.3, 1.5.13, 4.4.23): read as `|`; one
-    # written bare is noted, for a pipe-table cell
-    at <- which(tolower(blk$names) == "unit")
-    blk$unit_bare_bar <- any(grepl("(?<!\\\\)\\|", blk$values[at], perl = TRUE))
-    blk$values[at] <- gsub("\\|", "|", blk$values[at], fixed = TRUE)
     return(blk)
   }
   close <- i + 1L
   while (close <= lim && ch[close] != "}") close <- close + 1L
   if (close > lim || close == i + 1L) return(NULL)
   raw <- paste(ch[(i + 1L):(close - 1L)], collapse = "")
-  gkey <- NA_character_
-  for (key in WEFT_KEYS) {
+  gkeys <- character()
+  for (key in DETECT_KEYS) {
     if (grepl(paste0("(?:^|[[:space:]{,;])", key, "[[:space:]]*="), raw,
               ignore.case = TRUE, perl = TRUE)) {
-      gkey <- key
-      break
+      gkeys <- c(gkeys, key)
     }
   }
-  if (is.na(gkey)) return(NULL)
-  list(ok = FALSE, end = close, gkey = gkey, raw = raw)
+  if (!length(gkeys) && !(div && grepl(".weft-literal", raw, fixed = TRUE))) return(NULL)
+  list(ok = FALSE, end = close, gkeys = gkeys, gkey = if (length(gkeys)) gkeys[1L] else NA_character_,
+       raw = raw, cause = blk$cause %||% "other")
+}
+
+# Read the value of a quoted attribute (rule 1.2.3): `\"`, `\'` and `\|` are the character, a line
+# break is one space, any other `\` and a character reference are recorded as mistakes.
+read_quoted_value <- function(x) {
+  cs <- strsplit(x, "")[[1L]]
+  out <- character()
+  bad_bs <- FALSE
+  k <- 1L
+  m <- length(cs)
+  while (k <= m) {
+    c1 <- cs[k]
+    if (c1 == "\\") {
+      nx <- if (k < m) cs[k + 1L] else ""
+      if (nx %in% c("\"", "'", "|")) {
+        out <- c(out, nx)
+      } else {
+        bad_bs <- TRUE
+        out <- c(out, c1, nx)
+      }
+      k <- k + 2L
+    } else if (c1 == "\r" && k < m && cs[k + 1L] == "\n") {
+      out <- c(out, " ")
+      k <- k + 2L
+    } else if (c1 == "\n") {
+      out <- c(out, " ")
+      k <- k + 1L
+    } else {
+      out <- c(out, c1)
+      k <- k + 1L
+    }
+  }
+  val <- paste(out, collapse = "")
+  ref <- regmatches(val, regexpr("&(?:#[0-9]+|#[xX][0-9a-fA-F]+|[A-Za-z][A-Za-z0-9]*);", val, perl = TRUE))
+  list(value = val, bad_bs = bad_bs, ref = if (length(ref)) ref else NA_character_)
+}
+
+# True when a raw value holds a `|` that is not part of a `\|` (a `\` and the character after it go
+# together, as Pandoc takes them).
+has_bare_bar <- function(raw) {
+  cs <- strsplit(raw, "")[[1L]]
+  k <- 1L
+  while (k <= length(cs)) {
+    if (cs[k] == "\\") {
+      k <- k + 2L
+      next
+    }
+    if (cs[k] == "|") return(TRUE)
+    k <- k + 1L
+  }
+  FALSE
 }
 
 parse_block_strict <- function(ch, i, lim) {
@@ -551,20 +601,24 @@ parse_block_strict <- function(ch, i, lim) {
   nms <- character()
   vals <- character()
   quotes <- character()
+  probs <- list()
+  bar_key <- NA_character_
   nid <- 0L
   stops <- c(" ", "\t", "\r", "\n", "}")
+  ws <- c(" ", "\t", "\r", "\n")
+  fail <- function(cause) list(ok = FALSE, cause = cause)
   token_end <- function(p) {
     while (p <= lim && !(ch[p] %in% stops)) p <- p + 1L
     p - 1L
   }
   repeat {
-    while (pos <= lim && ch[pos] %in% c(" ", "\t", "\r", "\n")) pos <- pos + 1L
-    if (pos > lim) return(NULL)
+    while (pos <= lim && ch[pos] %in% ws) pos <- pos + 1L
+    if (pos > lim) return(fail("other"))
     c <- ch[pos]
     if (c == "}") break
     if (c == "#" || c == ".") {
       e <- token_end(pos)
-      if (e <= pos) return(NULL)
+      if (e <= pos) return(fail("marker"))
       tok <- paste(ch[pos:e], collapse = "")
       if (c == "#") {
         id <- substring(tok, 2L)   # the last id wins (two are an error, 1.7.5)
@@ -576,26 +630,62 @@ parse_block_strict <- function(ch, i, lim) {
       next
     }
     ke <- pos
-    while (ke <= lim && !(ch[ke] %in% c(" ", "\t", "\r", "\n", "}", "=", "\"", "'", "{"))) ke <- ke + 1L
-    if (ke == pos || ke > lim || ch[ke] != "=") return(NULL)
+    while (ke <= lim && !(ch[ke] %in% c(ws, "}", "=", "\"", "'", "{"))) ke <- ke + 1L
+    if (ke == pos || ke > lim) return(fail("other"))
+    if (ch[ke] != "=") {
+      # white space before `=`
+      k2 <- ke
+      while (k2 <= lim && ch[k2] %in% ws) k2 <- k2 + 1L
+      return(fail(if (k2 <= lim && ch[k2] == "=" && k2 > ke) "space" else "other"))
+    }
     key <- paste(ch[pos:(ke - 1L)], collapse = "")
     vp <- ke + 1L
-    if (vp > lim) return(NULL)
+    if (vp > lim) return(fail("novalue"))
     q <- ch[vp]
-    if ((q == "\"" || q == "'") && vp + 1L > lim) return(NULL)
+    if (q %in% ws) return(fail("space"))
+    if (q == "}") return(fail("novalue"))
     if (q == "\"" || q == "'") {
-      cl <- which(ch[(vp + 1L):lim] == q)[1]
-      if (is.na(cl)) return(NULL)
-      cl <- vp + cl
-      val <- if (cl > vp + 1L) paste(ch[(vp + 1L):(cl - 1L)], collapse = "") else ""
+      j <- vp + 1L
+      cl <- NA_integer_
+      while (j <= lim) {
+        if (ch[j] == "\\" && j + 1L <= lim) {
+          j <- j + 2L
+        } else if (ch[j] == q) {
+          cl <- j
+          break
+        } else {
+          j <- j + 1L
+        }
+      }
+      if (is.na(cl)) return(fail("open"))
       pos <- cl + 1L
-      if (pos <= lim && !(ch[pos] %in% stops)) return(NULL)
+      if (pos <= lim && !(ch[pos] %in% stops)) {
+        # a closing quote glued to what follows: does another quote of its kind follow in the block?
+        e <- pos
+        while (e <= lim && ch[e] != "}") e <- e + 1L
+        later <- e > pos && any(ch[pos:(e - 1L)] == q)
+        return(fail(if (!later) "glued" else if (q == "\"") "q2" else "q1"))
+      }
+      raw <- if (cl > vp + 1L) paste(ch[(vp + 1L):(cl - 1L)], collapse = "") else ""
+      rd <- read_quoted_value(raw)
+      val <- rd$value
+      if (rd$bad_bs) probs[[length(probs) + 1L]] <- list(type = "M1", key = key)
+      if (!is.na(rd$ref)) probs[[length(probs) + 1L]] <- list(type = "M3", key = key, ref = rd$ref)
+      if (is.na(bar_key) && has_bare_bar(raw)) bar_key <- key
       qq <- q
     } else {
-      e <- token_end(vp)
-      if (e < vp) return(NULL)
-      val <- paste(ch[vp:e], collapse = "")
-      if (grepl("[\"']", val)) return(NULL)
+      e <- vp
+      while (e <= lim && !(ch[e] %in% stops)) {
+        e <- if (ch[e] == "\\" && e + 1L <= lim) e + 2L else e + 1L
+      }
+      e <- min(e, lim + 1L) - 1L
+      raw <- paste(ch[vp:e], collapse = "")
+      # `\|` is `|`; any other `\`, and a quote, are the M2 mistake
+      if (grepl("[\"']|\\\\(?!\\|)", raw, perl = TRUE)) {
+        probs[[length(probs) + 1L]] <- list(type = "M2", key = key)
+      }
+      val <- gsub("\\|", "|", raw, fixed = TRUE)
+      if (is.na(bar_key) && has_bare_bar(raw)) bar_key <- key
       pos <- e + 1L
       qq <- ""
     }
@@ -604,7 +694,7 @@ parse_block_strict <- function(ch, i, lim) {
     quotes <- c(quotes, qq)
   }
   list(ok = TRUE, end = pos, id = id, classes = classes, names = nms,
-       values = vals, quotes = quotes, nid = nid)
+       values = vals, quotes = quotes, nid = nid, probs = probs, bar_key = bar_key)
 }
 
 # The end of whatever trails a closing `]`: an attribute block, a link
@@ -880,33 +970,48 @@ msg_usym_spelled <- function(cl) {
 msg_none_range <- function() "The key `none` does not apply to `.range`: a range has two ends (rule 1.4.14)."
 msg_none_empty <- function() "The key `none` is empty; give the text to print for an empty value (rule 1.4.14)."
 
+# The one message of a block that does not parse (M4, rule 1.2.9), by its cause.
+msg_broken_block <- function(cause) {
+  txt <- switch(cause,
+    q2 = "a `\"` inside a value in double quotes ends it early",
+    q1 = "a `'` inside a value in single quotes ends it early",
+    glued = "a closing quote must be followed by a space or `}`",
+    open = "a quoted value is not closed in its paragraph",
+    space = "spaces around `=` are not allowed",
+    novalue = "a key has no value",
+    marker = "a `#` or `.` has nothing after it",
+    "it is not Pandoc's attribute syntax")
+  hint <- switch(cause,
+    q2 = " Write it as `\\\"`, or put the value in single quotes.",
+    q1 = " Write it as `\\'`, or put the value in double quotes.",
+    open = " A `\\` before a quote escapes it.",
+    "")
+  paste0("The attribute block does not parse: ", txt, " (rules 1.2.3, 1.2.9).", hint)
+}
+
 # Shared checks on the attribute block of a weft construct.
 block_errors <- function(S, blk, kind) {
   e <- character()
-  if (!blk$ok) {
-    raw <- blk$raw %||% ""
-    quoting <- grepl("\\", raw, fixed = TRUE)
-    cause <- if (quoting) {
-      "a `\"` or a `\\` inside a value ends it early"
-    } else if (grepl("[[:space:]]=|=[[:space:]]", raw)) {
-      "spaces around `=` are not allowed"
-    } else if (grepl("=[[:space:]]*$", raw)) {
-      "a key has no value"
-    } else if (grepl("(^|[[:space:]])[#.]([[:space:]]|$)", raw)) {
-      "a `#` or `.` has nothing after it"
-    } else {
-      "a `\"` or a `\\` inside a value ends it early"
-    }
-    quoted <- quoting || startsWith(cause, "a `\"` or a")
-    return(paste0("The attribute block does not parse: ", cause,
-                  " (rules 1.2.3, 1.2.9)", if (quoted) paste0(". ", BIND_HINT) else "."))
+  if (!blk$ok) return(msg_broken_block(blk$cause %||% "other"))
+  # the mistakes of reading a value (C2): one message per kind, for the first key that has it
+  first_prob <- function(type) {
+    for (p in blk$probs) if (identical(p$type, type)) return(p)
+    NULL
   }
-  if (any(blk$quotes == "'")) {
-    e <- c(e, paste0("A single-quoted value in an attribute block (rule 1.2.3). ",
-                     BIND_HINT))
+  p2 <- first_prob("M2")
+  if (!is.null(p2)) {
+    e <- c(e, sprintf(paste0("A `\"`, `'` or `\\` in the value of `%s`, which has no quotes around it ",
+                             "(rule 1.2.3); only `\\|` may stand there. Put the value in quotes."), p2$key))
   }
-  if (any(grepl("\\", blk$values, fixed = TRUE))) {
-    e <- c(e, paste0("A `\\` inside a value (rule 1.2.3). ", BIND_HINT))
+  p1 <- first_prob("M1")
+  if (!is.null(p1)) {
+    e <- c(e, sprintf(paste0("A `\\` in the value of `%s` that does not escape `\"`, `'` or `|` (rule 1.2.3). ",
+                             BIND_HINT), p1$key))
+  }
+  p3 <- first_prob("M3")
+  if (!is.null(p3)) {
+    e <- c(e, sprintf(paste0("A character reference, `%s`, in the value of `%s` (rule 1.2.3): Pandoc reads ",
+                             "it as the character it names. Write the character itself."), p3$ref, p3$key))
   }
   # a ladder in `unit` (4.4.23): an empty or a repeated rung; in a pipe-table cell its `|` is `\|`
   for (uv in blk$values[tolower(blk$names) == "unit"]) {
@@ -915,9 +1020,9 @@ block_errors <- function(S, blk, kind) {
       if (!is.null(pr)) e <- c(e, pr)
     }
   }
-  if (isTRUE(blk$unit_bare_bar) && !is.null(blk$start) && isTRUE(S$tbl[line_index(S, blk$start)])) {
-    e <- c(e, paste0("An unescaped `|` in the `unit` of a construct in a pipe-table cell (rule 1.5.13); ",
-                     "write `\\|`."))
+  if (!is.na(blk$bar_key %||% NA_character_) && !is.null(blk$start) && isTRUE(S$tbl[line_index(S, blk$start)])) {
+    e <- c(e, sprintf(paste0("An unescaped `|` in the value of `%s` of a construct in a pipe-table cell ",
+                             "(rule 1.5.13); write `\\|`."), blk$bar_key))
   }
   # the options of the project classes on the block are keys of its own (rule 1.4.22)
   popts <- character()
@@ -1321,11 +1426,19 @@ handle_div <- function(S, p, parent) {
     !nzchar(gsub("[: \t]", "", if (from <= line_end) substr(S$text, from, line_end) else ""))
   }
   if (S$chars[q] == "{") {
-    blk <- parse_block(S, q)
-    if (is.null(blk) || !blk$ok || !(".weft-literal" %in% blk$classes) || blk$end > line_end ||
-        !trailing(blk$end + 1L)) {
+    blk <- parse_block(S, q, div = TRUE)
+    if (is.null(blk) || blk$end > line_end || !trailing(blk$end + 1L)) return(line_end + 1L)
+    if (!blk$ok) {
+      # a broken block that holds `.weft-literal`, `why` or `decision` (1.2.9)
+      if (!(grepl(".weft-literal", blk$raw, fixed = TRUE) || any(blk$gkeys %in% c("why", "decision")))) {
+        return(line_end + 1L)
+      }
+      add_row(S, "literal", p, blk$end, q, NA_character_, character(),
+              named_chr(character(), character()), NA_character_, NULL, integer(), parent,
+              block_errors(S, blk, "literal"))
       return(line_end + 1L)
     }
+    if (!(".weft-literal" %in% blk$classes)) return(line_end + 1L)
     lc <- lower_keys(blk$names)
     keep <- !lc %in% GOVERNOR_KEYS
     add_row(S, "literal", p, blk$end, q, NA_character_, blk$classes,
@@ -1352,7 +1465,7 @@ handle_div <- function(S, p, parent) {
 handle_stray_close <- function(S, p, parent) {
   blk <- parse_block(S, p + 1L)
   if (is.null(blk)) return(p + 1L)
-  keys <- if (blk$ok) lower_keys(blk$names) else blk$gkey
+  keys <- if (blk$ok) lower_keys(blk$names) else blk$gkeys
   hit <- intersect(keys, WEFT_KEYS)
   if (!length(hit)) return(p + 1L)
   gov <- intersect(hit, GOVERNOR_KEYS)
@@ -1443,7 +1556,7 @@ handle_named <- function(S, p, cs, content, parent, skip, tex = "") {
     lc <- lower_keys(blk$names)
     weft <- any(blk$classes %in% named_classes(S$reg)) || any(lc %in% NAMED_KEYS)
   } else {
-    weft <- blk$gkey %in% NAMED_KEYS
+    weft <- any(blk$gkeys %in% c(NAMED_KEYS, "label"))
   }
   if (!weft) return(after)
   name <- trim_ws(content)
@@ -1656,7 +1769,8 @@ handle_bracket <- function(S, p, parent) {
       NA_character_
     }
   } else {
-    kind <- if (blk$gkey %in% GOVERNOR_KEYS) blk$gkey else "text"
+    gov <- intersect(blk$gkeys, GOVERNOR_KEYS)
+    kind <- if (length(gov)) gov[1L] else if (any(blk$gkeys %in% c("why", "decision"))) "literal" else "text"
   }
   if (is.na(kind)) {
     inner(parent)
@@ -1700,9 +1814,9 @@ handle_bracket <- function(S, p, parent) {
     }
     if (blk$ok && !is.na(expr) && S$filter_doc) {
       # a document the filter resolves: the governor is judged by N9-N12, never by R's parser (N141)
-      # (a single-quoted value is already an error, so it is not also reported for its space)
-      errs <- c(errs, filter_governor_errors(kind, expr, !any(grepl("single-quoted", errs, fixed = TRUE))))
-    } else if (blk$ok && !is.na(expr)) {
+      # (a value that already has a reading mistake is not also judged: one finding per mistake)
+      if (!length(blk$probs)) errs <- c(errs, filter_governor_errors(kind, expr))
+    } else if (blk$ok && !is.na(expr) && !length(blk$probs)) {
       if (kind %in% c("n", "sign") && is_backref(expr)) {
         # a back-reference is an id, not R (1.7.6, 5.3.5)
       } else if (kind %in% c("n", "sign") && startsWith(trim_ws(expr), "#")) {
