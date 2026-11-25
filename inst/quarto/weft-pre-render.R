@@ -178,7 +178,7 @@ local({
         key <- tolower(sub("^([A-Za-z]+).*$", "\\1", one))
         val <- sub("^[A-Za-z]+[[:space:]]*=[[:space:]]*", "", one)
         if (grepl("^[\"']", val)) val <- substr(val, 2L, nchar(val) - 1L)
-        val <- gsub("\\\\([\"'|])", "\\1", val)
+        val <- gsub("\\\\([\"'| ])", "\\1", val)
         if (!governor_ok(key, val)) return(TRUE)
       }
     }

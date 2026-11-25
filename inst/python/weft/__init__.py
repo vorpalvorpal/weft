@@ -187,7 +187,7 @@ _auto = {"callback": None, "names": [], "last": {}}
 _GOV_RE = _re.compile(
     r'(?<![A-Za-z0-9_.-])(?i:n|if|sign|list)='
     r'(?:"((?:[^"\\]|\\.)*)"|\'((?:[^\'\\]|\\.)*)\'|((?:[^\s}"\'\\]|\\\|)+))', _re.S)
-_UNESC_RE = _re.compile(r'\\(["\'|])')
+_UNESC_RE = _re.compile(r'\\(["\'| ])')
 _LITERAL_RE = _re.compile(r"'[^']*'|\"[^\"]*\"")
 _TOKEN_RE = _re.compile(r"(?<![A-Za-z0-9_.])[A-Za-z_][A-Za-z0-9_.]*")
 _CODE_RE = _re.compile(r"`([A-Za-z_][A-Za-z0-9_.]{0,63})`\{")

@@ -557,6 +557,8 @@ read_quoted_value <- function(x, strip = 0L) {
       nx <- if (k < m) cs[k + 1L] else ""
       if (nx %in% c("\"", "'", "|")) {
         out <- c(out, nx)
+      } else if (nx == " ") {
+        out <- c(out, " ")   # `\ ` is a space: the way to start a value with one (R3a)
       } else {
         bad_bs <- TRUE
         out <- c(out, c1, nx)
@@ -604,7 +606,7 @@ msg_char_ref <- function(ref, key) {
 }
 msg_lead_space <- function(key) {
   sprintf(paste0("The value of `%s` starts with white space (rules 1.2.3, 1.12.6): Pandoc does not read ",
-                 "the block as attributes, or drops the space. Remove the space."), key)
+                 "the block as attributes, or drops the space. Write a leading space as `\\ `."), key)
 }
 msg_bq_value <- function(key) {
   sprintf(paste0("The value of `%s`: a quoted value in a block quote must fit on one line (rule 1.2.3); ",
@@ -726,7 +728,7 @@ parse_block_strict <- function(ch, i, lim) {
       rd <- read_quoted_value(raw, if (lc$kind == "li") lc$indent else 0L)
       val <- rd$value
       if (lc$kind == "bq") probs[[length(probs) + 1L]] <- list(type = "M6", key = key)
-      if (starts_with_space(val)) probs[[length(probs) + 1L]] <- list(type = "M7", key = key)
+      if (starts_with_space(raw)) probs[[length(probs) + 1L]] <- list(type = "M7", key = key)
       if (rd$bad_bs) probs[[length(probs) + 1L]] <- list(type = "M1", key = key)
       if (!is.na(rd$ref)) probs[[length(probs) + 1L]] <- list(type = "M3", key = key, ref = rd$ref)
       if (is.na(bar_key) && has_bare_bar(raw)) bar_key <- key

@@ -263,10 +263,11 @@ attr_markup <- function(x, key = "") {
   for (v in as.character(x)[!is.na(x)]) {
     rf <- find_char_ref(v)
     if (!is.na(rf)) construct_error(msg_char_ref(rf, key))
-    if (starts_with_space(v)) construct_error(msg_lead_space(key))
+    if (starts_with_space(v) && !startsWith(v, " ")) construct_error(msg_lead_space(key))
   }
   x <- gsub("\\", "\\\\", as.character(x), fixed = TRUE)
   x <- gsub("\"", "\\\"", x, fixed = TRUE)
+  x <- sub("^ ", "\\\\ ", x)   # a leading space is written `\ ` (R3a)
   paste0("\"", gsub("|", "\\|", x, fixed = TRUE), "\"")
 }
 

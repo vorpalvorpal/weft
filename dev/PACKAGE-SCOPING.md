@@ -151,19 +151,22 @@ no `\` but `\|`: `{n=k}`, `{digits=2}`.
 
 **1.2.3** weft reads a value as Pandoc reads it, and accepts only part of
 what Pandoc accepts, so that a block weft reads means the same to Pandoc.
-In a quoted value `\"`, `\'` and `\|` stand for `"`, `'` and `|`, a quote of
+In a quoted value `\"`, `\'`, `\|` and `\ ` (backslash, space) stand for `"`,
+`'`, `|` and a space, a quote of
 the other kind needs no escape, and a line break reads as one space; in a
 list item, the item's content indent after the break is dropped, as Pandoc
 drops it. In a bare value `\|` stands for `|`. In the block of a weft
 construct these are construct errors (§5.3): any other `\` in a value; a `"`,
 `'` or `\` in a bare value, but for `\|`; a character reference (`&amp;`,
 `&#39;`, `&#x41;`) in any value, quoted or bare; a quoted value that starts
-with white space of any kind, a no-break space included, for every key; a
+with white space of any kind, a no-break space included, for every key (a
+leading space is written `\ `: `last="\ plus "`); a
 quoted value that crosses a line break in a block quote. The message for a `\`
 says to bind the expression to a name in a chunk. The same holds when weft
 writes a value back (a pass-through key, a literal): it refuses a character
-reference or a leading space with a construct error and never writes the block
-differently from what the author typed.
+reference, or leading white space other than a space, with a construct error,
+and writes a leading space as `\ `; it never writes a block that reads
+differently from the value.
 
 **1.2.9** An unescaped quote of a value's own kind ends the value early, and
 what is left is no longer an attribute block. So braces that directly follow
@@ -6792,7 +6795,9 @@ strip the `>` markers as Pandoc does; a value that crosses a line break there
 is an error, since an error never misreads. A value that starts with white
 space makes Pandoc read the block as text (or, after a no-break space, as a
 bare value that keeps its quotes), so the rule holds for every key and not
-only for governors. `commonmark_x` reads
+only for governors. A leading space is still wanted (the `last` of `.and` is
+`" plus "`), so a backslash before a space is an escape for it: Pandoc reads
+`"\ plus "` as `" plus "`, and the writer uses that spelling. `commonmark_x` reads
 neither single quotes nor `\"`, but weft's lints mask constructs before
 Pandoc reads the text, so this does not reach them. The broken-block error
 covers `label`, `why` and `decision` because an apostrophe in a single-quoted
