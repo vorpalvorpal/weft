@@ -12,8 +12,8 @@
 #' variable afterwards changes nothing.
 #'
 #' The result is a `weft` object, a character vector with two forms of each
-#' element. Its content is the **plain** text (Unicode, no markup: `m²`,
-#' `1.2 × 10⁻⁴`, emphasis without its marks, rule 1.4.24), so
+#' element. Its content is the **plain** text (Unicode, no markup: `m^2`,
+#' `1.2 x 10^-4`, emphasis without its marks, rule 1.4.24), so
 #' anything that reads a character vector (`cat()`, `nchar()`, `paste()`, a
 #' ggplot2 title) gets readable text. The attribute `markdown` holds the
 #' **markdown** text. `as.character()` and `format()` give the plain text;
@@ -186,7 +186,7 @@ string_config <- function() {
   string_cache[[root]] <- NULL
   weft_env$reading <- TRUE
   on.exit(weft_env$reading <- NULL)
-  cfg <- read_config(root, list())
+  cfg <- read_config(root, list(), explicit = FALSE)
   string_cache[[root]] <- list(sig = sig, config = cfg)
   cfg
 }

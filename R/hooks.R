@@ -386,7 +386,7 @@ init_knit <- function() {
   path <- knit_input_path()
   front <- read_front_matter(path)
   root <- if (!is.null(path)) find_project_root(path) else getwd()
-  cfg <- read_config(root, front$weft, doc = path)
+  cfg <- read_config(root, front$weft, doc = path, explicit = FALSE)
   s <- new_state()
   s$config <- cfg
   s$input_path <- path %||% NA_character_

@@ -55,6 +55,8 @@ project_config <- function() {
 units_drop_stale <- function() {
   src <- ud_state$src
   if (is.null(src) || isTRUE(weft_env$reading) || isTRUE(ud_state$busy)) return(invisible())
+  # a configuration the caller read explicitly with read_config() stays: it was asked for
+  if (isTRUE(src$explicit)) return(invisible())
   if (isTRUE(src$file) || isTRUE(src$knit)) units_reset()
   invisible()
 }
@@ -116,11 +118,11 @@ formatter_stages <- function() c("number", "wording", "collapse", "text")
 # `dir` is the project root. `front` is the document's `weft:` front-matter
 # key, already parsed to a list. `doc` names the document, for a problem in its
 # `units:` table.
-read_config <- function(dir, front = list(), doc = NULL) {
+read_config <- function(dir, front = list(), doc = NULL, explicit = TRUE) {
   # a read that fails leaves the session at the default units (4.4.21)
   ok <- FALSE
   on.exit(if (!ok) units_reset(), add = TRUE)
-  cfg <- read_config_(dir, front, doc)
+  cfg <- read_config_(dir, front, doc, explicit)
   ok <- TRUE
   cfg
 }
@@ -173,7 +175,7 @@ project_units <- function(root) {
   invisible()
 }
 
-read_config_ <- function(dir, front, doc) {
+read_config_ <- function(dir, front, doc, explicit = TRUE) {
   # a read that fails leaves no `units:` table from an earlier one in use
   weft_env$units <- NULL
   weft_env$units_default <- NULL
@@ -244,7 +246,8 @@ read_config_ <- function(dir, front, doc) {
     list(tbl = proj_units, where = if (has_file) file else "_weft.yml"),
     list(tbl = front_units, where = doc %||% "the document's `weft:` front matter")),
     cfg$unit_defaults, root = dir)
-  ud_state$src <- list(root = ud_norm_root(dir), file = has_file, knit = !is.null(front_units))
+  ud_state$src <- list(root = ud_norm_root(dir), file = has_file, knit = !is.null(front_units),
+                       explicit = explicit)
   cfg$units <- ur$units
   cfg$units_default <- ur$default
   weft_env$units <- cfg$units

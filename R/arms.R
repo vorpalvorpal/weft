@@ -80,7 +80,7 @@ arms_one <- function(path, offset = 0L) {
   # the configuration and the language are the knit's: the project's classes
   # are known, and the language is Quarto's merged metadata (3.7.1)
   front <- read_front_matter(path)
-  cfg <- read_config(find_project_root(path), front$weft, doc = path)
+  cfg <- read_config(find_project_root(path), front$weft, doc = path, explicit = FALSE)
   rows <- scan_file(path, config = cfg)
   errors <- data.frame(file = character(), line = integer(), message = character(),
                        stringsAsFactors = FALSE)

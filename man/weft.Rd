@@ -73,8 +73,8 @@ variable afterwards changes nothing.
 }
 \details{
 The result is a \code{weft} object, a character vector with two forms of each
-element. Its content is the \strong{plain} text (Unicode, no markup: \verb{m²},
-\verb{1.2 × 10⁻⁴}, emphasis without its marks, rule 1.4.24), so
+element. Its content is the \strong{plain} text (Unicode, no markup: \verb{m^2},
+\verb{1.2 x 10^-4}, emphasis without its marks, rule 1.4.24), so
 anything that reads a character vector (\code{cat()}, \code{nchar()}, \code{paste()}, a
 ggplot2 title) gets readable text. The attribute \code{markdown} holds the
 \strong{markdown} text. \code{as.character()} and \code{format()} give the plain text;
