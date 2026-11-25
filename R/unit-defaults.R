@@ -411,6 +411,34 @@ ud_install_one <- function(tok, def, redef, default, misread) {
   NULL
 }
 
+# Whether the definition `def` is exactly the unit `tok` (factor 1), even if written another way.
+ud_same_unit <- function(def, tok) {
+  f <- tryCatch(as.numeric(units::ud_convert(1, def, tok)), error = function(e) NA_real_)
+  length(f) == 1L && !is.na(f) && abs(f - 1) <= 1e-9
+}
+
+# The problem for a project definition that is exactly a unit the database already has a symbol or
+# name for, and that the units package would alias (a name with no symbol of its own, or a
+# non-ASCII symbol), or NULL. The units package accepts such an alias, and the alias would become
+# the unit's printed symbol, so weft refuses it before installing anything.
+ud_alias_problem <- function(def) {
+  if (identical(def, "base")) return(NULL)
+  one <- "^[ ]*1(\\.0*)?[ ]+"
+  num <- grepl(one, def)
+  t <- trimws(if (num) sub(one, "", def) else def)
+  if (!grepl("^[[:alpha:]_]+$", t) || !is.null(unit_parse_problem(t))) return(NULL)
+  old <- units::units_options("auto_convert_names_to_symbols")
+  units::units_options(auto_convert_names_to_symbols = TRUE)
+  p <- tryCatch(suppressWarnings(units::deparse_unit(units::set_units(1, t, mode = "standard"))),
+                error = function(e) NA_character_, finally = units::units_options(auto_convert_names_to_symbols = old))
+  if (length(p) != 1L || is.na(p) || !grepl("^[^[:space:][:digit:]^*/()]+$", p)) return(NULL)
+  r <- tok_resolve_db(t)
+  alias <- any(utf8ToInt(enc2utf8(p)) > 127L) || (identical(p, t) && identical(r$kind, "name"))
+  if (!alias || !ud_same_unit(t, p)) return(NULL)
+  if (num) sprintf("`is` `%s` is the unit `%s` already; write `%s`", def, p, p)
+  else sprintf("`is` `%s` is the unit `%s` already; write `%s`, or give a factor (`2 %s`)", def, p, p, def)
+}
+
 # Bring the database to the tokens `W` (each list(tok, def, redef, default, misread)) in file
 # order: undo what is no longer wanted or has changed or has been changed by someone else,
 # install the rest. list(problems, disabled): the problems of the rows the units package refused,
@@ -444,6 +472,25 @@ ud_sync <- function(W) {
         else paste0("`is` cannot define a token that ends in a digit: the units package reads the digit as an ",
                     "exponent (`m2` is `m^2`), so it cannot be used in a definition or removed again")
       next
+    }
+    if (!isTRUE(w$default) && !identical(w$def, "base")) {
+      # the units package accepts a second symbol for a unit, so weft refuses it here, before installing
+      same <- NULL
+      for (v in W) {
+        if (identical(v$tok, w$tok)) break
+        if (is.null(problems[[v$tok]]) && is.null(disabled[[v$tok]]) && ud_same_unit(w$def, v$tok)) {
+          same <- v
+          break
+        }
+      }
+      pr <- if (!is.null(same)) {
+        sprintf("`is` gives the same unit as `%s`%s; give it one row", same$tok,
+                if (isTRUE(same$default)) " (weft's default table)" else "")
+      } else ud_alias_problem(w$def)
+      if (!is.null(pr)) {
+        problems[[w$tok]] <- pr
+        next
+      }
     }
     r <- ud_install_one(w$tok, w$def, w$redef, w$default, isTRUE(w$misread))
     if (!is.null(r$problem)) problems[[w$tok]] <- r$problem

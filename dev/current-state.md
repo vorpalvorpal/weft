@@ -413,10 +413,9 @@ or hold); no answer yet.
   change in weft was PAUSED until upstream answered (PR 452 added
   `override`; units main is 1.0-1.7). DONE on 2026-11-25: Robin unpaused
   it and the switch is made (`units (>= 1.0-1.7)`, `Remotes`,
-  `install_unit(override = TRUE)`, no `units:::`). What remains: the
-  alias-policy tests (`test-review-2g.R` #8 and #13, `test-review-2x.R`
-  #9 and #10, which wait on Robin) and the tests whose setup installs a
-  database id as another unit, which units now refuses.
+  `install_unit(override = TRUE)`, no `units:::`). The
+  alias policy is built (2026-11-25): weft refuses an `is` that is
+  exactly another unit, in `ud_sync()`, before `install_unit()`.
   Nothing more is posted there without Robin's say.
 - The machine seized at about 07:26: `securityd` aborted ("error
   destroying Mutex: 16") under heavy keychain traffic and memory pressure,
