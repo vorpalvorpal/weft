@@ -13,18 +13,18 @@ PLAIN_SPECIAL_RE <- "[\\\\`$<&^~*_\\[]"
 PLAIN_PUNCT <- strsplit("!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~", "")[[1L]]
 
 PLAIN_ENTITIES <- c(
-  amp = "&", lt = "<", gt = ">", quot = "\"", apos = "'", nbsp = " ", times = "×",
-  minus = "−", infin = "∞", plusmn = "±", deg = "°", middot = "·",
-  ndash = "–", mdash = "—", hellip = "…", micro = "µ")
+  amp = "&", lt = "<", gt = ">", quot = "\"", apos = "'", nbsp = "\u00A0", times = "\u00D7",
+  minus = "\u2212", infin = "\u221E", plusmn = "\u00B1", deg = "\u00B0", middot = "\u00B7",
+  ndash = "\u2013", mdash = "\u2014", hellip = "\u2026", micro = "\u00B5")
 
-PLAIN_SUP <- c("0" = "⁰", "1" = "¹", "2" = "²", "3" = "³", "4" = "⁴",
-               "5" = "⁵", "6" = "⁶", "7" = "⁷", "8" = "⁸", "9" = "⁹",
-               "+" = "⁺", "-" = "⁻", "−" = "⁻", "=" = "⁼",
-               "(" = "⁽", ")" = "⁾", "n" = "ⁿ", "i" = "ⁱ")
-PLAIN_SUB <- c("0" = "₀", "1" = "₁", "2" = "₂", "3" = "₃", "4" = "₄",
-               "5" = "₅", "6" = "₆", "7" = "₇", "8" = "₈", "9" = "₉",
-               "+" = "₊", "-" = "₋", "−" = "₋", "=" = "₌",
-               "(" = "₍", ")" = "₎")
+PLAIN_SUP <- c("0" = "\u2070", "1" = "\u00B9", "2" = "\u00B2", "3" = "\u00B3", "4" = "\u2074",
+               "5" = "\u2075", "6" = "\u2076", "7" = "\u2077", "8" = "\u2078", "9" = "\u2079",
+               "+" = "\u207A", "-" = "\u207B", "\u2212" = "\u207B", "=" = "\u207C",
+               "(" = "\u207D", ")" = "\u207E", "n" = "\u207F", "i" = "\u2071")
+PLAIN_SUB <- c("0" = "\u2080", "1" = "\u2081", "2" = "\u2082", "3" = "\u2083", "4" = "\u2084",
+               "5" = "\u2085", "6" = "\u2086", "7" = "\u2087", "8" = "\u2088", "9" = "\u2089",
+               "+" = "\u208A", "-" = "\u208B", "\u2212" = "\u208B", "=" = "\u208C",
+               "(" = "\u208D", ")" = "\u208E")
 
 # The plain text of markdown `x`, element by element (an NA stays NA). A string with none of the
 # characters any rule starts on is returned as it is.
@@ -61,7 +61,7 @@ plain_read_chars <- function(ch) {
     out[[length(out) + 1L]] <<- run
   }
   text <- function(x) buf <<- c(buf, x)
-  is_ws <- function(c) !is.na(c) && c %in% c(" ", "\t", "\n", "\r", " ", " ")
+  is_ws <- function(c) !is.na(c) && c %in% c(" ", "\t", "\n", "\r", "\u00A0", "\u2009")
   is_alnum <- function(c) !is.na(c) && grepl("[[:alnum:]]", c)
   at <- function(j) if (j >= 1L && j <= n) ch[j] else NA_character_
   sp <- ch %in% PLAIN_SPECIAL
@@ -109,9 +109,8 @@ plain_read_chars <- function(ch) {
           next
         }
       }
-      if (nchar(content) >= 2L && startsWith(content, " ") && endsWith(content, " ") &&
-          nzchar(trimws(content, whitespace = " "))) {
-        content <- substr(content, 2L, nchar(content) - 1L)
+      if (nzchar(trimws(content, whitespace = " "))) {
+        content <- trimws(content, whitespace = " ")
       }
       add(plain_run("code", text = content))
       i <- end + 1L
@@ -119,21 +118,11 @@ plain_read_chars <- function(ch) {
     }
     # PL3 math
     if (c == "$") {
-      if (at(i + 1L) %in% "$") {
-        j <- plain_find_str(ch, i + 2L, "$$")
-        if (!is.na(j)) {
-          add(plain_run("math", text = paste(ch[i:(j + 1L)], collapse = "")))
-          i <- j + 2L
-          next
-        }
-      } else if (!is.na(at(i + 1L)) && !is_ws(at(i + 1L))) {
-        j <- i + 1L
-        while (j <= n && ch[j] != "$") j <- j + if (ch[j] == "\\") 2L else 1L
-        if (j <= n && !is_ws(at(j - 1L)) && !grepl("[0-9]", at(j + 1L) %||% "")) {
-          add(plain_run("math", text = paste(ch[i:j], collapse = "")))
-          i <- j + 1L
-          next
-        }
+      e <- plain_math_end(ch, i)
+      if (!is.na(e)) {
+        add(plain_run("math", text = paste(ch[i:e], collapse = "")))
+        i <- e + 1L
+        next
       }
       text("$")
       i <- i + 1L
@@ -209,6 +198,17 @@ plain_read_chars <- function(ch) {
           next
         }
         if (ch[j] %in% c(" ", "\t", "\n")) break
+        if (ch[j] == "`") {
+          j <- plain_skip_code(ch, j)
+          next
+        }
+        if (ch[j] == "$") {
+          e <- plain_math_end(ch, j)
+          if (!is.na(e)) {
+            j <- e + 1L
+            next
+          }
+        }
         if (ch[j] == c) {
           ok <- TRUE
           break
@@ -216,7 +216,14 @@ plain_read_chars <- function(ch) {
         j <- j + 1L
       }
       if (ok && j > i + 1L) {
-        add(plain_run(if (c == "^") "sup" else "sub", kids = plain_read_chars(ch[(i + 1L):(j - 1L)])))
+        # Pandoc: a backslash-space in a script is a no-break space
+        inner <- ch[(i + 1L):(j - 1L)]
+        w <- which(inner[-length(inner)] == "\\" & inner[-1L] == " ")
+        if (length(w)) {
+          inner[w] <- "\u00A0"
+          inner <- inner[-(w + 1L)]
+        }
+        add(plain_run(if (c == "^") "sup" else "sub", kids = plain_read_chars(inner)))
         i <- j + 1L
       } else {
         text(c)
@@ -232,30 +239,34 @@ plain_read_chars <- function(ch) {
       opens <- k <= 3L && !is.na(after) && !is_ws(after) &&
         (c == "*" || !is_alnum(before))
       if (opens) {
-        j <- i + k
-        close <- NA_integer_
-        while (j <= n) {
-          d <- ch[j]
-          if (d == "\\" && j < n) {
-            j <- j + 2L
-            next
-          }
-          if (d == c) {
-            m <- plain_run_len(ch, j, c)
-            if (m == k && j > i + k && !is_ws(at(j - 1L)) &&
-                (c == "*" || !is_alnum(at(j + m)))) {
-              close <- j
-              break
+        ev <- plain_emph_close(ch, i, k, c)
+        if (length(ev)) {
+          if (length(ev) == 1L) {
+            kids <- plain_read_chars(ch[(i + k):(ev[[1L]][1L] - 1L)])
+            run <- if (k == 1L) {
+              plain_run("em", kids = kids)
+            } else if (k == 2L) {
+              plain_run("strong", kids = kids)
+            } else {
+              plain_run("strong", kids = list(plain_run("em", kids = kids)))
             }
-            j <- j + m
-            next
+            end <- ev[[1L]][1L] + ev[[1L]][2L] - 1L
+          } else {
+            # a run of three closed in two steps: the inner emphasis first
+            inner_kids <- plain_read_chars(ch[(i + k):(ev[[1L]][1L] - 1L)])
+            inner <- plain_run(if (ev[[1L]][2L] == 1L) "em" else "strong", kids = inner_kids)
+            rest_from <- ev[[1L]][1L] + ev[[1L]][2L]
+            rest <- if (ev[[2L]][1L] > rest_from) {
+              plain_read_chars(ch[rest_from:(ev[[2L]][1L] - 1L)])
+            } else {
+              list()
+            }
+            run <- plain_run(if (ev[[2L]][2L] == 1L) "em" else "strong",
+                             kids = c(list(inner), rest))
+            end <- ev[[2L]][1L] + ev[[2L]][2L] - 1L
           }
-          j <- j + 1L
-        }
-        if (!is.na(close)) {
-          kids <- plain_read_chars(ch[(i + k):(close - 1L)])
-          add(plain_run(if (k == 2L) "strong" else "em", kids = kids))
-          i <- close + k
+          add(run)
+          i <- end + 1L
           next
         }
       }
@@ -284,6 +295,92 @@ plain_read_chars <- function(ch) {
   }
   flush()
   out
+}
+
+# The index just past a code span opening at `j` (or past the backticks when it has no closer).
+plain_skip_code <- function(ch, j) {
+  k <- plain_run_len(ch, j, "`")
+  e <- plain_find_run(ch, j + k, "`", k)
+  if (is.na(e)) j + k else e + k
+}
+
+# The index of the `$` that ends the math opening at `i`, or NA (PL3).
+plain_math_end <- function(ch, i) {
+  n <- length(ch)
+  is_ws <- function(c) !is.na(c) && c %in% c(" ", "\t", "\n", "\r", "\u00A0", "\u2009")
+  nx <- if (i < n) ch[i + 1L] else NA_character_
+  if (!is.na(nx) && nx == "$") {
+    j <- plain_find_str(ch, i + 2L, "$$")
+    return(if (is.na(j)) NA_integer_ else j + 1L)
+  }
+  if (is.na(nx) || is_ws(nx)) return(NA_integer_)
+  j <- i + 1L
+  while (j <= n && ch[j] != "$") j <- j + if (ch[j] == "\\") 2L else 1L
+  if (j <= n && !is_ws(ch[j - 1L]) && !(j < n && grepl("[0-9]", ch[j + 1L]))) j else NA_integer_
+}
+
+# The closing run(s) of the emphasis opened by the run of `k` copies of `c` at `i`, as a list of
+# c(start, length): one entry, or two when a run of three closes as an inner and an outer emphasis.
+# Follows Pandoc: a closing run first closes any emphasis opened inside, and a run longer than what
+# is needed closes an inner and an outer emphasis together. Code spans and math are opaque.
+# Returns an empty list when there is no closer.
+plain_emph_close <- function(ch, i, k, c) {
+  n <- length(ch)
+  is_ws <- function(x) !is.na(x) && x %in% c(" ", "\t", "\n", "\r", "\u00A0", "\u2009")
+  is_alnum <- function(x) !is.na(x) && grepl("[[:alnum:]]", x)
+  at <- function(j) if (j >= 1L && j <= n) ch[j] else NA_character_
+  need <- k
+  stack <- integer()
+  events <- list()
+  j <- i + k
+  while (j <= n) {
+    d <- ch[j]
+    if (d == "\\" && j < n) {
+      j <- j + 2L
+      next
+    }
+    if (d == "`") {
+      j <- plain_skip_code(ch, j)
+      next
+    }
+    if (d == "$") {
+      e <- plain_math_end(ch, j)
+      j <- if (is.na(e)) j + 1L else e + 1L
+      next
+    }
+    if (d != c) {
+      j <- j + 1L
+      next
+    }
+    m <- plain_run_len(ch, j, c)
+    before <- at(j - 1L)
+    after <- at(j + m)
+    can_close <- !is_ws(before) && (c == "*" || !is_alnum(after))
+    can_open <- !is.na(after) && !is_ws(after) && (c == "*" || !is_alnum(before))
+    rem <- m
+    if (can_close) {
+      while (rem > 0L && length(stack)) {
+        take <- min(rem, stack[length(stack)])
+        stack[length(stack)] <- stack[length(stack)] - take
+        rem <- rem - take
+        if (stack[length(stack)] == 0L) stack <- stack[-length(stack)]
+      }
+      if (rem > 0L) {
+        t <- min(rem, need)
+        if (t == need || (k == 3L && need == 3L && t < 3L)) {
+          events[[length(events) + 1L]] <- c(j + m - rem, t)
+          need <- need - t
+          if (need == 0L) return(events)
+          j <- j + m
+          next
+        }
+      }
+    } else if (can_open) {
+      stack <- c(stack, m)
+    }
+    j <- j + m
+  }
+  list()
 }
 
 plain_codepoint <- function(cp) {

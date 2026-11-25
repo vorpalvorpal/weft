@@ -704,8 +704,7 @@ plain text is the markdown text read as follows, so the two never disagree:
   text.
 - **PL2** Code span: a run of n backticks, then text, then the next run of
   exactly n backticks. A code run of its content, verbatim (no rule applies
-  inside); when the content both begins and ends with a space and is not all
-  spaces, one space is removed from each end. A code span directly followed by
+  inside); when the content is not all spaces, the spaces at both ends are removed (Pandoc). A code span directly followed by
   `{`, up to the `}` that closes an attribute block (PL9), is kept as written,
   block included (a named value left for the filter). A backtick run with no
   closing run is text.
@@ -722,12 +721,11 @@ plain text is the markdown text read as follows, so the two never disagree:
   that character. Any other `&` is text.
 - **PL7** Superscript `^...^` and subscript `~...~` (a `~~` is text): the
   content is not empty and holds no unescaped space, tab or newline and no
-  unescaped closing delimiter (Pandoc's rule). A superscript or subscript run of
+  unescaped closing delimiter (Pandoc's rule); a backslash and a space in it is a no-break space (U+00A0, Pandoc's rule). A code span or math in it is opaque to the search for the closing delimiter. A superscript or subscript run of
   the content, read by these rules.
 - **PL8** Emphasis: `***...***` (strong emphasis), `**...**` and `__...__`
   (strong), `*...*` and `_..._` (emphasis). An opening run is not followed by
-  white space; its closing run is the first run of the same character and length
-  after it that is not preceded by white space. For `_`, the opening run is not
+  white space; its closing run is the first run of the same character after it that is not preceded by white space and is not used up closing an emphasis opened inside, as Pandoc reads it: a run longer than the opening run closes an inner and an outer emphasis together (`**Total for *E. coli***`), and an opening run of three may be closed in two steps (`***Eucalyptus* sp.**`). A code span or math between them is opaque to the search. For `_`, the opening run is not
   preceded by a letter or digit and the closing run is not followed by one (so
   `snake_case_name` is text). The content is not empty and is read by these
   rules. A run with no closing run is text (`5 * 3 and 2 * 4` is text; `2*3*4`
