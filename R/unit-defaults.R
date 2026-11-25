@@ -7,13 +7,12 @@
 
 # `ready`: the database holds what the configuration in force wants. `installed`: each token
 # weft installed, with its definition ("base" or the text of `is:`) and whether it redefines a
-# reading of the units package. `removed`: each database mapping weft removed to install a
-# token (the name `gal`), with the definition to restore it by. `ctx`: the mode, the tokens
-# that rows with `is:` define, and those of them that are the default table's.
+# reading of the units package, and as which kind (`symbol` or `name`) it was installed, for
+# `remove_unit()`. `ctx`: the mode, the tokens that rows with `is:` define, and those of them
+# that are the default table's.
 ud_state <- new.env(parent = emptyenv())
 ud_state$ready <- FALSE
 ud_state$installed <- list()
-ud_state$removed <- list()
 ud_state$ctx <- list(mode = "weft", own = character(), dflt = character())
 ud_state$default_entries <- NULL
 # `disabled`: the default tokens someone else installed as another unit, each with the text that
@@ -346,44 +345,49 @@ ud_is_pristine <- function(tok) {
   isTRUE(abs(f - val) <= 1e-9 * abs(val))
 }
 
+# `remove_unit()` undoes only what `install_unit()` did, so a database id redefined with
+# `override = TRUE` reads as the database says again; `kind` is how weft installed it.
 ud_uninstall <- function(tok) {
-  try(units::remove_unit(symbol = tok), silent = TRUE)
+  kind <- ud_state$installed[[tok]]$kind %||% "symbol"
+  suppressWarnings(suppressMessages(try(
+    if (identical(kind, "name")) units::remove_unit(name = tok) else units::remove_unit(symbol = tok),
+    silent = TRUE)))
   ud_state$installed[[tok]] <- NULL
 }
 
-ud_restore_removed <- function(tok) {
-  rec <- ud_state$removed[[tok]]
-  try(if (identical(rec$kind, "name")) units::install_unit(name = tok, def = rec$def)
-      else units::install_unit(tok, rec$def), silent = TRUE)
-  ud_state$removed[[tok]] <- NULL
-}
-
-# The problem for a definition the units package refused. It maps one symbol to a unit, so a
-# definition that is exactly the unit another symbol has is the "same unit" problem.
-ud_install_problem <- function(def, err, toks, dflt) {
-  m <- regmatches(err, regexec("Unit already maps to \"([^\"]*)\"", err))[[1L]]
-  if (length(m) == 2L) {
-    if (m[2L] %in% toks) {
-      return(sprintf("`is` gives the same unit as `%s`%s; give it one row", m[2L],
-                     if (m[2L] %in% dflt) " (weft's default table)" else ""))
-    }
-    if (grepl("^[ ]*[-+]?[0-9.]", def)) {
-      # the definition already has its number: a factor cannot be given before it
-      return(sprintf(paste0("`is` `%s` is the unit the units package already writes `%s`, and it keeps one symbol ",
-                            "for a unit; use `%s`"), def, m[2L], m[2L]))
-    }
-    return(sprintf(paste0("`is` `%s` is the unit the units package already writes `%s`, and it keeps one symbol ",
-                          "for a unit; give a factor (`2 %s`), or use `%s`"), def, m[2L], def, m[2L]))
+# The problem for a definition the units package refused (the first line of its error). An install
+# either succeeds as a whole or maps nothing, so the refusal leaves nothing to clean up.
+ud_install_problem <- function(def, err) {
+  m <- regmatches(err, regexec("^(symbol|name) \"([^\"]*)\" already maps to existing but different unit", err))[[1L]]
+  if (length(m) == 3L) {
+    return(sprintf("`%s` is read by the units package as a different unit than `%s`, and `is` cannot define a key it already reads; choose another key",
+                   m[3L], def))
+  }
+  m <- regmatches(err, regexec("^name \"([^\"]*)\" would shadow \"([^\"]*)\", which maps to a different unit", err))[[1L]]
+  if (length(m) == 3L) {
+    return(sprintf("the name `%s` would shadow `%s`, a unit of the units package, in another letter case; choose another key",
+                   m[2L], m[3L]))
+  }
+  m <- regmatches(err, regexec("^(symbol|name) \"([^\"]*)\" cannot be installed: udunits does not read it as this unit", err))[[1L]]
+  if (length(m) == 3L) {
+    return(sprintf("`%s` cannot be defined as a key: the units package would read it as something other than `%s` (a trailing digit is an exponent, `m2` is `m^2`)",
+                   m[3L], def))
+  }
+  m <- regmatches(err, regexec("^(symbol|name) \"([^\"]*)\" was installed by install_unit\\(\\); remove it first", err))[[1L]]
+  if (length(m) == 3L) {
+    return(sprintf("`%s` is installed in this session, not by weft; choose another key", m[3L]))
   }
   sprintf("`is` `%s` is not a unit the units package can read: %s", def, err)
 }
 
 # Install one token. NULL when it is in the database as the row says (installed now, or by
 # someone else as the row reads); list(problem) when the row cannot be installed; list(disabled)
-# when someone else installed a default token as another unit. A token that fails to install
-# leaves nothing behind.
-ud_install_one <- function(tok, def, redef, default, misread, toks, dflt) {
-  removed <- FALSE
+# when someone else installed a default token as another unit. An install that fails maps nothing.
+# A pristine database id is redefined with `override = TRUE`, as a symbol or as a name by how the
+# database reads it.
+ud_install_one <- function(tok, def, redef, default, misread) {
+  kind <- "symbol"
+  override <- FALSE
   exists <- is.null(unit_parse_problem(tok))
   if (exists && !default && !misread) return(list(problem = ud_reading_text(tok)))
   if (exists) {
@@ -393,33 +397,17 @@ ud_install_one <- function(tok, def, redef, default, misread, toks, dflt) {
       return(list(problem = sprintf("`%s` is installed in this session, not by weft, as a unit that is not `%s`",
                                     tok, def)))
     }
-    r <- tok_resolve_db(tok)
-    if (is.na(r$pre) && is.null(ud_state$removed[[tok]])) {
-      db <- ud_db()
-      d <- db$v$def[r$row]
-      if (identical(r$kind, "name")) units::remove_unit(name = tok) else units::remove_unit(symbol = tok)
-      ud_state$removed[[tok]] <- list(kind = r$kind, def = if (nzchar(d)) d else db$id[r$row])
-      removed <- TRUE
-    }
+    override <- TRUE
+    kind <- tok_resolve_db(tok)$kind
   }
-  # A definition that is exactly a unit with a non-ASCII symbol already (`1 degree`, `1 ohm`) is
-  # refused by the units package, which maps the new symbol before it fails. Taking that symbol
-  # out again frees the symbol of the unit that was already there, and the database reads it as
-  # garbage from then on (`degree` prints as bytes). So the refusal is made here, nothing mapped.
-  own <- if (identical(def, "base")) "" else
-    ud_internal_symbol(def)
-  early <- length(own) == 1L && !is.na(own) && nzchar(own) && any(utf8ToInt(enc2utf8(own)) > 127L)
-  err <- if (early) sprintf("Unit already maps to \"%s\"", own) else tryCatch({
-    if (identical(def, "base")) units::install_unit(tok) else units::install_unit(tok, def)
+  args <- c(stats::setNames(list(tok), kind), if (!identical(def, "base")) list(def = def),
+            if (override) list(override = TRUE))
+  err <- tryCatch({
+    suppressMessages(do.call(units::install_unit, args))
     NULL
   }, error = function(e) conditionMessage(e))
-  if (!is.null(err)) {
-    # what install_unit() mapped before it failed goes again
-    if (!early) try(units::remove_unit(symbol = tok), silent = TRUE)
-    if (removed) ud_restore_removed(tok)
-    return(list(problem = ud_install_problem(def, sub("\n.*$", "", err), toks, dflt)))
-  }
-  ud_state$installed[[tok]] <- list(def = def, redef = redef)
+  if (!is.null(err)) return(list(problem = ud_install_problem(def, sub("\n.*$", "", err))))
+  ud_state$installed[[tok]] <- list(def = def, redef = redef, kind = kind)
   NULL
 }
 
@@ -431,7 +419,6 @@ ud_install_one <- function(tok, def, redef, default, misread, toks, dflt) {
 ud_sync <- function(W) {
   toks <- vapply(W, function(w) w$tok, "")
   defs <- vapply(W, function(w) w$def, "")
-  dflt <- toks[vapply(W, function(w) isTRUE(w$default), NA)]
   inst <- ud_state$installed
   for (tok in rev(names(inst))) {
     i <- match(tok, toks)
@@ -443,9 +430,6 @@ ud_sync <- function(W) {
     }
     if (is.na(i) && identical(rec$def, "base") && !isTRUE(rec$redef)) next
     ud_uninstall(tok)
-  }
-  for (tok in names(ud_state$removed)) {
-    if (!(tok %in% toks) && is.null(ud_state$installed[[tok]])) ud_restore_removed(tok)
   }
   problems <- list()
   disabled <- list()
@@ -461,7 +445,7 @@ ud_sync <- function(W) {
                     "exponent (`m2` is `m^2`), so it cannot be used in a definition or removed again")
       next
     }
-    r <- ud_install_one(w$tok, w$def, w$redef, w$default, isTRUE(w$misread), toks, dflt)
+    r <- ud_install_one(w$tok, w$def, w$redef, w$default, isTRUE(w$misread))
     if (!is.null(r$problem)) problems[[w$tok]] <- r$problem
     if (!is.null(r$disabled)) disabled[[w$tok]] <- r$disabled
   }
@@ -470,13 +454,12 @@ ud_sync <- function(W) {
 }
 
 # Unloading weft (4.4.21): what it installed goes, but the base registrations that redefine
-# nothing, and the names it removed come back.
+# nothing; `remove_unit()` gives a redefined database id its meaning back.
 ud_unload <- function() {
   for (tok in rev(names(ud_state$installed))) {
     rec <- ud_state$installed[[tok]]
     if (!identical(rec$def, "base") || isTRUE(rec$redef)) ud_uninstall(tok)
   }
-  for (tok in names(ud_state$removed)) ud_restore_removed(tok)
   ud_state$ready <- FALSE
   invisible()
 }
@@ -489,7 +472,7 @@ ud_forget_registered <- function(keep_root = NULL) {
   dr <- ud_state$dict_reg
   gone <- if (is.null(keep_root)) names(dr) else names(dr)[dr != keep_root]
   toks <- c(ud_state$registered, gone)
-  for (tok in rev(toks)) try(units::remove_unit(tok, tok), silent = TRUE)
+  for (tok in rev(toks)) suppressWarnings(try(units::remove_unit(tok, tok), silent = TRUE))
   if (length(toks)) un_cache$sym <- NULL
   ud_state$registered <- character()
   ud_state$dict_reg <- dr[setdiff(names(dr), gone)]

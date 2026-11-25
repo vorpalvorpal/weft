@@ -11,13 +11,15 @@ License: MIT + file LICENSE
 URL: https://vorpalvorpal.github.io/weft/,
     https://github.com/vorpalvorpal/weft
 BugReports: https://github.com/vorpalvorpal/weft/issues
+Remotes:
+    r-quantities/units
 Imports:
     cli,
     jsonlite,
     knitr (>= 1.51),
     rlang,
     stringi,
-    units,
+    units (>= 1.0-1.7),
     withr,
     yaml (>= 2.3.0)
 Suggests:

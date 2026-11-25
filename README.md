@@ -61,7 +61,10 @@ or
 remotes::install_github("vorpalvorpal/weft")
 ```
 
-weft uses the units package, which needs the udunits-2 library. The CRAN
+weft uses the units package, version 1.0-1.7 or later, which is on GitHub and
+not yet on CRAN (`Remotes:` in `DESCRIPTION` points to it, so
+`remotes::install_github()` installs it; with an older units, install
+`r-quantities/units` first). The package needs the udunits-2 library. The CRAN
 binaries for macOS and Windows include it. On Linux, install your
 distribution's udunits-2 development package first (for example
 `libudunits2-dev` on Debian and Ubuntu).

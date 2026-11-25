@@ -141,39 +141,21 @@ ud_tables <- function() {
   disk
 }
 
-# ---- the `units` internals ----------------------------------------------------------------------
-# weft reaches three unexported things in the `units` package, and only through this section. The
-# workaround stays until a `units` release carries r-quantities/units PR 447 (issue 448), which
-# would give a public route; then delete this section. A missing internal aborts with a
-# `weft_error` that names it, so a change in `units` is never read as "nothing there".
-units_internal <- function(name) {
-  f <- get0(name, envir = asNamespace("units"), inherits = FALSE)
-  if (!is.function(f)) {
-    weft_abort(sprintf("the `units` package no longer has the internal `%s` that weft relies on (see r-quantities/units PR 447, issue 448)", name),
-               "weft_units_internal_error")
-  }
-  f
-}
-
-# The symbol udunits already maps a definition to, or "" when the definition does not parse.
-ud_internal_symbol <- function(def) {
-  get_symbol <- units_internal("R_ut_get_symbol")
-  parse <- units_internal("R_ut_parse")
-  tryCatch(get_symbol(parse(def)), error = function(e) "")
-}
-
-# The path of the udunits database file the `units` package loads.
-ud_units_xml_path <- function() units_internal("default_units_xml")()
-
 # What the database read depends on, or NULL when that cannot be told (then nothing is kept
-# on disk).
+# on disk). The units package reads `UDUNITS2_XML_PATH`, then three system paths, then the copy it
+# ships, so the key holds the version of units, that variable, and the size and modification time of
+# every XML file in the directories where such a database may be. A key that misses a change only
+# costs a read of the XML; it never serves a wrong table, because the version is in it.
 ud_tables_key <- function() {
   tryCatch({
-    p <- ud_units_xml_path()
-    fs <- list.files(dirname(p), pattern = "\\.xml$", full.names = TRUE)
+    env <- Sys.getenv("UDUNITS2_XML_PATH")
+    dirs <- unique(c(if (nzchar(env)) dirname(env),
+                     "/usr/local/share/udunits", "/usr/share/xml/udunits", "/usr/share/udunits",
+                     system.file("share/udunits", package = "units")))
+    fs <- sort(unlist(lapply(dirs[dir.exists(dirs)], list.files, pattern = "\\.xml$", full.names = TRUE)))
     fi <- file.info(fs)
-    list(units = as.character(utils::packageVersion("units")), weft = 1L,
-         files = unname(fs), size = fi$size, mtime = as.numeric(fi$mtime), main = p)
+    list(units = as.character(utils::packageVersion("units")), weft = 2L, env = env,
+         files = unname(fs), size = fi$size, mtime = as.numeric(fi$mtime))
   }, error = function(e) NULL)
 }
 
