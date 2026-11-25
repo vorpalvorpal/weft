@@ -42,13 +42,25 @@ end
 
 local function trim(s) return (s:gsub("^[ \t\r\n]+", ""):gsub("[ \t\r\n]+$", "")) end
 
--- split at every comma that is not inside a single-quoted string
+-- one scan state for every scan of a condition (rule 1.12.4): outside a string literal either quote opens a
+-- literal of its kind, inside only the same kind closes it. Returns the new state and whether `c` is text.
+local function quote_state(inq, c)
+  if inq == "" then
+    if c == "'" or c == '"' then return c, true end
+    return "", false
+  end
+  if c == inq then return "", true end
+  return inq, true
+end
+
+-- split at every comma that is not inside a string literal (either quote)
 function M.split(value)
-  local parts, cur, inq = {}, {}, false
+  local parts, cur, inq = {}, {}, ""
   for i = 1, #value do
     local c = value:sub(i, i)
-    if c == "'" then inq = not inq end
-    if c == "," and not inq then
+    local was = inq
+    inq = quote_state(inq, c)
+    if c == "," and was == "" and inq == "" then
       parts[#parts + 1] = table.concat(cur)
       cur = {}
     else
@@ -61,7 +73,7 @@ end
 
 -- an operand carries no whitespace of its own: only a space or a tab may stand around the operator (R's rule)
 local function operand(text)
-  if text:match("^'[^'\\]*'$") then return { str = text:sub(2, -2) } end
+  if text:match("^'[^'\\]*'$") or text:match('^"[^"\\]*"$') then return { str = text:sub(2, -2) } end
   if text:match("^%-?%d+$") or text:match("^%-?%d+%.%d+$") or text:match("^%-?%d+[eE][+-]?%d+$")
      or text:match("^%-?%d+%.%d+[eE][+-]?%d+$") then
     return { num = text }
@@ -72,11 +84,12 @@ end
 
 -- the first comparison character outside a string, and its operator
 local function find_op(text)
-  local inq = false
+  local inq = ""
   for i = 1, #text do
     local c = text:sub(i, i)
-    if c == "'" then inq = not inq
-    elseif not inq and (c == "<" or c == ">" or c == "=" or c == "!") then
+    local was = inq
+    inq = quote_state(inq, c)
+    if was == "" and inq == "" and (c == "<" or c == ">" or c == "=" or c == "!") then
       local two = text:sub(i, i + 1)
       if two == "<=" or two == ">=" or two == "==" or two == "!=" then return i, two end
       if c == "<" or c == ">" then return i, c end
@@ -87,11 +100,12 @@ local function find_op(text)
 end
 
 local function has_compare_char(text)
-  local inq = false
+  local inq = ""
   for i = 1, #text do
     local c = text:sub(i, i)
-    if c == "'" then inq = not inq
-    elseif not inq and (c == "<" or c == ">" or c == "=" or c == "!") then return true end
+    local was = inq
+    inq = quote_state(inq, c)
+    if was == "" and inq == "" and (c == "<" or c == ">" or c == "=" or c == "!") then return true end
   end
   return false
 end
