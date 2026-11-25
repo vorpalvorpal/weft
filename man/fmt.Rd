@@ -162,7 +162,7 @@ with no unit is a \code{weft_value_error}. \code{fmt_pct()} and \code{fmt_p()} t
 that prints as zero have no sign; a negative number prints the \code{minus}
 setting. Anything but \code{TRUE} or \code{FALSE} is a \code{weft_construct_error}.}
 
-\item{target}{\code{"markdown"} (the default, today's output) or \code{"tex"}, which writes
+\item{target}{\code{"markdown"} (the default, today's output), \code{"tex"}, which writes
 the number, percentage, scientific notation, p-value, range and unit as TeX for
 use inside math (rule 3.4.11): the minus is \code{-}, a thousands mark of \verb{,} is
 \verb{\{,\}}, \code{.sci} is \verb{1.2 \\times 10^\{6\}}, and a range says \verb{\\text\{to\}}. The result
@@ -172,8 +172,12 @@ again without \code{target}. The formatters that print words, emphasis or a list
 (\code{fmt_word()}, \code{fmt_count()}, \code{fmt_ord()}, \code{fmt_no()}, \code{fmt_date()}, \code{fmt_a()},
 \code{fmt_cap()}, \code{fmt_em()}, \code{fmt_strong()}, \code{fmt_and()}, \code{fmt_or()}, \code{fmt_pairs()},
 \code{fmt_ul()}, \code{fmt_ol()}, \code{fmt_dl()}) have no TeX form and raise a
-\code{weft_construct_error} under \code{"tex"}. Any other value of \code{target} is a
-\code{weft_construct_error}.}
+\code{weft_construct_error} under \code{"tex"}. \code{"plain"} writes Unicode text with no markup for
+a sink that prints none, such as a ggplot2 scale's labels or a console message
+(rule 1.4.24): scientific notation and units in Unicode superscripts, emphasis without its marks. Every class has a
+plain form. The result carries the attribute \code{target = "plain"}; a text made
+under \code{"tex"} given to a formatter under \code{"plain"} is a \code{weft_value_error}. Any other
+value of \code{target} is a \code{weft_construct_error}.}
 
 \item{sep}{The text between items of a collapse.}
 

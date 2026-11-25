@@ -16,8 +16,9 @@ prints), or one string naming a unit.}
 \item{unit}{A unit to convert \code{x} to first, as a string, or a ladder of units
 (one string with \code{|} between the units, or a character vector; see \code{\link[=fmt_num]{fmt_num()}}).}
 
-\item{target}{\code{"markdown"} (the default) or \code{"tex"}, which writes the symbol or name as TeX for use
-inside math (rule 4.4.25); anything else is a \code{weft_construct_error}.}
+\item{target}{\code{"markdown"} (the default), \code{"tex"}, which writes the symbol or name as TeX for use
+inside math (rule 4.4.25), or \code{"plain"}, which writes Unicode text with no markup (\verb{m²},
+rule 1.4.24); anything else is a \code{weft_construct_error}.}
 }
 \value{
 A \code{weft_text} of length one.

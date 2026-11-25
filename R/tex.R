@@ -2,18 +2,19 @@
 # `target = "markdown"` is the default and today's output; `"tex"` writes the forms a formula holds.
 # The markdown path pays one `identical()` for all of this; everything else is here.
 
-TARGETS <- c("markdown", "tex")
+TARGETS <- c("markdown", "tex", "plain")
 
-# E100: `target` is "markdown" or "tex". Returns TRUE for "tex". Anything else is a construct error.
+# E100, FT3: `target` is "markdown", "tex" or "plain". Returns TRUE for "tex", FALSE for the other two.
+# Anything else is a construct error.
 tex_target <- function(target) {
   if (is.character(target) && length(target) == 1L && !is.na(target)) {
     if (identical(target, "tex")) return(TRUE)
-    if (identical(target, "markdown")) return(FALSE)
+    if (identical(target, "markdown") || identical(target, "plain")) return(FALSE)
     got <- paste0("\"", target, "\"")
   } else {
     got <- "something else"
   }
-  construct_error(sprintf("`target` must be \"markdown\" or \"tex\"; got %s.", got))
+  construct_error(sprintf("`target` must be \"markdown\", \"tex\" or \"plain\"; got %s.", got))
 }
 
 # For the fmt_*() that do not reach apply_formatters() first.
@@ -35,6 +36,23 @@ tex_class_check <- function(classes) {
                             TEX_NO_FORM[[bad[1L]]]))
   }
   invisible(classes)
+}
+
+# FT4: a text made for TeX reaching a plain result.
+tex_in_plain_error <- function() {
+  value_error(paste0("This text was formatted for TeX (target = \"tex\") and would print here as plain text. ",
+                     "Format the number again, with target = \"plain\" (rule 3.4.11)."))
+}
+
+# The result of a formatter under `plain` (FT1): its text, its unit and its unit suffixes read by PL.
+plain_finish <- function(out) {
+  a <- attributes(out)
+  x <- plain_text(as.character(unclass(out)))
+  attributes(x) <- a
+  if (!is.null(a$unit)) attr(x, "unit") <- plain_text(a$unit)
+  if (!is.null(a$unit_suffix)) attr(x, "unit_suffix") <- plain_text(a$unit_suffix)
+  attr(x, "target") <- "plain"
+  x
 }
 
 # E103: a text made for TeX reaching a markdown result.

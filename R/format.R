@@ -661,10 +661,20 @@ apply_formatters <- function(value, classes = character(), keys = list(),
   # the one check the markdown path pays for the TeX target (rule 3.4.11)
   tex <- FALSE
   tex_in <- FALSE
+  plain <- FALSE
   if (!identical(target, "markdown")) {
     tex <- tex_target(target)
-  } else if (inherits(value, "weft_text")) {
-    tex_in <- identical(attr(value, "target"), "tex")
+    # plain (FT1): the markdown result read by PL, so everything below runs as for markdown
+    if (!tex) {
+      plain <- TRUE
+      target <- "markdown"
+    }
+  }
+  if (!tex && inherits(value, "weft_text")) tex_in <- identical(attr(value, "target"), "tex")
+  # a weft object contributes its markdown (WS11)
+  if (inherits(value, "weft")) {
+    md <- weft_markdown(value)
+    value <- md
   }
   cfg <- config
   if (tex) cfg <- tex_cfg(cfg)
@@ -854,7 +864,8 @@ apply_formatters <- function(value, classes = character(), keys = list(),
   if (!governor && !is.null(keys$none) && !is.null(value) && is.atomic(value) &&
       length(value) == 0L && !inherits(value, "weft_text") &&
       (length(intersect(classes, COLLAPSE_CLASSES)) || length(proj("collapse")))) {
-    return(new_weft_text(text_stage(as.character(keys$none))))
+    none <- new_weft_text(text_stage(as.character(keys$none)))
+    return(if (plain) plain_finish(none) else none)
   }
 
   what <- "A formatter"
@@ -879,7 +890,7 @@ apply_formatters <- function(value, classes = character(), keys = list(),
   # only text classes on a quantity's text: the unit stays where it is, inside any markup (4.4.8)
   pass_text <- keep_forms && !governor && !length(c(intersect(classes, COLLAPSE_CLASSES), proj("collapse"))) &&
     is.null(trunc)
-  if (tex_in && !length(ncls)) tex_in_markdown_error()
+  if (tex_in && !length(ncls)) if (plain) tex_in_plain_error() else tex_in_markdown_error()
   if (length(ncls)) prior_tc <- NULL
   judge_unit <- function(un1, rung = FALSE) {
     if (keep_forms) {
@@ -1231,6 +1242,7 @@ apply_formatters <- function(value, classes = character(), keys = list(),
   }
   if (!governor && !is.null(zero)) attr(out, "warned") <- TRUE
   if (tex) attr(out, "target") <- "tex"
+  if (plain) out <- plain_finish(out)
   if (!governor) {
     tc <- union(prior_tc, intersect(classes, text_classes(reg)))
     if (length(tc)) attr(out, "text_classes") <- tc
@@ -1436,7 +1448,7 @@ apply_project <- function(spec, x, number_source, args = list(), cls = NULL, tar
 #'   " and " (" or " for `fmt_or()`), with a comma before it when the
 #'   `serial_comma` setting is on and there are three or more items; a `last`
 #'   given here is used as it is.
-#' @param target `"markdown"` (the default, today's output) or `"tex"`, which writes
+#' @param target `"markdown"` (the default, today's output), `"tex"`, which writes
 #'   the number, percentage, scientific notation, p-value, range and unit as TeX for
 #'   use inside math (rule 3.4.11): the minus is `-`, a thousands mark of `,` is
 #'   `{,}`, `.sci` is `1.2 \times 10^{6}`, and a range says `\text{to}`. The result
@@ -1446,8 +1458,12 @@ apply_project <- function(spec, x, number_source, args = list(), cls = NULL, tar
 #'   (`fmt_word()`, `fmt_count()`, `fmt_ord()`, `fmt_no()`, `fmt_date()`, `fmt_a()`,
 #'   `fmt_cap()`, `fmt_em()`, `fmt_strong()`, `fmt_and()`, `fmt_or()`, `fmt_pairs()`,
 #'   `fmt_ul()`, `fmt_ol()`, `fmt_dl()`) have no TeX form and raise a
-#'   `weft_construct_error` under `"tex"`. Any other value of `target` is a
-#'   `weft_construct_error`.
+#'   `weft_construct_error` under `"tex"`. `"plain"` writes Unicode text with no markup for
+#'   a sink that prints none, such as a ggplot2 scale's labels or a console message
+#'   (rule 1.4.24): scientific notation and units in Unicode superscripts, emphasis without its marks. Every class has a
+#'   plain form. The result carries the attribute `target = "plain"`; a text made
+#'   under `"tex"` given to a formatter under `"plain"` is a `weft_value_error`. Any other
+#'   value of `target` is a `weft_construct_error`.
 #'
 #' @details
 #' A missing value (`NA`, `NaN`, `Inf`, `-Inf` or a value of length zero)
