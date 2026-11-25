@@ -582,10 +582,10 @@ span_items <- function(src) {
   items
 }
 
-# where a file offset sits: prose, front matter, a caption or a weft_str() string. The rows of the three
+# where a file offset sits: prose, front matter, a caption or a weft() string. The rows of the three
 # types are kept once per source.
 context_at <- function(src, pos) {
-  m <- c(yaml_field = "front-matter", caption = "caption", weft_str = "weft_str")
+  m <- c(yaml_field = "front-matter", caption = "caption", weft = "weft")
   if (is.null(src$cache$context_regs)) {
     reg <- src$regions
     src$cache$context_regs <- reg[reg$type %in% names(m), , drop = FALSE]

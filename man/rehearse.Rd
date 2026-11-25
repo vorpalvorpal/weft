@@ -79,7 +79,7 @@ activates weft there can be rehearsed. It is not run with \code{--vanilla}.
 
 Only the spans of the file rehearsed are reported: a span in a document
 that a chunk includes with \verb{child=} is not listed or reported. A span that
-a case evaluates more than once (a \code{weft_str()} in a loop) is reported once,
+a case evaluates more than once (a \code{weft()} in a loop) is reported once,
 with the last arm it chose. A case value is not checked against the
 default's type, and \code{cases} cannot be empty.
 

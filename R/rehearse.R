@@ -50,7 +50,7 @@ rehearsing <- function() identical(Sys.getenv("WEFT_REHEARSE"), "1")
 #'
 #' Only the spans of the file rehearsed are reported: a span in a document
 #' that a chunk includes with `child=` is not listed or reported. A span that
-#' a case evaluates more than once (a `weft_str()` in a loop) is reported once,
+#' a case evaluates more than once (a `weft()` in a loop) is reported once,
 #' with the last arm it chose. A case value is not checked against the
 #' default's type, and `cases` cannot be empty.
 #'
@@ -190,7 +190,7 @@ rehearse_case <- function(path, set, base) {
 # Match the spans a knit evaluated to the spans of arms(file). A span is known
 # by where it is: a prose or front-matter span by its line, key, expression
 # and its place among the like spans of that line; a caption by its chunk and
-# option, and a literal `weft_str()` string by its chunk, in the same way. Where
+# option, and a literal `weft()` string by its chunk, in the same way. Where
 # a string is evaluated more than once, the evaluations go to the like spans in
 # order, and the last choice of a span stands.
 rehearse_chosen <- function(cons, base) {
@@ -210,7 +210,7 @@ rehearse_chosen <- function(cons, base) {
     paste(ifelse(context %in% c("prose", "front-matter"), "prose", context),
           ifelse(context %in% c("prose", "front-matter"), line, ""),
           ifelse(context == "caption", paste(chunk, norm(option)),
-                 ifelse(context == "weft_str", chunk, "")),
+                 ifelse(context == "weft", chunk, "")),
           kind, expr, ord, sep = "\r")
   }
   m <- match(first$span, meta$span)

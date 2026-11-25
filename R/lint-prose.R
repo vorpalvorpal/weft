@@ -31,7 +31,7 @@ src_block_of <- function(src, pos) {
 # the finding `context` of a block index
 block_context <- function(src, blk) {
   type <- ifelse(is.na(blk), NA_character_, src$blocks$type[pmax(blk, 1L)])
-  ctx <- c("front-matter" = "front-matter", caption = "caption", weft_str = "weft_str", phrase = "phrase")
+  ctx <- c("front-matter" = "front-matter", caption = "caption", weft = "weft", phrase = "phrase")
   out <- unname(ctx[type])
   out[is.na(out)] <- "prose"
   out
@@ -359,7 +359,7 @@ lint_long_guard <- function(src, ctx) {
   big <- longest > limit
   if (!any(big)) return(new_findings())
   j <- i[big]
-  ctxs <- ifelse(r$context[j] %in% c("prose", "caption", "weft_str", "phrase"), r$context[j],
+  ctxs <- ifelse(r$context[j] %in% c("prose", "caption", "weft", "phrase"), r$context[j],
                  ifelse(grepl("^front", r$context[j]), "front-matter", "prose"))
   finding_at(src, r$fstart[j], r$fend[j], "long-guard", ifelse(is.na(r$expr[j]), "", r$expr[j]),
              sprintf(paste0("A guarded bracket of %d words: one condition guards all of it; guard only the ",

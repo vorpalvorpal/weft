@@ -2035,7 +2035,7 @@ scan_text <- function(text, file = NA_character_, first_line = 1L, config = NULL
 }
 
 # The rows of a place that is not the document's own prose (a caption, a
-# front-matter field, a `weft_str()` string): its ids are checked by the knit,
+# front-matter field, a `weft()` string): its ids are checked by the knit,
 # over the document as knitted (1.7.10), not here.
 scan_rows <- function(text, file = NA_character_, first_line = 1L, config = NULL, filter_doc = FALSE) {
   scan_block(text, file, first_line, config, filter_doc)$rows
@@ -2065,7 +2065,7 @@ scan_block <- function(text, file = NA_character_, first_line = 1L, config = NUL
 
 # Read a `.qmd` or `.Rmd` and scan it: the prose, the captions in chunk
 # options, the front-matter fields and the literal strings given to
-# weft_str() (2.10.2). BOM, CRLF and a missing final newline are accepted;
+# weft() (2.10.2). BOM, CRLF and a missing final newline are accepted;
 # fenced blocks that are not captions' chunks are skipped. `context` says
 # which place a row is in.
 scan_file <- function(path, config = NULL) {

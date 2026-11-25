@@ -38,7 +38,7 @@ lint_source_or_fault <- function(ctx, f, consequence) {
   tryCatch(ctx$source(f), weft_config_error = note, weft_yaml_error = note)
 }
 
-dl_ctx <- function(x) if (x %in% c("prose", "caption", "front-matter", "weft_str", "phrase", "chunk", "project")) x else "prose"
+dl_ctx <- function(x) if (x %in% c("prose", "caption", "front-matter", "weft", "phrase", "chunk", "project")) x else "prose"
 
 
 # the folder part of a path relative to the root ("." at the root)

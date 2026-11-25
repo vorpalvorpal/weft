@@ -220,7 +220,7 @@ lint_prose_view <- function(src, ctx) {
   if (!is.null(pd)) {
     n <- nchar(pr)
     rg <- src$regions
-    piece <- rg$type %in% c("yaml_field", "caption", "weft_str", "phrase")
+    piece <- rg$type %in% c("yaml_field", "caption", "weft", "phrase")
     keep <- pd$str | mark_ranges(n, rg$start[piece], rg$end[piece])
     chars <- strsplit(pr, "")[[1L]]
     chars[!keep & chars != "\n"] <- " "

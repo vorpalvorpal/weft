@@ -248,37 +248,32 @@ chunk_table <- function(lines, chs) {
 # ---- string constants in chunk code -----------------------------------------------
 
 # The string literals of R code that are inside calls to `fns` (all of them,
-# less those that are names), or inside the first argument of `weft_str()`. A
+# less those that are names), or inside the argument `weft()` takes as `x`. A
 # data frame: file offset of the contents' first character, the contents as typed,
 # the token text, the file line of the string and the call.
-chunk_literals <- function(code, first_line, ls, which = c("weft_str", "phrase")) {
+chunk_literals <- function(code, first_line, ls, which = c("weft", "phrase")) {
   which <- match.arg(which)
   out <- data.frame(start = numeric(), raw = character(), token = character(),
                     line = integer(), stringsAsFactors = FALSE)
-  fns <- if (which == "weft_str") "weft_str" else c("lookup", "brk")
+  fns <- if (which == "weft") "weft" else c("lookup", "brk")
   if (!length(code) || !any(vapply(fns, function(f) any(grepl(f, code, fixed = TRUE)), NA))) return(out)
   p <- tryCatch(parse(text = paste(code, collapse = "\n"), keep.source = TRUE), error = function(e) NULL)
   if (is.null(p)) return(out)
   pd <- utils::getParseData(p)
   if (is.null(pd)) return(out)
-  fn <- pd[pd$token == "SYMBOL_FUNCTION_CALL" & pd$text %in% fns, , drop = FALSE]
-  if (!nrow(fn)) return(out)
   par <- stats::setNames(pd$parent, pd$id)
   root_ids <- integer()
-  for (id in fn$id) {
-    fexpr <- pd$parent[pd$id == id]
-    call_id <- pd$parent[pd$id == fexpr]
-    if (!length(call_id) || call_id == 0L) next
-    if (which == "weft_str") {
-      kids <- pd[pd$parent == call_id, , drop = FALSE]
-      kids <- kids[order(kids$line1, kids$col1), , drop = FALSE]
-      pos <- which(kids$token == "'('")[1L]
-      if (is.na(pos)) next
-      after <- kids[seq_len(nrow(kids)) > pos, , drop = FALSE]
-      ex <- which(after$token == "expr")[1L]
-      if (is.na(ex)) next
-      root_ids <- c(root_ids, after$id[ex])
-    } else {
+  if (which == "weft") {
+    for (call_id in weft_calls(pd)) {
+      ex <- weft_call_arg(pd, call_id)
+      if (!is.na(ex)) root_ids <- c(root_ids, ex)
+    }
+  } else {
+    fn <- pd[pd$token == "SYMBOL_FUNCTION_CALL" & pd$text %in% fns, , drop = FALSE]
+    for (id in fn$id) {
+      fexpr <- pd$parent[pd$id == id]
+      call_id <- pd$parent[pd$id == fexpr]
+      if (!length(call_id) || call_id == 0L) next
       root_ids <- c(root_ids, call_id)
     }
   }
@@ -335,7 +330,7 @@ phrase_rows <- function(lit, chunk_label, file, config) {
 
 # ---- the pieces beside the body (L10) ------------------------------------------------
 
-# Returns a data frame: kind (front, caption, weft_str, phrase), name, start, end
+# Returns a data frame: kind (front, caption, weft, phrase), name, start, end
 # (file offsets of the characters that are prose), form ("scalar"/"block").
 source_pieces <- function(lines, ls, chunks, chs, front_ff) {
   n <- length(lines)
@@ -476,7 +471,7 @@ source_pieces <- function(lines, ls, chunks, chs, front_ff) {
       if (!identical(tolower(chunks$engine[k]), "r") || isFALSE(chunks$eval[k])) next
       code <- chunks$code[[k]]
       if (!length(code)) next
-      for (w in c("weft_str", "phrase")) {
+      for (w in c("weft", "phrase")) {
         lit <- chunk_literals(code, chunks$code_line[k], ls, w)
         if (nrow(lit)) add(w, NA_character_, lit$start, lit$start + nchar(lit$raw) - 1, by_row = TRUE)
       }
@@ -946,7 +941,7 @@ build_blocks <- function(S) {
     seg <- cumsum(c(TRUE, pc$grp[-1L] != pc$grp[-nrow(pc)] | pc$line[-1L] - pc$line[-nrow(pc)] > 1L))
     Pb <- do.call(rbind, lapply(split(seq_len(nrow(pc)), seg), function(ix) {
       k <- pc$kind[ix[1L]]
-      data.frame(type = c(front = "front-matter", caption = "caption", weft_str = "weft_str",
+      data.frame(type = c(front = "front-matter", caption = "caption", weft = "weft",
                           phrase = "phrase")[[k]],
                  start = min(pc$start[ix]), end = max(pc$end[ix]),
                  line = min(pc$line[ix]), end_line = findInterval(max(pc$end[ix]), ls),
@@ -1021,7 +1016,7 @@ read_source <- function(path, root, cfg) {
     ev <- ifelse(inchunk, chunks$eval[pmax(ci, 1L)], TRUE)
     # a caption construct on another engine's chunk is kept when it carries its error (2.3.5, rule 5.11)
     # (a caption the filter resolves is read whatever the chunk's engine, N140)
-    drop <- (rows$context == "weft_str" & (!eng_r | !ev)) |
+    drop <- (rows$context == "weft" & (!eng_r | !ev)) |
       (rows$context == "caption" & !eng_r & is.na(rows$error) & rows$resolver != "filter")
     if (any(drop)) {
       newidx <- cumsum(!drop)
@@ -1074,14 +1069,14 @@ read_source <- function(path, root, cfg) {
     add(new_regions("chunk", ls[chunks$open], ls[chunks$close] + nchar(lines[chunks$close]) - 1L, name = chunks$label))
   }
   if (nrow(pieces)) {
-    for (k in c("front", "caption", "weft_str", "phrase")) {
+    for (k in c("front", "caption", "weft", "phrase")) {
       pk <- pieces[pieces$kind == k, , drop = FALSE]
       if (!nrow(pk)) next
       g <- split(seq_len(nrow(pk)), pk$grp)
       st <- vapply(g, function(ix) min(pk$start[ix]), 1)
       en <- vapply(g, function(ix) max(pk$end[ix]), 1)
       nm <- vapply(g, function(ix) pk$name[ix[1L]], "")
-      add(new_regions(c(front = "yaml_field", caption = "caption", weft_str = "weft_str", phrase = "phrase")[[k]], st, en, name = nm))
+      add(new_regions(c(front = "yaml_field", caption = "caption", weft = "weft", phrase = "phrase")[[k]], st, en, name = nm))
     }
   }
   # text spans: a span with a formatter class and no weft row

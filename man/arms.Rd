@@ -24,7 +24,7 @@ Reads one or more \code{.qmd} or \code{.Rmd} files with the scanner and lists, f
 every \code{n}, \code{if}, \code{sign} and \code{list} span, each of its arms: the span's place, the
 key and its expression, the arm's role and the text the author wrote. The
 spans are those in prose, in captions, in front-matter fields and in
-literal \code{weft_str()} strings. No R is run: the file is parsed, never
+literal \code{weft()} strings. No R is run: the file is parsed, never
 evaluated, so an expression that stops, writes a file or names an unknown
 object does nothing.
 }

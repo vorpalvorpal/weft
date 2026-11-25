@@ -170,7 +170,7 @@ new_file_state <- function(path, config) {
     F$expected <- data.frame(kind = exp$kind, line = exp$line,
                              context = rep("prose", nrow(exp)), stringsAsFactors = FALSE)
   }
-  # the front-matter fields, the caption options and the weft_str() strings
+  # the front-matter fields, the caption options and the weft() strings
   # (2.10.2): their constructs are expected too; the ones the scanner finds
   # an error in are the knit's to report when it starts
   F$captions <- NULL
@@ -184,7 +184,7 @@ new_file_state <- function(path, config) {
                                    vapply(ch, function(x) x$label, ""))
   if (!is.null(extra) && nrow(extra)) {
     top <- is.na(extra$parent) & !(extra$kind %in% c("bare", "link"))
-    ok <- top & is.na(extra$error) & extra$context != "weft_str"
+    ok <- top & is.na(extra$error) & extra$context != "weft"
     prev <- F$expected %||% data.frame(kind = character(), line = integer(),
                                        context = character(), stringsAsFactors = FALSE)
     F$expected <- rbind(prev, data.frame(kind = extra$kind[ok], line = extra$line[ok],
