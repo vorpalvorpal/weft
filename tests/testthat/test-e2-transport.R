@@ -39,14 +39,11 @@ test_that("T3 BN2, D1: base R and packages are not read by name; `r pi` still is
   expect_length(res$blocks, 0L)
 })
 
-test_that("T3 BN2, D2: a function is not a value: it is left, and published as an error record the filter fails", {
+test_that("T3 BN2, D2, review-e2 G6: a function is not a value: it is left, R publishes nothing, the filter fails", {
   res <- e2_render(c(e2_chunk("calc", "f <- function() 1"), "Uses `f`{.num}.", "", "End."))
   b6_expect_knitted(res)
   expect_true(any(grepl("`f`{.num}", res$text, fixed = TRUE)))
-  expect_length(res$blocks, 1L)
-  rec <- res$blocks[[1]]$block$values$f
-  expect_identical(rec$t, "error")
-  expect_match(rec$why, "is an R function, which weft does not publish", fixed = TRUE)
+  expect_false("f" %in% unlist(lapply(res$blocks, function(b) names(b$block$values))))
   expect_identical(res$filtered$status, 1L)
   expect_true(grepl("`f`", res$filtered$stderr, fixed = TRUE))
 })
@@ -188,10 +185,6 @@ test_that("T5 BN9: a chunk whose value is a weft object reads the name in it", {
 })
 
 # ---- T9: a binding from before the render ---------------------------------------------------------
-
-E2_STALE <- function(assign = TRUE) {
-  c("Above: `n`{.count}.", "", if (assign) e2_chunk("calc", "n <- 12L"), "Below.")
-}
 
 test_that("T9 BN11, M3: a name read above the code that sets it, from a value the session held, fails the knit", {
   e <- new.env(parent = globalenv())

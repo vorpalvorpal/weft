@@ -1,15 +1,6 @@
 # Package E2 (dev/design-e2.md), T7: R and a guest in one knitr document (BN7, BN8, TR3, TR4, D4, D13). Skipped
 # as the other knitr Python and Julia tests are (k5() skips without Python, k5j() without Julia).
 
-e2_py <- function(lines, ...) {
-  res <- k5(lines, ...)
-  res$blocks <- b6_blocks(res$text)
-  res$filtered <- filter_md(res$text, name = "doc.Rmd", to = "plain")
-  res
-}
-
-e2_out <- function(res) trimws(res$filtered$output)
-
 test_that("T7 BN7: R binds n, Python publishes n later: the guest's value is the latest and the name is left", {
   res <- e2_py(c(e2_chunk("r1", "n <- 3L"),
                  pychunk("p1", c("from weft import put", "put(n=5)"), "include=FALSE"),
