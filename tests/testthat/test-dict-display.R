@@ -15,8 +15,8 @@ DISP <- c(
   "min_n: {value: 5, type: number, definition: \"Fewest samples.\"}"
 )
 rdisp <- function(lines = DISP, env = parent.frame()) read_dict(f2_dict_file(lines, env))
-# weft_str() with a `dict` the caller's frame holds
-wsd <- function(src, dict) f2_unesc(withr::with_dir(f2_proj(), weft_str(src)))
+# weft() with a `dict` the caller's frame holds
+wsd <- function(src, dict) f2_unesc(withr::with_dir(f2_proj(), weft_md(src)))
 
 # the message of the weft_dict_error a read raises
 disp_err <- function(lines, env = parent.frame()) {

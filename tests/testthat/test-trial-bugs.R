@@ -1,6 +1,6 @@
 # Stage 1c: the ten items of "Trial bugs to fix in this stage"
 # (dev/design-1c.md, from dev/field-notes.md). Item 1 is covered by the
-# caption, weft_str() and front-matter files; the first test here is its
+# caption, weft() and front-matter files; the first test here is its
 # invariant: a construct is never printed raw with a zero exit.
 
 TB_PRE <- c("k <- 3; flag <- TRUE; noflag <- FALSE; vec <- c(1, 2)")

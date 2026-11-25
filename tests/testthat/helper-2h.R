@@ -23,7 +23,7 @@ H2_EN <- "–"
 # the "weft" state, now and when the calling test ends (g2_restore())
 h2_restore <- function(env = parent.frame()) g2_restore(env)
 
-# weft_str() of `src` run from inside an empty project, as plain text with U+00A0
+# weft() of `src` run from inside an empty project, as plain text with U+00A0
 h2_ws <- function(src, yml = NULL) f2_ws(src, yml)
 
 # the warnings an expression raises, and its value
@@ -33,7 +33,7 @@ h2_warns <- function(expr) {
   list(v = v, w = w)
 }
 
-# a test per table row: `src` through weft_str() prints `want` ("~" is U+00A0)
+# a test per table row: `src` through weft() prints `want` ("~" is U+00A0)
 h2_row <- function(src, want, yml = NULL) {
   force(src); force(want); force(yml)
   testthat::test_that(sprintf("2h 4.4.23 table: %s prints %s", src, want), {
@@ -42,7 +42,7 @@ h2_row <- function(src, want, yml = NULL) {
   })
 }
 
-# a test per table row that is an error from weft_str(); `has` pieces occur in the message
+# a test per table row that is an error from weft(); `has` pieces occur in the message
 h2_row_err <- function(src, class = "weft_value_error", has = NULL, yml = NULL) {
   force(src); force(class); force(has); force(yml)
   testthat::test_that(sprintf("2h errors: %s is a %s", src, class), {
@@ -65,5 +65,5 @@ h2_dict <- function(display, value = 2000, unit = "m", extra = NULL, env = paren
                          value, unit, display), extra), env)
 }
 
-# weft_str() with the `dict` the caller passes in scope
-h2_wsd <- function(src, dict) f2_unesc(withr::with_dir(f2_proj(), weft_str(src)))
+# weft() with the `dict` the caller passes in scope
+h2_wsd <- function(src, dict) f2_unesc(withr::with_dir(f2_proj(), weft_md(src)))

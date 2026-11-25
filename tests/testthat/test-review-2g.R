@@ -103,9 +103,9 @@ test_that("review 2g #3: a name with its own plural still wins, and a row with n
   expect_equal(g2_nm(u(3, NTU)), f2("3~turbidity units"))
 })
 
-# ---- 4 and f: weft_str() raises a configuration error -----------------------------------------------------------------
+# ---- 4 and f: weft() raises a configuration error -----------------------------------------------------------------
 
-test_that("review 2g #4: weft_str() in a project whose _weft.yml has an error raises the weft_config_error (9.1, ruling f)", {
+test_that("review 2g #4: weft() in a project whose _weft.yml has an error raises the weft_config_error (9.1, ruling f)", {
   g2_restore()
   e <- f2_err("`r u(7.2, pH)`{.num}", "digits: many")
   f2_has_class(e, "weft_config_error")

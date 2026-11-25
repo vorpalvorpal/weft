@@ -1,5 +1,5 @@
 # Package P2 of design 9, the knit half (dev/design-9.md TX1, TX3 "the resolver passes target = tex",
-# TX9, TX10, TX11, weft_str()). Each document is knitted in this process with knitr::knit()
+# TX9, TX10, TX11, weft()). Each document is knitted in this process with knitr::knit()
 # (no Pandoc, no Quarto), through the helpers render_rmd() (helper-render.R) and d2_render()
 # (helper-2d.R), so what is read is the text weft wrote and the ledger it kept.
 # P1 supplies the TeX forms themselves (test-tex-target*.R); here only where they are used.
@@ -231,7 +231,7 @@ test_that("TX10: the key of an entry is unchanged (file, section, kind and expr)
 })
 
 test_that("TX10 (reading): a caption keeps its context 'caption'; a value in math in it is written as TeX", {
-  # READING: "captions, front matter and weft_str keep their context": the construct in the caption
+  # READING: "captions, front matter and weft keep their context": the construct in the caption
   # is math (the scanner says so), so its text is TeX while its context stays "caption"
   e <- d2_one(d2_ledger(tx_ledger()), kind = "value", expr = "vd")
   expect_identical(e$context, "caption")
@@ -270,14 +270,14 @@ test_that("TX11: a unit typed after a value in math is not checked (typed_after(
   expect_identical(sum(w$kind == "unit warning"), 0L)
 })
 
-# ---- weft_str() ----------------------------------------------------------------------------------
+# ---- weft() ----------------------------------------------------------------------------------
 
-test_that("weft_str: math inside the string already gets the TeX form", {
+test_that("weft: math inside the string already gets the TeX form", {
   v <- 0.123
-  expect_identical(as.character(weft::weft_str("$a = `r v`{.pct}$")), "$a = 12.3\\%$")
+  expect_identical(as.character(weft_md("$a = `r v`{.pct}$")), "$a = 12.3\\%$")
 })
 
-test_that("weft_str (control): the same value outside math prints markdown", {
+test_that("weft (control): the same value outside math prints markdown", {
   v <- 0.123
-  expect_identical(as.character(weft::weft_str("a = `r v`{.pct}")), "a = 12.3%")
+  expect_identical(as.character(weft_md("a = `r v`{.pct}")), "a = 12.3%")
 })

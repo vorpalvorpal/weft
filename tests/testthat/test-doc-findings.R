@@ -68,7 +68,7 @@ test_that("doc-finding #5: the report of an empty two-arm list says to add a fir
   s <- weft:::string_state()
   weft:::resolve_string(s, "[# was | # were]{list=\"v\"}",
                         list(chunk = "c1", option = NA_character_, envir = list2env(list(v = character(0))),
-                             strict = FALSE, context = "weft_str", file = "a.qmd", line = 3L))
+                             strict = FALSE, context = "weft", file = "a.qmd", line = 3L))
   fr <- weft:::failures_frame(s)
   expect_identical(nrow(fr), 1L)
   txt <- paste(weft:::report_entry(fr, 1L), collapse = "\n")

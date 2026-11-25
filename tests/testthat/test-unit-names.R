@@ -293,7 +293,7 @@ test_that("2f no name: the error is judged on the classes, not the data (U3, 4.4
 test_that("2f no name: .count on 12 prints digits yet still needs a name (U3)", {
   # the dictionary is read in the project that then formats: its units go with the project (decision 63)
   dir <- f2_proj()
-  e <- tryCatch(withr::with_dir(dir, { f2_register(); weft_str("`r u(12, sites)`{.count}"); NULL }), error = function(e) e)
+  e <- tryCatch(withr::with_dir(dir, { f2_register(); weft_md("`r u(12, sites)`{.count}"); NULL }), error = function(e) e)
   f2_has_class(e, "weft_value_error")
   expect_equal(f2_ws("`r u(12, sites)`{.count}", c("units:", "  sites: {name: site}")), f2("12~sites"))
 })
@@ -386,7 +386,7 @@ test_that("2f fmt_unit: it takes a unit from a units: entry, with its symbol and
   yml <- c("units:", "  zorps:", "    name: zorp", "    symbol: false")
   d <- f2_proj(yml)
   withr::with_dir(d, {
-    weft_str("`r u(1, zorps)`{.num}")        # reads the project: registers zorps
+    weft_md("`r u(1, zorps)`{.num}")        # reads the project: registers zorps
     expect_equal(f2_tx(fmt_unit(u(2, zorps), unit_form = "name")), "zorps")
     expect_equal(f2_tx(fmt_unit(u(2, zorps))), "zorps")       # no symbol: the name, plural
     expect_equal(f2_tx(fmt_unit(u(1, zorps))), "zorp")

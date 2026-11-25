@@ -22,16 +22,16 @@ f2_proj <- function(yml = NULL, env = parent.frame()) {
 # undo Pandoc's backslash-space
 f2_unesc <- function(x) gsub("\\ ", " ", x, fixed = TRUE)
 
-# weft_str() run from inside a project (so _weft.yml is read), as plain text with U+00A0
+# weft() run from inside a project (so _weft.yml is read), as plain text with U+00A0
 f2_ws <- function(src, yml = NULL) {
   dir <- f2_proj(yml)
-  f2_unesc(withr::with_dir(dir, weft_str(src)))
+  f2_unesc(withr::with_dir(dir, weft_md(src)))
 }
 
-# the condition weft_str() raises, or NULL
+# the condition weft() raises, or NULL
 f2_err <- function(src, yml = NULL) {
   dir <- f2_proj(yml)
-  tryCatch({ withr::with_dir(dir, weft_str(src)); NULL }, error = function(e) e)
+  tryCatch({ withr::with_dir(dir, weft_md(src)); NULL }, error = function(e) e)
 }
 
 # the condition an expression raises, or NULL
@@ -52,7 +52,7 @@ f2_msg_has <- function(e, ...) {
                                           label = sprintf("message holds `%s` (message: %s)", p, m))
 }
 
-# several src -> want pairs through weft_str(), each labelled
+# several src -> want pairs through weft(), each labelled
 f2_rows <- function(src, want, yml = NULL) {
   for (i in seq_along(src)) {
     testthat::expect_equal(f2_ws(src[[i]], yml), f2(want[[i]]), label = src[[i]])

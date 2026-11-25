@@ -137,7 +137,7 @@ test_that("decision 63 W3 control: a lone name prints as its symbol", {
 
 # ---- W4: units a dictionary registers go with the project ------------------------------------------------------
 
-# weft_str() wraps what an evaluation raises (class weft_no_value) and keeps its message, so a refusal is
+# weft() wraps what an evaluation raises (class weft_no_value) and keeps its message, so a refusal is
 # a weft_unit_error itself, or an error whose message is u()'s "not a unit the units database knows"
 w4_refused <- function(e) {
   !is.null(e) && (inherits(e, "weft_unit_error") ||
@@ -176,7 +176,7 @@ test_that("decision 63 W4 control: a unit nobody registered is refused in E, and
   expect_null(i2_run(src, c("units:", "  zzdc:", "    is: 2 m"))$e)
 })
 
-test_that("decision 63 W4: within one project a dictionary's unit outlives weft_str() and a re-read of the configuration", {
+test_that("decision 63 W4: within one project a dictionary's unit outlives weft() and a re-read of the configuration", {
   cl_units_clean()
   withr::defer(cl_units_clean())
   dir <- f2_proj()
@@ -184,7 +184,7 @@ test_that("decision 63 W4: within one project a dictionary's unit outlives weft_
   withr::with_dir(dir, {
     d <- weft::read_dict("dict.yml")
     expect_identical(attr(d, "registered"), "zzsame")
-    for (i in 1:2) expect_null(tryCatch({ weft_str("`r u(3, zzsame)`{.num}"); NULL }, error = function(e) e))
+    for (i in 1:2) expect_null(tryCatch({ weft_md("`r u(3, zzsame)`{.num}"); NULL }, error = function(e) e))
     weft:::read_config(dir)
     expect_silent(units::as_units("zzsame"))
     expect_null(tryCatch({ u(3, zzsame); NULL }, error = function(e) e))

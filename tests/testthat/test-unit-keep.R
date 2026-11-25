@@ -128,7 +128,7 @@ test_that("2g G2: the twin conversion error names both units, says they are alik
              "weft does not convert one to the other", "(rule 4.4.14)")
 })
 
-test_that("2g G2: a twin conversion through unit = in weft_str() is a value error too", {
+test_that("2g G2: a twin conversion through unit = in weft() is a value error too", {
   g2_restore()
   f2_has_class(f2_err("`r u(2, Sv)`{.num unit=\"Gy\"}"), "weft_value_error")
 })

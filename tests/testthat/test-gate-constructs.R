@@ -49,10 +49,10 @@ test_that("4a G11: .weft-literal and plain links and code do not count", {
   expect_identical(nrow(x), 0L)
 })
 
-test_that("4a G11: constructs count in every context: caption, front matter, weft_str()", {
+test_that("4a G11: constructs count in every context: caption, front matter, weft()", {
   doc <- c("---", "title: \"t\"", "abstract: |", "  Front `r yr`{.num} text", "---", "",
            "```{r fig-one}", "#| fig-cap: |", "#|   Cap [a site | # sites]{n=\"n\"} end",
-           "x <- weft_str(\"A `r five`{.num} string\")",
+           "x <- weft(\"A `r five`{.num} string\")",
            "y <- other_fn(\"not weft `r nine`{.num}\")", "```")
   x <- cc(doc)
   expect_identical(sort(x$line), c(4L, 9L, 10L))

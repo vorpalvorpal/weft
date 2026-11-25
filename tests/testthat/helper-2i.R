@@ -9,7 +9,7 @@ if (!exists("h2_row")) {
 }
 h2_need()
 
-# weft_str() of `src` run in an empty project (or one with `yml`); the text with U+00A0, the
+# weft() of `src` run in an empty project (or one with `yml`); the text with U+00A0, the
 # warnings it raised (as condition objects) and the error it raised, if any
 i2_run <- function(src, yml = NULL) {
   h2_restore(parent.frame())

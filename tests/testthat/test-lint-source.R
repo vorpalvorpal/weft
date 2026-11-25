@@ -341,18 +341,18 @@ test_that("3a L10: captions are read in chunks with eval: false, but not in othe
   )
 })
 
-test_that("3a L10: literal strings given to weft_str() are prose; other strings are not", {
+test_that("3a L10: literal strings given to weft() are prose; other strings are not", {
   expect_prose(
-    c("Lead.", "", "```{r}", "x <- weft_str(\"Literal zzws1 string\")", "y <- weft::weft_str('Single zzws2')",
+    c("Lead.", "", "```{r}", "x <- weft(\"Literal zzws1 string\")", "y <- weft::weft('Single zzws2')",
       "z <- \"zzother string\"", "plot(1, main = \"zzmain\")", "```"),
     kept = c("Literal zzws1 string", "Single zzws2"),
     blank = c("zzother string", "zzmain")
   )
 })
 
-test_that("3a L10: weft_str() strings are not prose in a chunk with eval: false", {
+test_that("3a L10: weft() strings are not prose in a chunk with eval: false", {
   expect_prose(
-    c("Lead.", "", "```{r}", "#| eval: false", "x <- weft_str(\"Off zzwsoff string\")", "```"),
+    c("Lead.", "", "```{r}", "#| eval: false", "x <- weft(\"Off zzwsoff string\")", "```"),
     blank = "Off zzwsoff string"
   )
 })
@@ -387,7 +387,7 @@ ROW_DOC <- c(
   "---", "title: T", "abstract: |", "  Abs with `r zzabs`{.num} and more.", "---", "",
   "Body `r zzx1`{.num} and [a site | # sites]{n=\"zzk\"} and `r zzx2`.", "",
   "```{r}", "#| fig-cap: |", "#|   Cap [many | one]{if=\"zzcond\"} sites.",
-  "x <- weft_str(\"val `r zzx3`{.num} ok\")", "y <- lookup(x, c(a = \"the `r zzx4`{.num} bit\"))", "```"
+  "x <- weft(\"val `r zzx3`{.num} ok\")", "y <- lookup(x, c(a = \"the `r zzx4`{.num} bit\"))", "```"
 )
 ROW_CONSTRUCTS <- c("`r zzabs`{.num}", "`r zzx1`{.num}", "[a site | # sites]{n=\"zzk\"}", "`r zzx2`",
                     "[many | one]{if=\"zzcond\"}", "`r zzx3`{.num}", "`r zzx4`{.num}")
@@ -443,7 +443,7 @@ REG_DOC <- c(
   "[^zzfn]: Note words.", "", "[zzref]: https://zzref.example", "",
   "| zzcell | b |", "|---|---|", "| 1 | 2 |", "",
   "::: {.zzdivclass}", "Inside.", ":::", "",
-  "```{r}", "#| fig-cap: Cap words", "zzchunkcode <- weft_str(\"zzstr\")", "q <- lookup(c(a = \"zzphrase\"))", "```"
+  "```{r}", "#| fig-cap: Cap words", "zzchunkcode <- weft(\"zzstr\")", "q <- lookup(c(a = \"zzphrase\"))", "```"
 )
 
 test_that("3a L9: regions has the documented columns", {
@@ -464,7 +464,7 @@ REG_EXPECT <- list(
   c("n", "zzn"), c("sign", "zzsign"), c("list", "zzlist"), c("cite_span", "zzcite"), c("text_span", ".num"),
   c("span", "zzif"), c("citation", "zzcit1"), c("crossref", "fig-zzx"), c("link", "zzlink.org"),
   c("image", "zzimg.png"), c("heading", "Zz Heading"), c("footnote", "zzfn"), c("div", "zzdivclass"),
-  c("chunk", "zzchunkcode"), c("caption", "Cap words"), c("weft_str", "zzstr"), c("phrase", "zzphrase"),
+  c("chunk", "zzchunkcode"), c("caption", "Cap words"), c("weft", "zzstr"), c("phrase", "zzphrase"),
   c("refdef", "zzref"), c("table", "zzcell"), c("yaml_field", "Reg title")
 )
 
@@ -530,7 +530,7 @@ BLOCK_DOC <- c(
   "Text with note[^n1] and ^[inline note].", "",                         # 19-20
   "[^n1]: Definition paragraph.", "",                                    # 21-22
   "```{r}", "#| fig-cap: Chunk caption words",                           # 23-24
-  "x <- weft_str(\"string words\")", "y <- lookup(c(a = \"phrase words\"))", "```", "",   # 25-28
+  "x <- weft(\"string words\")", "y <- lookup(c(a = \"phrase words\"))", "```", "",   # 25-28
   "::: {#fig-d}", "![Alt](d.png)", "", "Div caption last paragraph.", ":::"                # 29-33
 )
 
@@ -540,7 +540,7 @@ test_that("3a L9: blocks has type, start, end, line, end_line", {
   expect_s3_class(b, "data.frame")
   for (nm in c("type", "start", "end", "line", "end_line")) expect_true(nm %in% names(b), label = nm)
   expect_true(all(b$type %in% c("para", "heading", "item", "cell", "footnote", "caption",
-                                "front-matter", "weft_str", "phrase")))
+                                "front-matter", "weft", "phrase")))
   expect_true(all(b$end >= b$start))
   expect_true(all(b$end_line >= b$line))
 })
@@ -549,7 +549,7 @@ test_that("3a L9: blocks has type, start, end, line, end_line", {
 BLOCK_EXPECT <- list(
   c("front-matter", 2), c("heading", 5), c("para", 7), c("item", 10), c("item", 11),
   c("cell", 13), c("cell", 15), c("caption", 17), c("para", 19), c("footnote", 19),
-  c("footnote", 21), c("caption", 24), c("weft_str", 25), c("phrase", 26), c("caption", 32)
+  c("footnote", 21), c("caption", 24), c("weft", 25), c("phrase", 26), c("caption", 32)
 )
 
 test_that("3a L9: every block type is found at its line, in qmd and Rmd", {
@@ -746,9 +746,9 @@ test_that("3a L12: sentences are cut per block (a heading, each list item and ea
   expect_equal(sum(s$line == 4L), 1L)
 })
 
-test_that("3a L12: a sentence in a caption, a front-matter piece and a weft_str string is read in its place", {
+test_that("3a L12: a sentence in a caption, a front-matter piece and a weft string is read in its place", {
   doc <- c("---", "title: Title words. Second title sentence.", "---", "", "```{r}", "#| fig-cap: Caption one. Caption two.",
-           "x <- weft_str(\"String one. String two.\")", "```")
+           "x <- weft(\"String one. String two.\")", "```")
   s <- sents(doc)$s
   expect_equal(sum(s$line == 2L), 2L)
   expect_equal(sum(s$line == 6L), 2L)

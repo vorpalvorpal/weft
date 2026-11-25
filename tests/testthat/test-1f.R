@@ -108,12 +108,12 @@ test_that("1f claim level: level must be given by name, and any other level is a
   expect_identical(claim(5, . > 1, level = "warn"), 5)
 })
 
-test_that("1f claim level: weft_str() outside a knit warns on a warned check and returns the text", {
-  r <- f1_catch(weft::weft_str("Depth `r claim(12, . > 500, level = 'warn')`{.num} m"))
+test_that("1f claim level: weft() outside a knit warns on a warned check and returns the text", {
+  r <- f1_catch(weft_md("Depth `r claim(12, . > 500, level = 'warn')`{.num} m"))
   expect_identical(r$value, "Depth 12 m")
   expect_length(r$warnings, 1L)
   expect_s3_class(r$warnings[[1]], "weft_claim_warning")
-  expect_identical(weft::weft_str("Depth `r claim(12, . > 5, level = 'warn')`{.num} m"), "Depth 12 m")
+  expect_identical(weft_md("Depth `r claim(12, . > 5, level = 'warn')`{.num} m"), "Depth 12 m")
 })
 
 test_that("1f claim level: a guard (if with one arm) has no level", {
@@ -132,7 +132,7 @@ W1_LINES <- c(
   "",
   "```{r chunkcode, echo=FALSE}",
   "v <- claim(k, . > 702, level = \"warn\")",
-  "s <- weft::weft_str(\"Str `r claim(k, . > 703, level = 'warn')`{.num} done.\")",
+  "s <- weft::weft(\"Str `r claim(k, . > 703, level = 'warn')`{.num} done.\")",
   "```",
   "",
   "Chunk value `r v`; `r s`",
@@ -153,7 +153,7 @@ test_that("1f claim level: in a knit a warned check prints as if passed, leaves 
   expect_false(grepl("<<weft", txt, fixed = TRUE))
 })
 
-test_that("1f claim level: warned checks of prose, a caption, chunk code and weft_str() are in last_knit()$warnings, not in $failures", {
+test_that("1f claim level: warned checks of prose, a caption, chunk code and weft() are in last_knit()$warnings, not in $failures", {
   res <- render_rmd(W1_LINES, code = PRE_1F, in_process = TRUE)
   expect_false(res$failed, label = res$message)
   k <- res$knit

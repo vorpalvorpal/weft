@@ -36,3 +36,11 @@ quarto_render_env <- function(dir, args, vars, env) {
 fr_int <- function(digits) sprintf('{"t":"int","v":"%s"}', digits)
 fr_float <- function(text) sprintf('{"t":"float","v":"%s"}', text)
 fr_dec <- function(text) sprintf('{"t":"decimal","v":"%s"}', text)
+
+# weft_str()'s old result (E1, dev/design-e1.md): the markdown form of a weft() object, unnamed, NA kept
+weft_md <- function(x, .envir = parent.frame()) {
+  w <- weft::weft(x, .envir = .envir)
+  out <- unname(format(w, target = "markdown"))
+  out[is.na(w)] <- NA_character_
+  out
+}

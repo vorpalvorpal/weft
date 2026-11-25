@@ -140,7 +140,7 @@ test_that("3b L15: on ordinary prose the two readers give the same findings", {
            "See [@smith2020, p. 4] and @fig-3d and https://x.org/2020/a and `x[3]` here.", "",
            "Some text^[In 2019 only.] and &#8212; and \\vspace{2em} done.", "",
            "[3 sites]{if=\"n > 2\"} remain wet.", "",
-           "```{r}", "#| fig-cap: \"Depth at 3 sites\"", "x <- weft_str(\"over 5 years\")", "```")
+           "```{r}", "#| fig-cap: \"Depth at 3 sites\"", "x <- weft(\"over 5 years\")", "```")
   for (e in c("qmd", "Rmd")) {
     w <- lint_one(doc, rules = c("numeral", "claim-word"), ext = e, reader = "weft")
     p <- lint_one(doc, rules = c("numeral", "claim-word"), ext = e, reader = "pandoc")
@@ -155,11 +155,11 @@ test_that("3b L15: on ordinary prose the two readers give the same findings", {
 test_that("3b L15: the pieces beside the body are judged by the R reader alone", {
   n3_skip_no_pandoc()
   doc <- c("---", "title: \"Survey 2020\"", "abstract: |", "  Over 4 sites.", "---", "",
-           "```{r}", "#| fig-cap: \"Depth at 3 sites\"", "x <- weft_str(\"over 5 years\")",
+           "```{r}", "#| fig-cap: \"Depth at 3 sites\"", "x <- weft(\"over 5 years\")",
            "y <- brk(. > 2 ~ \"more than 2 sites\")", "```")
   x <- lint_one(doc, rules = "numeral", reader = "pandoc")
   expect_identical(x$text, c("2020", "4", "3", "5", "2"))
-  expect_identical(x$context, c("front-matter", "front-matter", "caption", "weft_str", "phrase"))
+  expect_identical(x$context, c("front-matter", "front-matter", "caption", "weft", "phrase"))
 })
 
 test_that("3b L15: a numeral in math is still reported with reader = 'pandoc'", {

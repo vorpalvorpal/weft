@@ -6,7 +6,7 @@
 # Renders are slow, so the markup rows of each topic are batched into one
 # document and read back by case. Quarto is used for a few central cases only.
 # Markdown rendering collapses runs of spaces, so exact spacing is read from
-# weft_str() and from format = "knit" (the raw text weft wrote).
+# weft() and from format = "knit" (the raw text weft wrote).
 
 PRE_1G <- c(
   "fl <- FALSE; tr <- TRUE; k <- 3; o <- 1; d3 <- 3"
@@ -146,7 +146,7 @@ test_that("1g small: under Quarto", {
 
 ws <- function(src, env = parent.frame()) {
   fl <- FALSE; tr <- TRUE; k <- 3; o <- 1; d3 <- 3
-  weft::weft_str(src)
+  weft_md(src)
 }
 
 test_that("1g space: a space on both sides, the one before the span is removed", {

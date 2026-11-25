@@ -188,7 +188,7 @@ test_that("3b L20: a .weft-literal span exempts numerals only, so its claim word
   expect_identical(x$text, "largest, rose")
 })
 
-test_that("3b L20: captions, alt text, front matter and weft_str() strings are read; phrases are not", {
+test_that("3b L20: captions, alt text, front matter and weft() strings are read; phrases are not", {
   chunk <- function(...) c("```{r}", ..., "plot(1)", "```")
   x <- cw(chunk("#| fig-cap: \"Largest sites rose\""))
   expect_identical(x$text, "largest, rose")
@@ -205,9 +205,9 @@ test_that("3b L20: captions, alt text, front matter and weft_str() strings are r
   expect_identical(x$text, "largest, rose")
   expect_identical(x$context, "front-matter")
   expect_identical(x$line, 5L)
-  x <- cw(c("```{r}", "x <- weft_str(\"all sites rose: `r x`{.num}\")", "```"))
+  x <- cw(c("```{r}", "x <- weft(\"all sites rose: `r x`{.num}\")", "```"))
   expect_identical(x$text, "all, rose")
-  expect_identical(x$context, "weft_str")
+  expect_identical(x$context, "weft")
   # phrases: the call that chooses the phrase is the guard (5.1.6)
   expect_identical(nrow(cw(c("```{r}", "y <- brk(. > 2 ~ \"all dry\")", "```"))), 0L)
   expect_identical(nrow(cw(c("```{r}", "z <- lookup(c(a = \"largest and rose\"))", "```"))), 0L)
@@ -215,7 +215,7 @@ test_that("3b L20: captions, alt text, front matter and weft_str() strings are r
 
 test_that("3b L20: strings and captions of an eval: false chunk follow reading 14 of the design", {
   doc <- c("```{r}", "#| eval: false", "#| fig-cap: \"Largest sites rose\"",
-           "x <- weft_str(\"the largest dropped\")", "```")
+           "x <- weft(\"the largest dropped\")", "```")
   x <- cw(doc)
   expect_identical(x$text, "largest, rose")
   expect_identical(x$context, "caption")

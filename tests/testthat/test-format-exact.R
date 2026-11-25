@@ -190,9 +190,9 @@ test_that("G1: the # of an n span prints every digit", {
   ))
 })
 
-test_that("G1: weft_str() prints the same digits outside a knit", {
-  expect_identical(weft_str("`r 999999999999999`{.num}"), "999,999,999,999,999")
-  expect_identical(weft_str("`r 2^53`{.num}"), "9,007,199,254,740,992")
+test_that("G1: weft() prints the same digits outside a knit", {
+  expect_identical(weft_md("`r 999999999999999`{.num}"), "999,999,999,999,999")
+  expect_identical(weft_md("`r 2^53`{.num}"), "9,007,199,254,740,992")
   x <- 1e15 + 1
-  expect_identical(weft_str("[# site | # sites]{n=\"x\"}"), "1,000,000,000,000,001 sites")
+  expect_identical(weft_md("[# site | # sites]{n=\"x\"}"), "1,000,000,000,000,001 sites")
 })

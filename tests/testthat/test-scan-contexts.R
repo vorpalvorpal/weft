@@ -1,6 +1,6 @@
-# Stage 1c: scan_file() over captions, front matter and weft_str() strings
+# Stage 1c: scan_file() over captions, front matter and weft() strings
 # (2.10.2, 2.10.6, 3.6.2, design-1c "scan_file(path) additions").
-# New columns: context ("prose", "caption", "front-matter", "weft_str"),
+# New columns: context ("prose", "caption", "front-matter", "weft"),
 # chunk, option. `line` is the line in the file.
 
 scan_doc <- function(lines, ext = ".qmd") {
@@ -24,9 +24,9 @@ sc_lines <- c(
   "```{r fig-one}",                                               # 9
   "#| fig-cap: |",                                                # 10
   "#|   Cap [a site | # sites]{n=\"3\"} end",                     # 11
-  "x <- weft_str(\"A `r 5`{.num} string\")",                      # 12
-  "y <- weft_str('[x | y]{if=\"TRUE\"}')",                        # 13
-  "z <- weft_str(paste0(\"not\", \"literal `r 1`{.num}\"))",      # 14
+  "x <- weft(\"A `r 5`{.num} string\")",                      # 12
+  "y <- weft('[x | y]{if=\"TRUE\"}')",                        # 13
+  "z <- weft(paste0(\"not\", \"literal `r 1`{.num}\"))",      # 14
   "w <- other_fn(\"not weft `r 9`{.num}\")",                      # 15
   "```",                                                          # 16
   "",                                                             # 17
@@ -47,8 +47,8 @@ sc_lines <- c(
 test_that("2.10.2 + design-1c: scan_file() has the columns context, chunk and option, and every row has a context", {
   x <- scan_doc(sc_lines)
   expect_true(all(c("context", "chunk", "option", "kind", "line", "file", "expr", "error") %in% names(x)))
-  expect_true(all(x$context %in% c("prose", "caption", "front-matter", "weft_str")))
-  expect_setequal(unique(x$context), c("prose", "caption", "front-matter", "weft_str"))
+  expect_true(all(x$context %in% c("prose", "caption", "front-matter", "weft")))
+  expect_setequal(unique(x$context), c("prose", "caption", "front-matter", "weft"))
 })
 
 test_that("2.10.2: prose rows are still found, alongside the others, with file lines", {
@@ -77,8 +77,8 @@ test_that("2.10.6 + 1.10.7: constructs in front matter, first block and late blo
   expect_true(all(is.na(x$error)))
 })
 
-test_that("3.6.2 + 2.10.2: a literal string passed to weft_str() in chunk code is scanned: context weft_str, chunk, line", {
-  x <- rows_of(scan_doc(sc_lines), "weft_str")
+test_that("3.6.2 + 2.10.2: a literal string passed to weft() in chunk code is scanned: context weft, chunk, line", {
+  x <- rows_of(scan_doc(sc_lines), "weft")
   x <- x[order(x$line), ]
   expect_equal(x$line, c(12L, 13L))
   expect_equal(x$chunk, c("fig-one", "fig-one"))

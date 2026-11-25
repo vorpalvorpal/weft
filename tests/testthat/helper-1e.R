@@ -81,9 +81,9 @@ E1_ARMS_LINES <- c(
   "```{r capchunk}",
   "#| fig-cap: |",
   "#|   Cap [no plots | one plot | # plots]{n=\"cn\"}",
-  "x <- weft_str(\"A [x | y]{if=\\\"wq\\\"} string\")",
-  "y <- weft_str('[solo]{if=\"wq2\"}')",
-  "z <- weft_str(paste0(\"[a | b]{if=\\\"nolit\\\"}\"))",
+  "x <- weft(\"A [x | y]{if=\\\"wq\\\"} string\")",
+  "y <- weft('[solo]{if=\"wq2\"}')",
+  "z <- weft(paste0(\"[a | b]{if=\\\"nolit\\\"}\"))",
   "stop(\"this chunk must not run\")",
   "```",
   ""
@@ -116,9 +116,9 @@ E1_ARMS_SPEC <- list(
   list(at = "Cap [no plots", key = "n", expr = "cn", context = "caption",
        role = c("zero", "one", "other"),
        text = c("no plots", "one plot", "# plots")),
-  list(at = "A [x | y]", key = "if", expr = "wq", context = "weft_str",
+  list(at = "A [x | y]", key = "if", expr = "wq", context = "weft",
        role = c("true", "false"), text = c("x", "y")),
-  list(at = "'[solo]", key = "if", expr = "wq2", context = "weft_str",
+  list(at = "'[solo]", key = "if", expr = "wq2", context = "weft",
        role = "always", text = "solo")
 )
 # the three nested spans add 6 arms; the flat ones add:

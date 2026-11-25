@@ -102,8 +102,8 @@ test_that("1i zero: outside a knit fmt_pct and a negative value warn too, with t
   expect_true(any(vapply(r2$warnings, inherits, NA, "weft_zero_warning")))
 })
 
-test_that("1i zero: weft_str() outside a knit signals the same warning and returns the text", {
-  r <- i_catch(weft::weft_str("Dose `r 0.04`{.num} mg"))
+test_that("1i zero: weft() outside a knit signals the same warning and returns the text", {
+  r <- i_catch(weft_md("Dose `r 0.04`{.num} mg"))
   expect_identical(r$value, "Dose 0.0 mg")
   expect_length(r$warnings, 1L)
   expect_true(any(vapply(r$warnings, inherits, NA, "weft_zero_warning")))
@@ -123,9 +123,9 @@ test_that("1i zero: outside a knit, digits or sigfig on the call or construct si
   expect_no_warning(fmt_pct(0))
   expect_no_warning(fmt_num(0.06))
   expect_no_warning(fmt_num(3.14))
-  expect_no_warning(weft::weft_str("Dose `r 0.04`{.num digits=\"1\"} mg"))
-  expect_no_warning(weft::weft_str("Dose `r 0.04`{.num sigfig=\"1\"} mg"))
-  expect_identical(weft::weft_str("Dose `r 0.04`{.num digits=\"1\"} mg"), "Dose 0.0 mg")
+  expect_no_warning(weft_md("Dose `r 0.04`{.num digits=\"1\"} mg"))
+  expect_no_warning(weft_md("Dose `r 0.04`{.num sigfig=\"1\"} mg"))
+  expect_identical(weft_md("Dose `r 0.04`{.num digits=\"1\"} mg"), "Dose 0.0 mg")
 })
 
 test_that("1i zero: noise below 1e-9 prints 0 with no warning, outside a knit", {
@@ -245,9 +245,9 @@ test_that("1i zero: noise below 1e-9 (0.1 + 0.2 - 0.3) prints 0 and is never war
   expect_equal(nrow(res$knit$warnings), 1L)             # only 0.3 - 0.26, which is not noise
 })
 
-test_that("1i zero: a weft_str() call in chunk code records the warning in the knit", {
+test_that("1i zero: a weft() call in chunk code records the warning in the knit", {
   res <- i_knit(c("```{r chunkcode, echo=FALSE}",
-                  "s <- weft::weft_str(\"Dose `r 0.04`{.num} mg\")",
+                  "s <- weft::weft(\"Dose `r 0.04`{.num} mg\")",
                   "```",
                   "",
                   "Got `r s`."))

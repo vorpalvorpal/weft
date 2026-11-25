@@ -124,7 +124,7 @@ test_that("3c L27: if-zero has tier 2, spec 5.3.3, and the position of the condi
   }
 })
 
-test_that("3c L27: if-zero, in a caption, front matter and a weft_str() string", {
+test_that("3c L27: if-zero, in a caption, front matter and a weft() string", {
   cap <- c(c3_para("Intro."),
            c3_chunk("plot(1)", "#| label: fig-a", "#| fig-cap: |", r"---(#|   Value [a|b]{if="d > 0"} here.)---"))
   x <- lint_one(cap, rules = "if-zero")

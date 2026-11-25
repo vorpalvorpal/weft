@@ -15,10 +15,10 @@ rf_catch <- function(expr) {
        text = paste(vapply(ws, conditionMessage, ""), collapse = "\n"))
 }
 
-# weft_str() with a few variables in scope
+# weft() with a few variables in scope
 rf_ws <- function(src) {
   fl <- FALSE; tr <- TRUE; v <- c("a", "b"); v3 <- c("a", "b", "c")
-  weft::weft_str(src)
+  weft_md(src)
 }
 
 rf_knit <- function(lines, code = NULL, ...) {
@@ -37,7 +37,7 @@ rf_rows <- function(res, line, kind = NULL) {
 
 test_that("review F #1: .range of a small range with no digits or sigfig records one warned check (1i Where; 2.6.11)", {
   x <- c(0.01, 0.04)
-  r <- rf_catch(weft::weft_str("`r x`{.range}"))
+  r <- rf_catch(weft_md("`r x`{.range}"))
   expect_identical(r$value, "0.0")
   expect_length(r$zero, 1L)
   expect_length(r$warnings, 1L)
@@ -45,11 +45,11 @@ test_that("review F #1: .range of a small range with no digits or sigfig records
   expect_equal(as.character(unclass(f$value)), "0.0")
   expect_length(f$zero, 1L)
   # controls: digits or sigfig silence it; a range that prints non-zero is quiet
-  expect_no_warning(weft::weft_str("`r x`{.range digits=\"1\"}"))
+  expect_no_warning(weft_md("`r x`{.range digits=\"1\"}"))
   expect_no_warning(weft::fmt_range(x, digits = 2))
   expect_no_warning(weft::fmt_range(c(1.5, 2.5)))
   # control: the same vector under .and already warns
-  expect_length(rf_catch(weft::weft_str("`r x`{.and}"))$zero, 1L)
+  expect_length(rf_catch(weft_md("`r x`{.and}"))$zero, 1L)
 })
 
 test_that("review F #1: in a knit, .range of a small range has a warned row (1i; 2.6.11)", {
@@ -61,14 +61,14 @@ test_that("review F #1: in a knit, .range of a small range has a warned row (1i;
 # ---- 2. a number re-formatted by a class ---------------------------------------
 
 test_that("review F #2: .num on text from fmt_num(digits =) that prints zero is warned about (1i Silencing; ruling 2)", {
-  r <- rf_catch(weft::weft_str("`r fmt_num(0.04, digits = 2)`{.num}"))
+  r <- rf_catch(weft_md("`r fmt_num(0.04, digits = 2)`{.num}"))
   expect_identical(r$value, "0.0")
   expect_length(r$zero, 1L)
   r2 <- rf_catch(weft::fmt_num(weft::fmt_num(0.04, digits = 2)))
   expect_equal(as.character(unclass(r2$value)), "0.0")
   expect_length(r2$zero, 1L)
   # controls: digits on the construct silences; the first formatter alone is quiet
-  expect_no_warning(weft::weft_str("`r fmt_num(0.04, digits = 2)`{.num digits=\"2\"}"))
+  expect_no_warning(weft_md("`r fmt_num(0.04, digits = 2)`{.num digits=\"2\"}"))
   expect_no_warning(weft::fmt_num(0.04, digits = 2))
 })
 
@@ -95,11 +95,11 @@ test_that("review F #3: a .ul, .ol or .dl class on a list span is a construct er
 test_that("review F #4: a clamp() bound beside a small number is not a value error under .range (ruling 4)", {
   out <- NULL
   expect_no_error(
-    out <- suppressWarnings(weft::weft_str("R `r clamp(c(0.001, 0.02), floor = 0.01)`{.num .range}."))
+    out <- suppressWarnings(weft_md("R `r clamp(c(0.001, 0.02), floor = 0.01)`{.num .range}."))
   )
   expect_match(paste(out, collapse = ""), "< 0.01", fixed = TRUE)
   # control: with digits it already works
-  expect_match(weft::weft_str("R `r clamp(c(0.001, 0.02), floor = 0.01)`{.num .range digits=\"2\"}."),
+  expect_match(weft_md("R `r clamp(c(0.001, 0.02), floor = 0.01)`{.num .range digits=\"2\"}."),
                "< 0.01", fixed = TRUE)
 })
 
@@ -191,7 +191,7 @@ test_that("review F #9: .no replaces a printed zero and the warned check is stil
   r <- rf_catch(weft::fmt_no(0.04))
   expect_equal(as.character(unclass(r$value)), "no")
   expect_length(r$zero, 1L)
-  r2 <- rf_catch(weft::weft_str("`r 0.04`{.no}"))
+  r2 <- rf_catch(weft_md("`r 0.04`{.no}"))
   expect_identical(r2$value, "no")
   expect_length(r2$zero, 1L)
 })
@@ -199,12 +199,12 @@ test_that("review F #9: .no replaces a printed zero and the warned check is stil
 # ---- 10, J. # of a list span ----------------------------------------------------
 
 test_that("review F #10: the # of a list span records the warned check; # of an n or sign span does not (ruling 10, J)", {
-  r <- rf_catch(weft::weft_str("A7 [none | # | #]{.num list=\"c(0.04, 1.2)\"}."))
+  r <- rf_catch(weft_md("A7 [none | # | #]{.num list=\"c(0.04, 1.2)\"}."))
   expect_identical(r$value, "A7 0.0 and 1.2.")
   expect_length(r$zero, 1L)
   # controls: the exemption stays for n and sign
-  expect_no_warning(weft::weft_str("[# unit | # units]{n=\"0.04\"}"))
-  expect_no_warning(weft::weft_str("[up # | down # | flat]{sign=\"0.04\"}"))
+  expect_no_warning(weft_md("[# unit | # units]{n=\"0.04\"}"))
+  expect_no_warning(weft_md("[up # | down # | flat]{sign=\"0.04\"}"))
 })
 
 # ---- 11. none with .range --------------------------------------------------------
@@ -333,9 +333,9 @@ test_that("review F #I: a matrix or array as a list governor is a no value failu
 # ---- K. where the zero rule reaches ------------------------------------------------------
 
 test_that("review F #K: the zero rule reaches .pairs, and not about(), of_n() or .sci (ruling 1, 5, K)", {
-  p <- rf_catch(weft::weft_str("`r c(a = 0.04, b = 0.03)`{.pairs}"))
+  p <- rf_catch(weft_md("`r c(a = 0.04, b = 0.03)`{.pairs}"))
   expect_length(p$zero, 1L)                                  # one per construct
-  expect_no_warning(weft::weft_str("`r 0.04`{.sci}"))
+  expect_no_warning(weft_md("`r 0.04`{.sci}"))
   expect_no_warning(weft::about(0.52))
   expect_no_warning(weft::of_n(3, 10, "site", "sites"))
 })

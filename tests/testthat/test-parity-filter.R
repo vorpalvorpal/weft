@@ -277,7 +277,7 @@ test_that("parity S1 control: a named value and a span with ordinary keys are no
 })
 
 test_that("parity S1 control: on an R value `level` passes through as before", {
-  x <- weft_str("A `r 1.5`{.num level=\"warn\"} z.")
+  x <- weft_md("A `r 1.5`{.num level=\"warn\"} z.")
   expect_identical(as.character(unclass(x)), "A [1.5]{level=\"warn\"} z.")
 })
 

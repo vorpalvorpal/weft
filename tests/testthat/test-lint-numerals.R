@@ -350,9 +350,9 @@ test_that("3b L19: a .weft-literal inside a block-scalar caption exempts only it
   expect_numerals(chunk, "5", ctx = "caption")
 })
 
-test_that("3b L19: weft_str() strings, brk() and lookup() phrases are read, with their contexts", {
+test_that("3b L19: weft() strings, brk() and lookup() phrases are read, with their contexts", {
   chunk <- function(code) c("```{r}", code, "```")
-  expect_numerals(chunk("x <- weft_str(\"over 5 years: `r x`{.num}\")"), "5", ctx = "weft_str")
+  expect_numerals(chunk("x <- weft(\"over 5 years: `r x`{.num}\")"), "5", ctx = "weft")
   for (e in c("qmd", "Rmd")) {
     lines <- chunk("y <- brk(. > 2 ~ \"more than 2 sites\")")
     x <- lint_one(lines, rules = "numeral", ext = e)
@@ -370,18 +370,18 @@ test_that("3b L19: weft_str() strings, brk() and lookup() phrases are read, with
 })
 
 test_that("3b L19: strings in code that is not read, other engines, and unrelated strings are not read", {
-  expect_numerals(c("```{r}", "#| eval: false", "x <- weft_str(\"over 5 years\")", "```"), character())
-  expect_numerals(c("```{r, eval=FALSE}", "x <- weft_str(\"over 5 years\")", "```"), character())
+  expect_numerals(c("```{r}", "#| eval: false", "x <- weft(\"over 5 years\")", "```"), character())
+  expect_numerals(c("```{r, eval=FALSE}", "x <- weft(\"over 5 years\")", "```"), character())
   expect_numerals(c("```{python}", "x = \"over 5 years\"", "```"), character())
   expect_numerals(c("```{r}", "x <- paste(\"over 5 years\")", "```"), character())
   expect_numerals(c("```{r}", "x <- brk(. > 2 ~ \"more than 2\")", "```"), "2", pos = FALSE)
 })
 
-test_that("3b L19: a caption in an eval: false chunk is read, its weft_str() strings are not", {
+test_that("3b L19: a caption in an eval: false chunk is read, its weft() strings are not", {
   doc <- c("```{r}", "#| eval: false", "#| fig-cap: \"Depth at 3 sites\"",
-           "x <- weft_str(\"over 5 years\")", "```")
+           "x <- weft(\"over 5 years\")", "```")
   expect_numerals(doc, "3", ctx = "caption")
-  doc2 <- c("```{r, eval=FALSE, fig.cap=\"At 8 sites\"}", "x <- weft_str(\"over 5 years\")", "```")
+  doc2 <- c("```{r, eval=FALSE, fig.cap=\"At 8 sites\"}", "x <- weft(\"over 5 years\")", "```")
   expect_numerals(doc2, "8", ctx = "caption")
 })
 

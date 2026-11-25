@@ -1,7 +1,7 @@
 # Package 2f: unit forms (symbol, name, none), plurals, the unit classes, unit_form =.
 # Contract: dev/design-2f.md "Forms", "Plurals", "Functions", "The weft_text",
 # "Expected output" and "Errors"; U2-U6, U19. Rules 1.4.2, 1.4.7, 1.4.19, 3.4.4, 3.4.8, 4.4.2-4.4.4, 4.4.13, 4.4.15.
-# `~` in an expected string is U+00A0; weft_str() gives the Pandoc `\ `, undone by f2_ws().
+# `~` in an expected string is U+00A0; weft() gives the Pandoc `\ `, undone by f2_ws().
 if (!exists("f2_ws")) source(testthat::test_path("helper-2f.R"))
 
 SITES_YML <- c("units:", "  sites:", "    name: site", "    symbol: false")

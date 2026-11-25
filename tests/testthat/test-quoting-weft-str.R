@@ -1,11 +1,11 @@
-# Package Q (dev/design-quoting.md), T4: weft_str() end to end and what weft writes back as markup (C5,
+# Package Q (dev/design-quoting.md), T4: weft() end to end and what weft writes back as markup (C5,
 # D5, D9), and the M1 construct error as the caller sees it. The Pandoc read-back of the written forms is
 # in test-quoting-conformance.R. ASCII only; markup is in raw strings.
 
-# weft_str(), an error shown as the result so that a refusal is a failed expectation, not an aborted test.
-# weft_str() evaluates in its caller's environment, so the call is evaluated in the test's own.
+# weft(), an error shown as the result so that a refusal is a failed expectation, not an aborted test.
+# weft() evaluates in its caller's environment, so the call is evaluated in the test's own.
 ws <- function(x, envir = parent.frame()) {
-  tryCatch(eval(bquote(weft::weft_str(.(x))), envir), error = function(e) paste("ERROR:", conditionMessage(e)))
+  tryCatch(eval(bquote(weft_md(.(x))), envir), error = function(e) paste("ERROR:", conditionMessage(e)))
 }
 
 test_that("T4, 1.2.3: an if with a string literal chooses the arm, in single-quoted, double-quoted and raw-string forms", {
@@ -39,14 +39,14 @@ test_that("T4, D5: a literal span is written without its why, the other keys dou
 })
 
 test_that("T4, M1: a backslash that escapes nothing is a weft_construct_error whose message holds M1", {
-  cond <- tryCatch(weft::weft_str(r"([a | b]{if="a\db"})"), error = function(e) e)
+  cond <- tryCatch(weft_md(r"([a | b]{if="a\db"})"), error = function(e) e)
   expect_s3_class(cond, "weft_construct_error")
   expect_true(grepl("A `\\` in the value of `if` that does not escape `\"`, `'` or `|` (rule 1.2.3).",
                     conditionMessage(cond), fixed = TRUE))
 })
 
 test_that("T4, M3: a character reference in a quoted value is a weft_construct_error", {
-  cond <- tryCatch(weft::weft_str(r"([a | b]{if="x &amp;&amp; y"})"), error = function(e) e)
+  cond <- tryCatch(weft_md(r"([a | b]{if="x &amp;&amp; y"})"), error = function(e) e)
   expect_s3_class(cond, "weft_construct_error")
   expect_true(grepl("A character reference, `&amp;`, in the value of `if` (rule 1.2.3)",
                     conditionMessage(cond), fixed = TRUE))

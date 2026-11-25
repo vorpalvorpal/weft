@@ -110,7 +110,7 @@ test_that("T4, D5, D9: the pass-through spans and literals weft writes carry the
     r"{`r 1.2`{.num title="it's"}}"
   )
   want <- c(r"{Key "figure"}", "a|b", "it's")
-  ws <- function(x) tryCatch(weft::weft_str(x), error = function(e) paste("ERROR:", conditionMessage(e)))
+  ws <- function(x) tryCatch(weft_md(x), error = function(e) paste("ERROR:", conditionMessage(e)))
   out <- vapply(src, ws, "", USE.NAMES = FALSE)
   keys <- c("custom-style", "title", "title")
   for (i in seq_along(src)) {

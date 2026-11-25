@@ -74,7 +74,7 @@ test_that("2g 4.4.22: a collapse puts the unit once before the first item (.and,
   expect_equal(f2_tx(fmt_and(fmt_num(ph(6.5, 7.2, 8.1)))), f2("pH~6.5, 7.2 and 8.1"))
 })
 
-test_that("2g 4.4.22: the same collapses through weft_str()", {
+test_that("2g 4.4.22: the same collapses through weft()", {
   g2_restore()
   expect_equal(f2_ws("`r u(c(6.5, 7.2), pH)`{.and}"), f2("pH~6.5 and 7.2"))
   expect_equal(f2_ws("`r u(c(6.5, 7.2), pH)`{.or}"), f2("pH~6.5 or 7.2"))

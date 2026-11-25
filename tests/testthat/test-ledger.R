@@ -92,7 +92,7 @@ d2_kinds <- function() d2_memo("kinds", function() {
     "Cited [as reported]{cite=\"survey2020\"}.", "",
     "The p-value was `r pv`{.p}.", "",
     "```{r fig, fig.cap='Ratio of `r r0`{.num} overall.'}", "plot(1)", "```", "",
-    "```{r strs, results='asis'}", "cat(weft_str('Weight `r wsv`{.num} kg here.'))", "```", "")
+    "```{r strs, results='asis'}", "cat(weft('Weight `r wsv`{.num} kg here.'))", "```", "")
   d2_render(lines, setup = FALSE, files = list("refs.bib" = D2_BIB), format = "md")
 })
 
@@ -128,9 +128,9 @@ test_that("2d D8 + D12: a caption construct has context caption, its chunk's sec
   expect_identical(e$sentence, "Ratio of 0.8 overall.")
 })
 
-test_that("2d D8 + D12: a weft_str() string has context weft_str and the string as its sentence", {
+test_that("2d D8 + D12: a weft() string has context weft and the string as its sentence", {
   e <- d2_one(d2_ledger(d2_kinds()), kind = "value", expr = "wsv")
-  expect_identical(e$context, "weft_str")
+  expect_identical(e$context, "weft")
   expect_identical(e$sentence, "Weight 7 kg here.")
 })
 
@@ -625,11 +625,11 @@ test_that("2d D22: a render served from the chunk cache writes byte-identical fi
            "```{r make, cache=TRUE, results='asis'}",
            "cat('ran\\n', file = 'ran.txt', append = TRUE)",
            "warning('cached warning text')",
-           "cat(weft_str('Weight `r wcv`{.num} kg here.'))",
+           "cat(weft('Weight `r wcv`{.num} kg here.'))",
            "```", "", "Prose `r wcv`.")
   r1 <- d2_render(doc, code = "wcv <- 7", dir = dir, format = "md")
   expect_false(r1$failed, label = r1$message)
-  expect_true(any(vapply(d2_ledger(r1), function(z) identical(z$context, "weft_str"), NA)))
+  expect_true(any(vapply(d2_ledger(r1), function(z) identical(z$context, "weft"), NA)))
   b1 <- list(d2_bytes(d2_path(dir)), d2_bytes(d2_path(dir, conditions = TRUE)))
   r2 <- d2_render(doc, code = "wcv <- 7", dir = dir, format = "md")
   expect_false(r2$failed, label = r2$message)

@@ -53,15 +53,15 @@ test_that("review-3 #1: neighbours: no footnote, a footnote without a claim word
 
 # ---- #2: parse-data columns are characters ------------------------------------------------------------
 
-test_that("review-3 #2: weft_str() numerals after a non-ASCII string on the same line are found where they are", {
+test_that("review-3 #2: weft() numerals after a non-ASCII string on the same line are found where they are", {
   for (pre in c("s <- \"µg°\"; ", "s <- \"°C\"; ")) {
-    code <- paste0(pre, "weft_str(\"rose over 25\")")
+    code <- paste0(pre, "weft(\"rose over 25\")")
     x <- lint_one(r3_chunk(code), rules = "numeral")
     expect_identical(x$text, "25", info = pre)
     expect_identical(x$line, 2L, info = pre)
     expect_identical(x$col, r3_col(code, "25"), info = pre)
   }
-  code <- "weft_str(\"rose over 25\")"
+  code <- "weft(\"rose over 25\")"
   x <- lint_one(r3_chunk(code), rules = "numeral")
   expect_identical(x$col, r3_col(code, "25"))
 })

@@ -121,7 +121,7 @@ g2_row("`r u(10, gal)`{.uname}", "10~gallons", c("units:", "  gal:", "    is: 4.
 test_that("2g 4.4.21 table (weft): units: {pH: false} makes u(7.2, pH) a weft_unit_error", {
   g2_cfg(c("units:", "  pH: false"))
   f2_has_class(f2_cond(g2_u(7.2, "pH")), "weft_unit_error")
-  e <- f2_err("`r u(7.2, pH)`{.num}", c("units:", "  pH: false"))   # through weft_str() it is a failure, not a value
+  e <- f2_err("`r u(7.2, pH)`{.num}", c("units:", "  pH: false"))   # through weft() it is a failure, not a value
   expect_false(is.null(e))
   f2_msg_has(e, "`pH`", "picohenry")
 })
@@ -236,7 +236,7 @@ test_that("2g G9: si, weft and si again in one session each read right, outside 
   expect_equal(g2_nm(u(7.2, pH)), f2("7.2~picohenries"))
 })
 
-test_that("2g G9: two documents knit with weft_str() in different modes each see their own", {
+test_that("2g G9: two documents knit with weft() in different modes each see their own", {
   g2_restore()
   expect_equal(f2_ws("`r u(7.2, pH)`{.uname}", SI), f2("7.2~picohenries"))
   expect_equal(f2_ws("`r u(7.2, pH)`{.uname}"), f2("pH~7.2"))

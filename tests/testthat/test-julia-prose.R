@@ -281,13 +281,13 @@ test_that("J15: a caption construct on an R chunk reads Julia values by J8", {
     identical(sub("^fig\\.cap: ", "", msg5(d)), jm1("`jl_value(\"t_j5p_b53\")`", "Int64", "9007199254740993")), NA)))
 })
 
-test_that("J15: weft_str() in an R chunk reads Julia values by J8 and collects its failures", {
+test_that("J15: weft() in an R chunk reads Julia values by J8 and collects its failures", {
   pset()
   lines <- c(
     "```{r, echo=FALSE, results='asis'}",
-    "cat(\"WSR:\", weft::weft_str(\"[rose | fell]{if=\\\"jl_value('t_j5p_slope') > 0\\\"}\"), \"\\n\")",
-    "cat(\"WSD:\", weft::weft_str(\"`r jl_value('t_j5p_depth')`{.num} m\"), \"\\n\")",
-    "cat(\"WSB:\", weft::weft_str(\"`r jl_value('t_j5p_b53')`{.num} m\"), \"\\n\")",
+    "cat(\"WSR:\", weft::weft(\"[rose | fell]{if=\\\"jl_value('t_j5p_slope') > 0\\\"}\"), \"\\n\")",
+    "cat(\"WSD:\", weft::weft(\"`r jl_value('t_j5p_depth')`{.num} m\"), \"\\n\")",
+    "cat(\"WSB:\", weft::weft(\"`r jl_value('t_j5p_b53')`{.num} m\"), \"\\n\")",
     "```", "")
   res <- k5j(lines, draft = TRUE)
   expect_false(res$failed, label = res$message)
@@ -299,12 +299,12 @@ test_that("J15: weft_str() in an R chunk reads Julia values by J8 and collects i
     identical(sub("^fig\\.cap: ", "", msg5(d)), jm1("`jl_value(\"t_j5p_b53\")`", "Int64", "9007199254740993")), NA)))
 })
 
-test_that("J15: outside a knit weft_str() stops at once with the value error", {
+test_that("J15: outside a knit weft() stops at once with the value error", {
   skip_if_no_julia()
   jl_set(t_j5p_ws1 = "2^53 + 1", t_j5p_ws2 = "3.14159")
-  expect_refused5(weft_str("`r jl_value('t_j5p_ws1')`{.num}"),
+  expect_refused5(weft_md("`r jl_value('t_j5p_ws1')`{.num}"),
                   jm1("`jl_value(\"t_j5p_ws1\")`", "Int64", "9007199254740993"))
-  expect_identical(as.character(weft_str("`r jl_value('t_j5p_ws2')`{.num} m")), "3.1 m")
+  expect_identical(as.character(weft_md("`r jl_value('t_j5p_ws2')`{.num} m")), "3.1 m")
 })
 
 test_that("J15: x <- JuliaCall::julia_eval(\"b53\") in an R chunk is JuliaCall's conversion, pinned as the documented limit", {

@@ -138,7 +138,7 @@ test_that("6f: the text of a row without a governor is what apply_formatters() p
   expect_gte(checked, 200L)
 })
 
-test_that("6f: the text of a governor row is what weft_str() prints for the span", {
+test_that("6f: the text of a governor row is what weft() prints for the span", {
   d <- f6_read("governors")
   for (i in seq_len(nrow(d))) {
     x <- c6_eval(d$value[i])
@@ -149,7 +149,7 @@ test_that("6f: the text of a governor row is what weft_str() prints for the span
     attrs <- c(if (length(fcl)) paste0(".", fcl), sprintf("%s=\"x\"", gov),
                vapply(names(k$opts), function(nm) sprintf("%s=\"%s\"", nm, k$opts[[nm]]), ""))
     cfg <- lapply(k$cfg, function(v) v == "true")
-    got <- f6_with_cfg(cfg, as.character(weft_str(paste0(k$span, "{", paste(attrs, collapse = " "), "}"))))
+    got <- f6_with_cfg(cfg, as.character(weft_md(paste0(k$span, "{", paste(attrs, collapse = " "), "}"))))
     expect_identical(d$text[i], got, info = paste(d$value[i], d$classes[i], d$keys[i]))
   }
 })

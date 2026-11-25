@@ -1,7 +1,7 @@
 # Stage 1h: a list that can be empty. The `list` governor key on a span, and
 # the `none` key on a value with a collapse class. Contract: dev/design-1h.md.
 #
-# Fast checks go through weft_str() (outside a knit a failure is an error with
+# Fast checks go through weft() (outside a knit a failure is an error with
 # a class) and the scanner (construct errors found from the source). One
 # rmarkdown batch and one Quarto batch cover the central cases in a render.
 
@@ -11,11 +11,11 @@ PRE_1H <- c(
   "flagged <- character(0); flagged1 <- 'Ridge'; flagged3 <- c('Ridge', 'Dam', 'Weir')"
 )
 
-# weft_str() with some variables in scope (the caller's frame is the environment)
+# weft() with some variables in scope (the caller's frame is the environment)
 hs <- function(src, ...) {
   vars <- list(...)
   for (n in names(vars)) assign(n, vars[[n]])
-  weft::weft_str(src)
+  weft_md(src)
 }
 
 # the scanner's construct errors for a source, as b_errs() in helper-1b.R
@@ -188,7 +188,7 @@ test_that("1h list: list=\".\" is a construct error", {
   h_scan("[No sites | # was | # were]{list=\".\"}", good = A3)
 })
 
-test_that("1h list: the construct errors also stop weft_str() with the construct class", {
+test_that("1h list: the construct errors also stop weft() with the construct class", {
   expect_error(hs("[# none | # was | # were]{list=\"v\"}", v = "a"), class = "weft_construct_error")
   expect_error(hs("[# flagged]{list=\"v\"}", v = "a"), class = "weft_construct_error")
   expect_error(hs("[No sites | # was | # were]{list=\".\"}", v = "a"), class = "weft_construct_error")

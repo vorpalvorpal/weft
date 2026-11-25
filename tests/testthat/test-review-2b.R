@@ -69,7 +69,7 @@ test_that("review 2b #c: a unit with no numerator prints a negative power; one w
 # ---- 2, 3, 4, a: # prints what the governor prints as a value, unit included (reversed ruling) ----
 
 M <- paste0(NBSP, "m")      # a no-break space and the unit
-ws <- function(x) rnb(weft_str(x))
+ws <- function(x) rnb(weft_md(x))
 once <- function(x, unit = M) lengths(regmatches(x, gregexpr(unit, x, fixed = TRUE)))
 
 test_that("review 2b #a: # carries the unit when the governor is a quantity (4.4.4 reversed, 4.4.2)", {
@@ -159,8 +159,8 @@ test_that("review 2b #unit: unit= on a governed span converts before the arm is 
 test_that("review 2b #unit: a unit that cannot be converted to, or unit= on a plain number, is a weft_value_error", {
   expect_weft_cond(a2_err(fmt_num(u(5, m), unit = "s")), "weft_value_error", "unit = s")
   expect_weft_cond(a2_err(fmt_num(5, unit = "m")), "weft_value_error", "unit = m on a plain number")
-  expect_weft_cond(a2_err(weft_str("`r u(5, m)`{.num unit=\"s\"}")), "weft_value_error", "construct unit=s")
-  expect_weft_cond(a2_err(weft_str("`r 5`{.num unit=\"m\"}")), "weft_value_error", "construct plain number")
+  expect_weft_cond(a2_err(weft_md("`r u(5, m)`{.num unit=\"s\"}")), "weft_value_error", "construct unit=s")
+  expect_weft_cond(a2_err(weft_md("`r 5`{.num unit=\"m\"}")), "weft_value_error", "construct plain number")
   expect_no_error(fmt_num(u(5, m), unit = "cm"))   # control
 })
 
@@ -170,8 +170,8 @@ test_that("review 2b #5: a list of quantities and a mixed_units vector are a wef
   mu <- units::mixed_units(c(1, 2), c("m", "s"))
   expect_weft_cond(a2_err(fmt_and(list(u(3, m), u(4, s)))), "weft_value_error", "fmt_and(list)")
   expect_weft_cond(a2_err(fmt_and(mu)), "weft_value_error", "fmt_and(mixed_units)")
-  expect_weft_cond(a2_err(weft_str("`r list(u(3,m), u(4,s))`{.and}")), "weft_value_error", "list construct")
-  expect_weft_cond(a2_err(weft_str("`r units::mixed_units(c(1, 2), c('m', 's'))`{.and}")), "weft_value_error", "mixed construct")
+  expect_weft_cond(a2_err(weft_md("`r list(u(3,m), u(4,s))`{.and}")), "weft_value_error", "list construct")
+  expect_weft_cond(a2_err(weft_md("`r units::mixed_units(c(1, 2), c('m', 's'))`{.and}")), "weft_value_error", "mixed construct")
   # control: a list of plain numbers
   expect_equal(rv(fmt_and(list(3, 4))), "3 and 4")
 })

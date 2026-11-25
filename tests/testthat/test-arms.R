@@ -47,9 +47,9 @@ test_that("3.7.1: the file column names the document", {
 test_that("3.7.1: spans are numbered in document order, the arms of a span sharing its number", {
   x <- arms_main()$x
   expect_false(is.unsorted(x$span))
-  # the front-matter span comes first; the weft_str spans come last
+  # the front-matter span comes first; the weft spans come last
   expect_equal(x$context[1], "front-matter")
-  expect_equal(x$context[nrow(x)], "weft_str")
+  expect_equal(x$context[nrow(x)], "weft")
   # prose spans are numbered in the order of their lines
   pro <- unique(x[x$context == "prose", c("span", "line")])
   expect_false(is.unsorted(pro$line))
@@ -87,7 +87,7 @@ test_that("3.7.1: a span nested in an arm is listed under that arm, two levels d
   expect_lt(unique(middle$span), unique(inner$span))
 })
 
-test_that("3.7.1: values, text spans and non-literal weft_str() calls are not listed", {
+test_that("3.7.1: values, text spans and non-literal weft() calls are not listed", {
   x <- arms_main()$x
   expect_true(all(x$key %in% c("n", "if", "sign")))
   expect_false(any(x$expr %in% c("xval", "nolit")))
@@ -97,18 +97,18 @@ test_that("3.7.1: values, text spans and non-literal weft_str() calls are not li
   expect_true("wq" %in% x$expr)
 })
 
-test_that("3.7.1: spans in a caption option, a front-matter block scalar and a literal weft_str() string carry their context and the line in the file", {
+test_that("3.7.1: spans in a caption option, a front-matter block scalar and a literal weft() string carry their context and the line in the file", {
   x <- arms_main()$x
   cap <- e1_rows(x, e1_line(E1_ARMS_LINES, "Cap [no plots"), "cn")
   expect_equal(unique(cap$context), "caption")
   fm <- e1_rows(x, 4L, "fm_flag")
   expect_equal(unique(fm$context), "front-matter")
-  ws <- x[x$context == "weft_str", ]
+  ws <- x[x$context == "weft", ]
   expect_setequal(unique(ws$expr), c("wq", "wq2"))
   expect_equal(unique(ws$line[ws$expr == "wq"]),
                e1_line(E1_ARMS_LINES, "A [x | y]"))
   expect_setequal(unique(x$context),
-                  c("prose", "caption", "front-matter", "weft_str"))
+                  c("prose", "caption", "front-matter", "weft"))
 })
 
 test_that("3.7.1: arms() runs no R: effects, errors and unknown objects in the expressions and chunks do nothing", {

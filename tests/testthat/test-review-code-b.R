@@ -208,8 +208,8 @@ test_that("review-code-b #4: the row weft advises for kt is accepted", {
   cl_units_clean()
   d <- rcb_proj(list("_weft.yml" = "draft: false"))
   e <- NULL
-  expect_error(withr::with_dir(d, weft_str("`r u(3, kt)`{.num}")), "kilotonne")
-  e <- rcb_err(withr::with_dir(d, weft_str("`r u(3, kt)`{.num}")))
+  expect_error(withr::with_dir(d, weft_md("`r u(3, kt)`{.num}")), "kilotonne")
+  e <- rcb_err(withr::with_dir(d, weft_md("`r u(3, kt)`{.num}")))
   row <- regmatches(conditionMessage(e), regexec("for example `([^`]+)`", conditionMessage(e)))[[1]][2]
   expect_false(is.na(row), label = "the message quotes a row")
   d2 <- rcb_proj(list("_weft.yml" = c("units:", paste0("  ", row))))

@@ -149,11 +149,11 @@ test_that("3a L17: a chunk-option caption construct has context 'caption' at its
   expect_identical(x$text, "[1]{.weft-literal}")
 })
 
-test_that("3a L17: a weft_str() string construct has context 'weft_str' at its file position", {
-  doc <- c("Intro.", "", "```{r}", "x <- weft_str(\"over [1]{.weft-literal} years\")", "```")
+test_that("3a L17: a weft() string construct has context 'weft' at its file position", {
+  doc <- c("Intro.", "", "```{r}", "x <- weft(\"over [1]{.weft-literal} years\")", "```")
   x <- cons(doc)
   expect_equal(nrow(x), 1L)
-  expect_identical(x$context, "weft_str")
+  expect_identical(x$context, "weft")
   expect_identical(x$line, 4L)
   expect_identical(x$col, f3_pos(doc, "[1]{")[["col"]])
   expect_identical(x$text, "[1]{.weft-literal}")
@@ -170,7 +170,7 @@ test_that("3a L17: a lookup()/brk() phrase construct has context 'phrase' at its
 
 test_that("3a L17: constructs inside fenced code, an eval: false chunk's strings and indented code are not read", {
   doc <- c("Prose.", "", "```", F3_BAD_LIT, "```", "", "```{r}", "#| eval: false",
-           "x <- weft_str(\"[1]{.weft-literal}\")", "```", "", "~~~", F3_BAD_TWO, "~~~")
+           "x <- weft(\"[1]{.weft-literal}\")", "```", "", "~~~", F3_BAD_TWO, "~~~")
   expect_equal(nrow(cons(doc)), 0L)
 })
 
@@ -184,14 +184,14 @@ test_that("3a L17: a construct in a code span or an HTML comment is not a findin
 test_that("3a L17: every context gives the same findings under .qmd and .Rmd", {
   doc <- c("---", "title: T", "abstract: |", "  Abs [1]{.weft-literal} x.", "---", "",
            "Prose [1]{.weft-literal}.", "",
-           "```{r}", "#| fig-cap: |", "#|   Cap [1]{.weft-literal}.", "x <- weft_str(\"w [1]{.weft-literal}\")", "```")
+           "```{r}", "#| fig-cap: |", "#|   Cap [1]{.weft-literal}.", "x <- weft(\"w [1]{.weft-literal}\")", "```")
   r <- f3_both(function(ext) {
     x <- cons(doc, ext = ext)
     x[, setdiff(names(x), "file")]
   })
   expect_equal(nrow(r$qmd), 4L)
   expect_identical(unclass(r$qmd), unclass(r$Rmd))
-  expect_setequal(r$qmd$context, c("front-matter", "prose", "caption", "weft_str"))
+  expect_setequal(r$qmd$context, c("front-matter", "prose", "caption", "weft"))
 })
 
 test_that("3a L5/L17: col counts characters, so non-ASCII text before a finding shifts it by characters not bytes", {

@@ -334,12 +334,12 @@ test_that("G17a: a caption construct on an R chunk reads Python values by G9", {
     identical(sub("^fig\\.cap: ", "", msg5(d)), m1("`py$t_g5_b53`", "9007199254740993")), NA)))
 })
 
-test_that("G17a: weft_str() in an R chunk reads Python values by G9 and collects its failures", {
+test_that("G17a: weft() in an R chunk reads Python values by G9 and collects its failures", {
   lines <- c(
     "```{r, echo=FALSE, results='asis'}",
-    "cat(\"WSR:\", weft::weft_str(\"[rose | fell]{if=\\\"py$t_g5_slope > 0\\\"}\"), \"\\n\")",
-    "cat(\"WSD:\", weft::weft_str(\"`r py$t_g5_depth`{.num} m\"), \"\\n\")",
-    "cat(\"WSB:\", weft::weft_str(\"`r py$t_g5_b53`{.num} m\"), \"\\n\")",
+    "cat(\"WSR:\", weft::weft(\"[rose | fell]{if=\\\"py$t_g5_slope > 0\\\"}\"), \"\\n\")",
+    "cat(\"WSD:\", weft::weft(\"`r py$t_g5_depth`{.num} m\"), \"\\n\")",
+    "cat(\"WSB:\", weft::weft(\"`r py$t_g5_b53`{.num} m\"), \"\\n\")",
     "```", "")
   res <- k5(lines, py = PY_MAIN, draft = TRUE)
   expect_false(res$failed, label = res$message)
@@ -351,11 +351,11 @@ test_that("G17a: weft_str() in an R chunk reads Python values by G9 and collects
     identical(sub("^fig\\.cap: ", "", msg5(d)), m1("`py$t_g5_b53`", "9007199254740993")), NA)))
 })
 
-test_that("G17a: outside a knit weft_str() stops at once with the value error", {
+test_that("G17a: outside a knit weft() stops at once with the value error", {
   skip_if_no_python()
   py_set(t_g5_ws1 = "2**53 + 1", t_g5_ws2 = "3.14159")
-  expect_refused5(weft_str("`r py$t_g5_ws1`{.num}"), m1("`py$t_g5_ws1`", "9007199254740993"))
-  expect_identical(as.character(weft_str("`r py$t_g5_ws2`{.num} m")), "3.1 m")
+  expect_refused5(weft_md("`r py$t_g5_ws1`{.num}"), m1("`py$t_g5_ws1`", "9007199254740993"))
+  expect_identical(as.character(weft_md("`r py$t_g5_ws2`{.num} m")), "3.1 m")
 })
 
 test_that("G17a: x <- py$b53 in R chunk code is reticulate's conversion, pinned as the documented limit", {

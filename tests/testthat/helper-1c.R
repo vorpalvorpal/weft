@@ -1,4 +1,4 @@
-# Helpers for the stage-1c tests (captions, weft_str(), front matter, the
+# Helpers for the stage-1c tests (captions, weft(), front matter, the
 # scanner's contexts, the trial bugs). They sit beside helper-render.R and
 # helper-quarto.R and use write_doc(), weft_test_lib(), weft_restore_knitr()
 # and skip_if_no_quarto() from them; nothing here edits those.

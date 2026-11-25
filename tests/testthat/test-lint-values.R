@@ -103,7 +103,7 @@ test_that("3c L22: line and column of a finding are where its text starts (expre
   expect_identical(lf_pos(x, "literal-value"), c(line = 3L, col = 11L))
 })
 
-test_that("3c L22: literal-value in a caption, front matter, a weft_str() string and chunk code", {
+test_that("3c L22: literal-value in a caption, front matter, a weft() string and chunk code", {
   # caption of a chunk, block scalar (constructs allowed) and a bare value on the same line
   cap <- c(c3_para("Intro."),
            c3_chunk("plot(1)", "#| label: fig-a", "#| fig-cap: |", "#|   Depth `r 10`{.num} m.", "#| fig-alt: Alt."))
@@ -123,11 +123,11 @@ test_that("3c L22: literal-value in a caption, front matter, a weft_str() string
   r <- lf_one(x, "literal-value", "10")
   expect_identical(r$context, "front-matter")
   expect_identical(r$line, 4L)
-  # a weft_str() string
-  ws <- c(c3_para("Intro."), c3_chunk("lab <- weft_str(\"over `r 10`{.num} years\")"))
+  # a weft() string
+  ws <- c(c3_para("Intro."), c3_chunk("lab <- weft(\"over `r 10`{.num} years\")"))
   x <- lint_one(ws, rules = "literal-value")
   r <- lf_one(x, "literal-value", "10")
-  expect_identical(r$context, "weft_str")
+  expect_identical(r$context, "weft")
   expect_identical(r$line, 7L)
   # a constant in ordinary chunk code is not a value row
   cc <- c(c3_para("Intro."), c3_chunk("x <- 10"))
@@ -143,8 +143,8 @@ test_that("3c L22 (1.1.10): literal-value reads inline R that knitr evaluates in
   expect_c3(c("Text.", "", "    `r 10` in indented code", "", "After."), "literal-value", character())
   # an inline code span that is not R
   expect_c3(c3_para("The call `10` is code."), "literal-value", character())
-  # an eval: false chunk is not executed: no weft_str() reading either
-  ws <- c(c3_para("Intro."), c3_chunk("lab <- weft_str(\"over `r 10` years\")", "#| eval: false"))
+  # an eval: false chunk is not executed: no weft() reading either
+  ws <- c(c3_para("Intro."), c3_chunk("lab <- weft(\"over `r 10` years\")", "#| eval: false"))
   expect_c3(ws, "literal-value", character())
   # a python chunk's strings
   py <- c(c3_para("Intro."), c3_chunk("s = 'weft_str(\"`r 10`\")'", engine = "python"))
@@ -319,7 +319,7 @@ test_that("3c L24: value-constant has tier 2, a spec, and the constant's own pos
   expect_true(lf_cols(x)[1] < lf_cols(x)[2])
 })
 
-test_that("3c L24: value-constant in math, captions, front matter and weft_str() strings", {
+test_that("3c L24: value-constant in math, captions, front matter and weft() strings", {
   expect_c3(c3_para("$s = `r x * 100`$"), "value-constant", "100")
   cap <- c(c3_para("Intro."), c3_chunk("plot(1)", "#| label: fig-a", "#| fig-cap: Depth `r x * 1e3` m"))
   x <- lint_one(cap, rules = "value-constant")
@@ -328,13 +328,13 @@ test_that("3c L24: value-constant in math, captions, front matter and weft_str()
   fm <- c3_abstract("A share of `r x * 100`{.pct}.")
   x <- lint_one(fm, rules = "value-constant")
   expect_identical(lf_one(x, "value-constant", "100")$context, "front-matter")
-  ws <- c(c3_para("Intro."), c3_chunk("lab <- weft_str(\"over `r x * 100`{.num} years\")"))
+  ws <- c(c3_para("Intro."), c3_chunk("lab <- weft(\"over `r x * 100`{.num} years\")"))
   x <- lint_one(ws, rules = "value-constant")
-  expect_identical(lf_one(x, "value-constant", "100")$context, "weft_str")
+  expect_identical(lf_one(x, "value-constant", "100")$context, "weft")
   # not in ordinary chunk code, an eval: false chunk's strings, or an unparsable chunk
   expect_c3(c(c3_para("Intro."), c3_chunk("y <- x * 100")), "value-constant", character())
   expect_c3(c(c3_para("Intro."),
-              c3_chunk("lab <- weft_str(\"`r x * 100`\")", "#| eval: false")), "value-constant", character())
+              c3_chunk("lab <- weft(\"`r x * 100`\")", "#| eval: false")), "value-constant", character())
 })
 
 # ---- L25 value-format -----------------------------------------------------------------
@@ -381,14 +381,14 @@ test_that("3c L25: value-format has tier 2, spec 5.6.4, a hint, and the function
   expect_identical(lf_texts(x), "signif")
 })
 
-test_that("3c L25: value-format in a caption, front matter and a weft_str() string; not in chunk code", {
+test_that("3c L25: value-format in a caption, front matter and a weft() string; not in chunk code", {
   cap <- c(c3_para("Intro."), c3_chunk("plot(1)", "#| label: fig-a", "#| fig-cap: Depth `r round(x, 1)` m"))
   expect_c3(cap, "value-format", "round")
   expect_c3(c3_abstract("About `r format(x)`{.num} sites."), "value-format", "format")
-  ws <- c(c3_para("Intro."), c3_chunk("lab <- weft_str(\"over `r sprintf('%d', n)` years\")"))
+  ws <- c(c3_para("Intro."), c3_chunk("lab <- weft(\"over `r sprintf('%d', n)` years\")"))
   expect_c3(ws, "value-format", "sprintf")
   expect_c3(c(c3_para("Intro."), c3_chunk("y <- round(x, 2)")), "value-format", character())
-  expect_c3(c(c3_para("Intro."), c3_chunk("lab <- weft_str(\"`r round(x)`\")", "#| eval: false")),
+  expect_c3(c(c3_para("Intro."), c3_chunk("lab <- weft(\"`r round(x)`\")", "#| eval: false")),
             "value-format", character())
 })
 

@@ -33,7 +33,7 @@ expect_tt_error <- function(e, class, msg) {
   expect_identical(conditionMessage(e), msg)
 }
 
-e100 <- function(got) sprintf("`target` must be \"markdown\" or \"tex\"; got %s.", got)
+e100 <- function(got) sprintf("`target` must be \"markdown\", \"tex\" or \"plain\"; got %s.", got)
 e101 <- function(cls, why) sprintf("`%s` has no TeX form (target = \"tex\"): %s (rule 3.4.11).", cls, why)
 E103 <- "This text was formatted for TeX (target = \"tex\") and would print here as markdown. Format the number again, without `target` (rule 3.4.11)."
 e102 <- function(tok, shown) {

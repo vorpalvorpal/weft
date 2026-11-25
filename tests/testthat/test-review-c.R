@@ -196,7 +196,7 @@ test_that("review C #4: a caption in an unlabelled chunk of a child document is 
   expect_match(res$text, "Kid 3 sites.", fixed = TRUE)
 })
 
-test_that("review C #4: a failed claim in a child's caption or weft_str() is named in the child's file (2.6.2, 2.7.1)", {
+test_that("review C #4: a failed claim in a child's caption or weft() is named in the child's file (2.6.2, 2.7.1)", {
   kid <- c(
     "K.", "",
     "```{r kfig}",                                    # 3
@@ -204,7 +204,7 @@ test_that("review C #4: a failed claim in a child's caption or weft_str() is nam
     "#|   Kid [a site | # sites]{n=\"n\"} `r claim(n, . > 50)`{.num}.",
     "plot(2)", "```", "",
     "```{r kidchunk}",
-    "x <- weft::weft_str('S `r claim(n, . > 70)`{.num}')",
+    "x <- weft::weft('S `r claim(n, . > 70)`{.num}')",
     "```"
   )
   res <- render_rmd(c("```{r child, child='kid2.Rmd'}", "```"), code = "n <- 3",
@@ -361,11 +361,11 @@ test_that("review C ruling C: a marker in a fenced block that carries a language
   expect_filter_fails(list(paragraph = "Shown <<weft: no value, line 2>> here."))
 })
 
-# ---- 8. weft_str() in a cached chunk -------------------------------------------
+# ---- 8. weft() in a cached chunk -------------------------------------------
 
-test_that("review C #8: a failure in weft_str() inside a cached chunk does not pass on the second render (2.9.1, 2.6.8)", {
+test_that("review C #8: a failure in weft() inside a cached chunk does not pass on the second render (2.9.1, 2.6.8)", {
   d <- tempfile("weft-c8-")
-  lines <- c("x <- weft::weft_str('C `r claim(n, . > 9)`{.num}')", "cat(x)")
+  lines <- c("x <- weft::weft('C `r claim(n, . > 9)`{.num}')", "cat(x)")
   body <- c("```{r cached, cache=TRUE}", lines, "```")
   r1 <- render_rmd(body, code = "n <- 3", dir = d, name = "doc")
   withr::defer(unlink(d, recursive = TRUE))
@@ -424,19 +424,19 @@ test_that("review C #10: a caption computed by R code is printed as it is and ne
   expect_match(res$text, "Var a site | # sites", fixed = TRUE)
 })
 
-test_that("review C ruling 'computed captions': a computed caption goes through weft_str() when it holds markup", {
+test_that("review C ruling 'computed captions': a computed caption goes through weft() when it holds markup", {
   res <- rmd_html(c(
     rc_rmd_front,
     "```{r setup, include=FALSE}",
     "weft::weft_setup()",
     "n <- 3",
-    "cap <- 'Via weft_str [a site | # sites]{n=\"n\"}'",
+    "cap <- 'Via weft [a site | # sites]{n=\"n\"}'",
     "```", "",
-    "```{r w, fig.cap = weft::weft_str(cap)}",
+    "```{r w, fig.cap = weft::weft(cap)}",
     "plot(1)", "```"
   ))
   expect_false(res$failed, info = res$message)
-  expect_match(res$text, "Via weft_str 3 sites", fixed = TRUE)
+  expect_match(res$text, "Via weft 3 sites", fixed = TRUE)
 })
 
 # ---- 11. caption static errors (2.3.5) --------------------------------------------
@@ -494,13 +494,13 @@ test_that("review C ruling F: a caption construct on a chunk cached by knitr::op
   expect_cache_error(res)
 })
 
-# ---- 12. weft_str() from inline R in prose ----------------------------------------
+# ---- 12. weft() from inline R in prose ----------------------------------------
 
-test_that("review C #12: a failure in weft_str() called from inline R in prose is located by its line, not by a chunk (2.6.2, 2.7.1, 3.6.3)", {
+test_that("review C #12: a failure in weft() called from inline R in prose is located by its line, not by a chunk (2.6.2, 2.7.1, 3.6.3)", {
   body <- c(
     "Control `r claim(n, . > 7)`{.num}.",                       # 1
     "",
-    "Inline fail: `r weft::weft_str(s9)`.",                     # 3
+    "Inline fail: `r weft::weft(s9)`.",                     # 3
     "",
     "```{r}", "plot(1)", "```"
   )
@@ -629,13 +629,13 @@ test_that("review C #16: braces after a space in prose or metadata are not an at
                            key       = "Depth is x{n=\"k\"} here."))
 })
 
-# ---- 17. weft_str() outside a knit ---------------------------------------------------
+# ---- 17. weft() outside a knit ---------------------------------------------------
 
-test_that("review C #17: weft_str() outside a knit stops with weft_no_value for an object that does not exist (2.6.4, 2.6.8, design-1c)", {
+test_that("review C #17: weft() outside a knit stops with weft_no_value for an object that does not exist (2.6.4, 2.6.8, design-1c)", {
   # the control: a failed check stops with its class
   n <- 3
-  expect_error(weft::weft_str("A `r claim(n, . > 50)`{.num}"), class = "weft_claim_failed")
-  e <- tryCatch(weft::weft_str("E `r nope_not_here`{.num}"), error = function(e) e)
+  expect_error(weft_md("A `r claim(n, . > 50)`{.num}"), class = "weft_claim_failed")
+  e <- tryCatch(weft_md("E `r nope_not_here`{.num}"), error = function(e) e)
   expect_true(inherits(e, "weft_no_value"), label = paste("class:", paste(class(e), collapse = "/")))
 })
 
@@ -647,7 +647,7 @@ test_that("review C #18: scan_file() sees a chunk written inside a block quote, 
               "#| label: fig-q",
               "#| fig-cap: |",
               "#|   Q [a site | # sites]{n=\"3\"} end",
-              "x <- weft_str(\"Q [l]{.strong}\")",
+              "x <- weft(\"Q [l]{.strong}\")",
               "plot(1)", "```")
     c("---", "title: t", "engine: knitr", "---", "", paste0(q, body))
   }
@@ -661,18 +661,18 @@ test_that("review C #18: scan_file() sees a chunk written inside a block quote, 
   quoted <- scan(mk("> "))
   # the control: unquoted rows exist, at their lines
   expect_identical(plain$line[plain$context == "caption"], 9L)
-  expect_identical(plain$line[plain$context == "weft_str"], 10L)
+  expect_identical(plain$line[plain$context == "weft"], 10L)
   # the defect: the quoted chunk gives the same rows, at the same lines
   expect_identical(quoted$line[quoted$context == "caption"], 9L)
-  expect_identical(quoted$line[quoted$context == "weft_str"], 10L)
+  expect_identical(quoted$line[quoted$context == "weft"], 10L)
   expect_identical(quoted$chunk[quoted$context == "caption"], "fig-q")
 })
 
-# ---- ruling E: bare inline R in a weft_str() string is evaluated (pin) ----------------
+# ---- ruling E: bare inline R in a weft() string is evaluated (pin) ----------------
 
-test_that("review C ruling E: bare inline R in a weft_str() string is evaluated, as the help page says (pin of current behaviour)", {
-  expect_identical(weft::weft_str("Two is `r 1 + 1`."), "Two is 2.")
-  expect_identical(weft::weft_str("Both `r 1 + 1` and [a | b]{if=\"TRUE\"}."), "Both 2 and a.")
+test_that("review C ruling E: bare inline R in a weft() string is evaluated, as the help page says (pin of current behaviour)", {
+  expect_identical(weft_md("Two is `r 1 + 1`."), "Two is 2.")
+  expect_identical(weft_md("Both `r 1 + 1` and [a | b]{if=\"TRUE\"}."), "Both 2 and a.")
 })
 
 # ---- ruling G: use_quarto() from a subdirectory ----------------------------------------

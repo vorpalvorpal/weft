@@ -302,7 +302,7 @@ test_that("2i I6: a compound with grade is refused the same way, and the string 
   expect_true(inherits(f2_cond(u(5, "grade")), "weft_unit_error"))
 })
 
-test_that("2i I6: through weft_str() it is an error, not a printed 'grades'", {
+test_that("2i I6: through weft() it is an error, not a printed 'grades'", {
   r <- i2_run("`r u(3, grade)`{.num}")
   expect_false(is.null(r$e))
   expect_false(grepl("grades", if (is.na(r$v)) "" else r$v, fixed = TRUE))

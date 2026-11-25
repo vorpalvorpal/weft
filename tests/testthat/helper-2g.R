@@ -90,7 +90,7 @@ g2_child <- function(body) {
                            stdout = TRUE, stderr = TRUE))
 }
 
-# a test per table row: weft_str() of `src` in a project with `yml` prints `want`
+# a test per table row: weft() of `src` in a project with `yml` prints `want`
 g2_row <- function(src, want, yml = NULL, mode = "weft") {
   force(src); force(want); force(yml)
   testthat::test_that(sprintf("2g 4.4.21 table (%s): %s prints %s", mode, src, want), {
@@ -99,7 +99,7 @@ g2_row <- function(src, want, yml = NULL, mode = "weft") {
   })
 }
 
-# a test per table row that is a value error from weft_str()
+# a test per table row that is a value error from weft()
 g2_row_err <- function(src, yml = NULL, mode = "weft", class = "weft_value_error", has = NULL) {
   force(src); force(yml)
   testthat::test_that(sprintf("2g 4.4.21 table (%s): %s is a %s", mode, src, class), {

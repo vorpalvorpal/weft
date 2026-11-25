@@ -91,16 +91,16 @@ test_that("review E #4: a front-matter span is matched, so each case chooses one
   expect_equal(nrow(r$unevaluated), 0L)
 })
 
-# ---- finding 5: literal weft_str() spans ---------------------------------------
+# ---- finding 5: literal weft() spans ---------------------------------------
 
-test_that("review E #5: a literal weft_str() span is matched, so each case chooses one of its arms (3.7.1, 3.7.3)", {
+test_that("review E #5: a literal weft() span is matched, so each case chooses one of its arms (3.7.1, 3.7.3)", {
   lines <- re_doc(c(
     "```{r lit, results='asis', echo=FALSE}",
     "v <- params$v",
-    "cat(weft_str(\"Lit [yes | no]{if=\\\"v\\\"}\"), \"\\n\")",
+    "cat(weft(\"Lit [yes | no]{if=\\\"v\\\"}\"), \"\\n\")",
     "```"), params = "v: true")
   p <- e1_write(lines, "s.Rmd")
-  expect_equal(unique(arms(p)$context), "weft_str")  # control
+  expect_equal(unique(arms(p)$context), "weft")  # control
   r <- e1_with_libs(rehearse(p, list(t = list(v = TRUE), f = list(v = FALSE))))
   expect_equal(r$cases$t$chosen$arm, 1L)
   expect_equal(r$cases$f$chosen$arm, 2L)
