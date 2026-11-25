@@ -45,6 +45,25 @@ jle_kill <- function() {
   if (nzchar(Sys.which("quarto"))) {
     suppressWarnings(try(system2(Sys.which("quarto"), c("call", "engine", "julia", "kill"),
                                  stdout = FALSE, stderr = FALSE), silent = TRUE))
+    jle_wait_server_gone()
+  }
+  invisible(NULL)
+}
+
+# `quarto call engine julia kill` sends SIGTERM, and on macOS the notebook server can hang in its
+# SIGTERM handler instead of exiting. A hung server that is still there when the next file renders
+# makes that render fail with a bare "Error encountered when rendering files" (seen in a whole-suite
+# run, in test-jl-claim-engine.R). So wait for the server process to go, and SIGKILL it if it does not.
+jle_wait_server_gone <- function(secs = 5) {
+  if (.Platform$OS.type != "unix" || !nzchar(Sys.which("pgrep"))) return(invisible(NULL))
+  pat <- "quartonotebookrunner[.]jl"
+  alive <- function() suppressWarnings(system2("pgrep", c("-f", shQuote(pat)), stdout = TRUE, stderr = FALSE))
+  t0 <- Sys.time()
+  while (length(alive()) && as.numeric(Sys.time() - t0, units = "secs") < secs) Sys.sleep(0.25)
+  pids <- alive()
+  if (length(pids)) {
+    suppressWarnings(system2("kill", c("-9", pids), stdout = FALSE, stderr = FALSE))
+    Sys.sleep(0.5)
   }
   invisible(NULL)
 }
