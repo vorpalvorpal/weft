@@ -492,6 +492,22 @@ section below is the earlier note it replaces. Packages in order: Q
 target), E2 (bare names read R; `weft_put()` leaves R's API), E3 (console
 and ANSI), E4 (static side, `.R` files), E5 (docs).
 
+Status (26 Nov, overnight build):
+
+- **Q done.** Built (57d62fa..fa47999), reviewed (`dev/review-q.md`,
+  rulings R1-R8 and R3a: a leading space is written `\ `), fixed
+  (992e21e, f8f28b1, 704437e, 4270ae3), out-of-date tests updated
+  (47d2990). Whole suite on Q's code with the pre-E1 tests: 7,026 tests,
+  failures only in tests the rulings changed (now updated) and six that
+  need `weft()`.
+- **Tests written, code not yet:** E1 (4557490; 46 existing files moved
+  from `weft_str()` to `weft()`/`weft_md()`), E2 (b2b22a6), E3 (192af08),
+  E4 (bed9a94). Until E1 and E2 are built, a large part of the suite fails
+  for that reason alone.
+- Designs: E1, E2, E3, E4 (`dev/design-e*.md`; E4's rulings at its end).
+- `weft_test_lib()` now passes the session's libraries to the install
+  (it saw only the system library's units 0.8-5).
+
 ## Goal noted: weft everywhere (14 Nov, from Robin; superseded 25 Nov)
 
 Robin's goal: weft markup should be usable everywhere text is produced,
