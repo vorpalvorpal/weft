@@ -40,9 +40,9 @@ set, a matrix and anything else are refused with a
 `weft_guest_value_error` that says what to do. `missing`, `nothing`, NaN
 and infinities are `NA`.
 
-In an attribute value the argument takes single quotes:
-`{if="jl_value('ok')"}`. When Julia is not running, `jl_value()` starts
-it with
+In an attribute value the argument takes the quote the value does not
+use: `{if="jl_value('ok')"}` or `{if='jl_value("ok")'}`. When Julia is
+not running, `jl_value()` starts it with
 [`JuliaCall::julia_setup()`](https://rdrr.io/pkg/JuliaCall/man/julia_setup.html)
 and defines weft's one module, `WeftGuest`, in Julia's `Main`. weft
 never installs Julia or a Julia package.

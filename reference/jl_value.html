@@ -103,8 +103,8 @@ as a raw vector and ends R on a <code>missing</code>. A <code>Bool</code>, an in
 <code>Irrational</code>, a <code>BigFloat</code>, a <code>DateTime</code>, a dictionary, a set, a matrix and
 anything else are refused with a <code>weft_guest_value_error</code> that says what to
 do. <code>missing</code>, <code>nothing</code>, NaN and infinities are <code>NA</code>.</p>
-<p>In an attribute value the argument takes single quotes:
-<code>{if="jl_value('ok')"}</code>. When Julia is not running, <code>jl_value()</code> starts it
+<p>In an attribute value the argument takes the quote the value does not use:
+<code>{if="jl_value('ok')"}</code> or <code>{if='jl_value("ok")'}</code>. When Julia is not running, <code>jl_value()</code> starts it
 with <code><a href="https://rdrr.io/pkg/JuliaCall/man/julia_setup.html" class="external-link">JuliaCall::julia_setup()</a></code> and defines weft's one module, <code>WeftGuest</code>,
 in Julia's <code>Main</code>. weft never installs Julia or a Julia package.</p>
     </div>

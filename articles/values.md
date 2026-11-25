@@ -280,7 +280,8 @@ The sites were:
 ## Keys
 
 Keys adjust a class. Write them inside the same attribute block, with
-the value in double quotes.
+the value in double or single quotes, or none when it is one word
+(`digits=2`).
 
 | Key      | Sets                                                     |
 |----------|----------------------------------------------------------|

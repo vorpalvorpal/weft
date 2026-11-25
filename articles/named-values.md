@@ -391,7 +391,8 @@ smaller, and everything else is an error. A condition is:
 - a name whose value is a bool, or `!` directly before such a name, or
 - one comparison `a OP b`, where `OP` is `<`, `<=`, `>`, `>=`, `==` or
   `!=`, and each side is a name, a number such as `10` or `1.5`, or a
-  single-quoted string such as `'north'`, with at least one side a name.
+  string in quotes such as `'north'` or `"north"`, with at least one
+  side a name.
 
 Conditions are joined by commas, as on the R path.
 

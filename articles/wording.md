@@ -11,9 +11,9 @@ list every wording a document can produce before the data arrive.
 
 A **span** is a bracket of prose followed by an attribute block that
 holds a **governor key**: `n`, `list`, `if` or `sign`. The key’s value
-is an R expression, in double quotes. The bracket holds one or more
-**arms**, separated by `|`. The governor’s value chooses one arm, and
-only that arm prints.
+is an R expression, in double or single quotes; one name needs none
+(`{n=n_sites}`). The bracket holds one or more **arms**, separated by
+`|`. The governor’s value chooses one arm, and only that arm prints.
 
 ``` markdown
 [a site | # sites]{n="n_sites"}
@@ -272,6 +272,32 @@ pipe-table cell the separator itself must be written `\|`.
 
 weft_str('[a||b | c]{if="TRUE"}')
 #> [1] "a|b"
+```
+
+## Quoting a value
+
+A value goes in double quotes, in single quotes, or in none when it is
+one word. An R string inside a value takes the other quote, so
+`{if="tier == 'sev'"}` and `{if='tier == "sev"'}` are the same block.
+Inside quotes, `\"`, `\'` and `\|` stand for the character, which is how
+the visual editor writes a value when it saves; any other backslash is
+an error, and the fix is to bind the expression to a name in a chunk.
+
+In R code a raw string needs no escapes. A raw string ends at `)"`, so a
+value that ends in `)` takes single quotes (`{if='isTRUE(x)'}`).
+
+``` r
+
+weft_str(r"([severe | mild]{if='tier == "sev"'})")
+```
+
+The same sentence in a string that needs no raw-string form:
+
+``` r
+
+tier <- "sev"
+weft_str("[severe | mild]{if='tier == \"sev\"'}")
+#> [1] "severe"
 ```
 
 ## Checks: `claim()`
