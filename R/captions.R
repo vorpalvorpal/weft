@@ -92,7 +92,9 @@ caption_option_hook <- function(options, o) {
     return(options)
   }
   # knitr holds the option unevaluated: a call, a name, or (from a `!expr` in a `#|` line) an expression
+  # (every element is evaluated and the last value is used, as knitr does)
   if (is.expression(v) && length(v) == 1L) v <- v[[1L]]
+  if (is.expression(v) && length(v) > 1L) v <- as.call(c(list(as.name("{")), as.list(v)))
   if (is.call(v) || is.name(v)) {
     options[[o]] <- as.call(list(caption_weft_text, v, o))
     return(options)

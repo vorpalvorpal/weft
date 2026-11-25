@@ -27,6 +27,11 @@
 #' A caption option that R computes as a `weft` object (`fig.cap = weft(...)`,
 #' `#| fig-cap: !expr weft(...)`) is given to knitr as markdown (as plain text
 #' for `fig.alt`). `knitr::kable(caption = weft(...))` gets the plain text.
+#'
+#' The plain text of a `weft` object uses Unicode superscripts and the minus
+#' sign, which the `pdf()` device cannot draw: for a plot with weft text that
+#' is saved as PDF, use `cairo_pdf()` or a ragg device.
+#'
 #' `cat()` in a `results = "asis"` chunk writes plain text; to write markdown,
 #' print the object or use `cat(format(x, target = "markdown"))`.
 #'
@@ -80,7 +85,7 @@
 #' if (requireNamespace("ggplot2", quietly = TRUE)) {
 #'   ggplot2::ggplot(data.frame(x = 1, y = 1), ggplot2::aes(x, y)) +
 #'     ggplot2::geom_point() +
-#'     ggplot2::labs(title = weft("Rate of 1.2 &times; 10^-4^ m^2^"))
+#'     ggplot2::labs(title = weft("Rate of 1.2 &times; 10 per m^2^"))
 #' }
 #' @export
 weft <- function(x, .envir = parent.frame()) {
@@ -173,8 +178,9 @@ string_config <- function() {
   sig <- yml_signature(root)
   e <- string_cache[[root]]
   if (!is.null(e) && identical(e$sig, sig)) {
-    # another project's `units:` table may have been read in between (CF4)
-    project_units(root)
+    # another project's `units:` table may have been read in between (CF4); a root with no file
+    # has the default units, whatever another root's file or a knit left in force (F1)
+    if (sig$exists) project_units(root) else units_drop_stale()
     return(e$config)
   }
   string_cache[[root]] <- NULL
@@ -319,6 +325,8 @@ weft_pick <- function(x, ...) {
 #' @export
 `[[.weft` <- function(x, i, ...) {
   if (length(i) != 1L) stop("subscript out of bounds", call. = FALSE)
+  # base's own errors for an index out of bounds
+  weft_plain(x)[[i]]
   weft_pick(x, i)
 }
 
@@ -357,6 +365,25 @@ c.weft <- function(...) {
   md <- weft_markdown(x)
   p[i] <- v$plain
   md[i] <- v$md
+  new_weft(p, md, names(p))
+}
+
+#' @rdname weft
+#' @export
+`[[<-.weft` <- function(x, i, value) {
+  if (length(value) != 1L) {
+    stop("more elements supplied than there are to replace", call. = FALSE)
+  }
+  `[<-.weft`(x, i, value)
+}
+
+#' @rdname weft
+#' @export
+`is.na<-.weft` <- function(x, value) {
+  p <- weft_plain(x)
+  md <- weft_markdown(x)
+  p[value] <- NA_character_
+  md[value] <- NA_character_
   new_weft(p, md, names(p))
 }
 

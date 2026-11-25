@@ -10,6 +10,8 @@
 \alias{sort.weft}
 \alias{c.weft}
 \alias{[<-.weft}
+\alias{[[<-.weft}
+\alias{is.na<-.weft}
 \alias{knit_print.weft}
 \title{Resolve markup in a string}
 \usage{
@@ -30,6 +32,10 @@ weft(x, .envir = parent.frame())
 \method{c}{weft}(...)
 
 \method{[}{weft}(x, i) <- value
+
+\method{[[}{weft}(x, i) <- value
+
+\method{is.na}{weft}(x) <- value
 
 \method{knit_print}{weft}(x, options = NULL, inline = FALSE, ...)
 }
@@ -82,6 +88,11 @@ inside the markup of another, or to an \verb{fmt_*()}, contributes its markdown.
 A caption option that R computes as a \code{weft} object (\code{fig.cap = weft(...)},
 \verb{#| fig-cap: !expr weft(...)}) is given to knitr as markdown (as plain text
 for \code{fig.alt}). \code{knitr::kable(caption = weft(...))} gets the plain text.
+
+The plain text of a \code{weft} object uses Unicode superscripts and the minus
+sign, which the \code{pdf()} device cannot draw: for a plot with weft text that
+is saved as PDF, use \code{cairo_pdf()} or a ragg device.
+
 \code{cat()} in a \code{results = "asis"} chunk writes plain text; to write markdown,
 print the object or use \code{cat(format(x, target = "markdown"))}.
 
@@ -128,6 +139,6 @@ vapply(titles, as.character, "")
 if (requireNamespace("ggplot2", quietly = TRUE)) {
   ggplot2::ggplot(data.frame(x = 1, y = 1), ggplot2::aes(x, y)) +
     ggplot2::geom_point() +
-    ggplot2::labs(title = weft("Rate of 1.2 &times; 10^-4^ m^2^"))
+    ggplot2::labs(title = weft("Rate of 1.2 &times; 10 per m^2^"))
 }
 }
