@@ -23,7 +23,9 @@ test_that("H2: a weft text with a line break keeps its styles under {.val}", {
   er_on()
   w <- weft("a\n*b*")
   out <- cli::format_inline("{.val {w}}")
-  expect_true(grepl("\u001b[3mb\u001b[23m", out, fixed = TRUE))
+  # the emphasis ends the value, so cli's .val colour closes between it and its close
+  expect_true(grepl("\u001b[3mb", out, fixed = TRUE))
+  expect_identical(cli::ansi_strip(out), "a b")
 })
 
 test_that("H3: a failure marker in joined text is still drawn bold red", {
