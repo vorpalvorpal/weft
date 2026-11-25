@@ -222,11 +222,13 @@ chunk_table <- function(lines, chs) {
     for (b in ch$optblk) o[[b$name]] <- b$value
     o
   }
+  # the code of a block-quoted chunk is read without its `>` prefix, as the scanner reads it (K20)
+  dlines <- dequote_chunks(lines)
   code_of <- function(ch) {
     from <- ch$oi$code_first
     to <- min(ch$close, n + 1L) - 1L
     if (!ch$closed) to <- n
-    if (to >= from) lines[from:to] else character()
+    if (to >= from) dlines[from:to] else character()
   }
   codes <- lapply(chs, code_of)
   data.frame(
@@ -342,7 +344,7 @@ source_pieces <- function(lines, ls, chunks, chs, front_ff) {
     ok <- !is.na(start) & !is.na(end) & end >= start
     if (any(ok)) {
       k <- sum(ok)
-      g <- if (by_row) gid + seq_len(k) else if (!is.null(grp)) grp else gid + 1L
+      g <- if (by_row) gid + seq_len(k) else if (!is.null(grp)) rep_len(grp, length(ok))[ok] else gid + 1L
       if (is.null(grp)) gid <<- gid + (if (by_row) k else 1L)
       P[[length(P) + 1L]] <<- data.frame(kind = kind, name = name, start = start[ok],
                                          end = end[ok], grp = rep_len(g, k),
@@ -490,14 +492,15 @@ source_pieces <- function(lines, ls, chunks, chs, front_ff) {
       }
     }
   }
-  # strings
+  # strings (the code of a block-quoted chunk has lost its prefix: its columns shift by that, K20)
   if (nrow(chunks)) {
+    lsc <- ls + (nchar(lines) - nchar(dequote_chunks(lines)))
     for (k in seq_len(nrow(chunks))) {
       if (!identical(tolower(chunks$engine[k]), "r") || isFALSE(chunks$eval[k])) next
       code <- chunks$code[[k]]
       if (!length(code)) next
-      add_weft(chunk_literals(code, chunks$code_line[k], ls, "weft"))
-      lit <- chunk_literals(code, chunks$code_line[k], ls, "phrase")
+      add_weft(chunk_literals(code, chunks$code_line[k], lsc, "weft"))
+      lit <- chunk_literals(code, chunks$code_line[k], lsc, "phrase")
       if (nrow(lit)) add("phrase", NA_character_, lit$start, lit$start + nchar(lit$raw) - 1, by_row = TRUE)
     }
   }
@@ -1050,9 +1053,10 @@ read_source <- function(path, root, cfg) {
     }
   }
   phr <- list()
+  lsc <- ls + (nchar(lines) - nchar(dequote_chunks(lines)))
   for (k in seq_len(nrow(chunks))) {
     if (!identical(tolower(chunks$engine[k]), "r") || isFALSE(chunks$eval[k])) next
-    lit <- chunk_literals(chunks$code[[k]], chunks$code_line[k], ls, "phrase")
+    lit <- chunk_literals(chunks$code[[k]], chunks$code_line[k], lsc, "phrase")
     if (nrow(lit)) phr[[length(phr) + 1L]] <- phrase_rows(lit, chunks$label[k], rel, cfg)
   }
   if (length(phr)) {

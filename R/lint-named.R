@@ -220,7 +220,7 @@ markup_construct <- function(val, config) {
 lint_string_markup <- function(src, ctx) {
   ch <- src$chunks
   if (!nrow(ch) || !dl_knitr_doc(src) || dl_names_from(src) %in% c("python", "julia")) return(new_findings())
-  ls <- src$line_start
+  ls <- src$line_start + (nchar(src$lines) - nchar(dequote_chunks(src$lines)))
   out <- list()
   for (k in seq_len(nrow(ch))) {
     if (!identical(tolower(ch$engine[k]), "r") || !(ch$eval[k] %in% TRUE)) next

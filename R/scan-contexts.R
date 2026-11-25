@@ -774,9 +774,9 @@ weft_call_arg <- function(pd, call_id) {
 
 # ---- (the strings given to weft()) ----
 
-scan_chunk_strings <- function(lines, ch, first, label, file, config, dq = NULL) {
+scan_chunk_strings <- function(lines, ch, first, label, file, config, dq = NULL, ls = line_starts(lines)) {
   if (!identical(tolower(ch$engine), "r") || first >= ch$close) return(NULL)
-  scan_weft_code(lines[first:(ch$close - 1L)], first, label, file, config, dq, line_starts(lines))
+  scan_weft_code(lines[first:(ch$close - 1L)], first, label, file, config, dq, ls)
 }
 
 # The `STR_CONST` tokens a `weft()` call reads (C7): the argument is one string literal, or a `c()` (or
@@ -917,8 +917,8 @@ scan_weft_code <- function(code, first, label, file, config, dq = NULL, ls = NUL
 # the lines that follow it); in an rmarkdown header, an option whose value is not a string. Each is
 # given to scan_weft_code() on lines that keep the code where it is in the document, so positions
 # are the document's.
-caption_code_rows <- function(lines, ch, label, hdr, optblk, file, config, dq, filter_doc = FALSE) {
-  ls <- line_starts(lines)
+caption_code_rows <- function(lines, ch, label, hdr, optblk, file, config, dq, filter_doc = FALSE,
+                              ls = line_starts(lines)) {
   parts <- list()
   scan <- function(code, first, option) {
     r <- scan_weft_code(code, first, label, file, config, dq, ls, option)
@@ -1024,12 +1024,14 @@ scan_extra_rows <- function(lines, file = NA_character_, config = NULL, project 
   orig <- lines
   lines <- dequote_chunks(lines)
   dq <- nchar(orig) - nchar(lines)
+  lso <- line_starts(orig)   # file offsets are the original lines', the prefix of a quoted chunk included
   for (ch in labelled_chunks(lines)) {
     caps[[length(caps) + 1L]] <- scan_chunk_captions(lines, ch, ch$label, ch$hdr, ch$optblk,
                                                     ch$oi, doc_exec, file, config, dq, filter_doc, named_filter)
     strs[[length(strs) + 1L]] <- scan_chunk_strings(lines, ch, ch$oi$code_first, ch$label,
-                                                   file, config, dq)
-    strs[[length(strs) + 1L]] <- caption_code_rows(lines, ch, ch$label, ch$hdr, ch$optblk, file, config, dq)
+                                                   file, config, dq, lso)
+    strs[[length(strs) + 1L]] <- caption_code_rows(lines, ch, ch$label, ch$hdr, ch$optblk, file, config, dq,
+                                                   ls = lso)
   }
   parts <- c(list(fm), caps, strs)
   bind_scan_rows(parts)
