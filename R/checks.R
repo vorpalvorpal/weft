@@ -699,13 +699,16 @@ check_covered <- function(b, new) length(ck_cover_rows(b, new)) > 0L
 #' are compared: a comparison whose sides are names, dictionary reads, expressions such as `max(turbidity)` and
 #' literals, or a bool name; the rest are listed under `not read`. Nothing in a document is run.
 #'
+#' The `.R` scripts of the project are read too, for the guards and the `claim()` calls inside the values of
+#' the literal strings they pass to `weft()` (see [lints()]); a `claim()` in a script's code is not read.
+#'
 #' A value is *flagged* when two of its checks compare it with the same other operand under operators that
 #' differ only in strictness (`operators`), or with different literals in one direction (`literals`). The
 #' report hints at checks made in `repeats` places or more with the same condition: check once, where the
 #' value is made.
 #'
 #' @param path One existing file or folder. The project root is found from it.
-#' @param files `NULL`, or documents (relative to the root or absolute under it) to report on.
+#' @param files `NULL`, or documents and scripts (relative to the root or absolute under it) to report on.
 #' @param repeats A whole number from 2: how many places make a hint.
 #' @return A `weft_checks` data frame, one row per check, with columns `file`, `line`, `role`, `level`,
 #'   `value`, `op`, `other`, `cond` (`NA` when the check is not readable), `text`, `always`, `rebound`, `flag`
@@ -728,15 +731,15 @@ checks <- function(path = ".", files = NULL, repeats = 3L) {
   }
   full <- normalizePath(path, winslash = "/", mustWork = TRUE)
   root <- normalizePath(find_project_root(full), winslash = "/", mustWork = FALSE)
-  all_files <- lint_files_under(root)
+  all_files <- c(lint_files_under(root), project_script_paths(root, lint_config(root)$scripts_skip))
   files_rel <- NULL
   if (!is.null(files)) {
-    if (!is.character(files) || anyNA(files)) lint_abort("`files` must be paths to .qmd or .Rmd documents.")
+    if (!is.character(files) || anyNA(files)) lint_abort("`files` must be paths to .qmd, .Rmd or .R files.")
     absf <- ifelse(grepl("^(/|[A-Za-z]:)", files), files, file.path(root, files))
     nf <- normalizePath(absf, winslash = "/", mustWork = FALSE)
-    prob <- !file.exists(absf) | !startsWith(nf, paste0(root, "/")) | !grepl("\\.(qmd|Rmd|rmd)$", files)
+    prob <- !file.exists(absf) | !startsWith(nf, paste0(root, "/")) | !grepl("\\.(qmd|Rmd|rmd|R|r)$", files)
     if (any(prob)) {
-      lint_abort(paste0("`files` must name existing .qmd or .Rmd documents under the project root; not so: ",
+      lint_abort(paste0("`files` must name existing .qmd, .Rmd or .R files under the project root; not so: ",
                         paste0("`", files[prob], "`", collapse = ", "), " (rule 5.1.1)."))
     }
     files_rel <- rel_to(nf, root)
@@ -759,6 +762,8 @@ checks <- function(path = ".", files = NULL, repeats = 3L) {
       notes <- c(notes, sprintf("%s is not valid UTF-8, so its checks were not read (rule 5.1.3).", rel))
       next
     }
+    # a script that holds no weft() literal, or does not parse, has no checks to read (C15)
+    if (isTRUE(src$skip)) next
     n_docs <- n_docs + 1L
     r <- checks_read(src)
     if (nrow(r)) {

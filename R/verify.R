@@ -20,9 +20,10 @@ verify_abort <- function(message, ...) weft_abort(message, "weft_verify_error", 
 #' `decisions`, `render`, `ledger`), and the render and ledger parts are skipped by
 #' `static = TRUE`. `verify()` does not run in draft mode (rule 8.1.5).
 #'
-#' @param files `NULL` (every document of the project), or documents to verify (relative to
-#'   the project root, or absolute under it). Only these are rendered, stamped, judged for
-#'   ledgers and listed; the rules that read across files still read the whole project.
+#' @param files `NULL` (every document and script of the project), or documents and scripts to verify
+#'   (relative to the project root, or absolute under it). Only these are rendered, stamped, judged for
+#'   ledgers and listed (a script is only linted: see [lints()]); the rules that read across files still
+#'   read the whole project.
 #' @param since `NULL` (the commit `HEAD`, when there is one) or one string naming a commit.
 #' @param static `TRUE` to run the static parts only: no render, no ledger.
 #' @param path A file or folder inside the project.
@@ -63,18 +64,20 @@ verify <- function(files = NULL, since = NULL, static = FALSE, path = ".") {
   # the documents verified
   docs <- lint_files_under(root)
   all_docs <- docs
+  scripts <- project_script_paths(root, cfg$scripts_skip)
   files_rel <- NULL
   if (!is.null(files)) {
     absf <- ifelse(grepl("^(/|[A-Za-z]:)", files), files, file.path(root, files))
     nf <- normalizePath(absf, winslash = "/", mustWork = FALSE)
     prob <- !file.exists(absf) | dir.exists(absf) | !startsWith(nf, paste0(root, "/")) |
-      !grepl("\\.(qmd|Rmd|rmd)$", files)
+      !grepl("\\.(qmd|Rmd|rmd|R|r)$", files)
     if (any(prob)) {
-      verify_abort(paste0("`files` must name existing .qmd or .Rmd documents under the project root; not so: ",
+      verify_abort(paste0("`files` must name existing .qmd, .Rmd or .R files under the project root; not so: ",
                           paste0("`", files[prob], "`", collapse = ", "), " (rule 8.1.1)."))
     }
     files_rel <- unique(rel_to(nf, root))
-    docs <- files_rel
+    docs <- files_rel[!is_script_path(files_rel)]
+    scripts <- intersect(scripts, files_rel)
   }
 
   skip <- as.character(unlist(cfg$verify_skip))
@@ -130,7 +133,7 @@ verify <- function(files = NULL, since = NULL, static = FALSE, path = ".") {
   if (!is.na(why("lints"))) {
     set_part("lints", "skipped", paste0("skipped: ", why("lints")))
   } else {
-    li <- verify_lints(root, files_rel, cfg, gi, since_sha, have_base, docs)
+    li <- verify_lints(root, files_rel, cfg, gi, since_sha, have_base, c(docs, scripts))
     res[names(li$res)] <- li$res
     notes <- c(notes, li$notes)
     n <- nrow(res$errors) + li$added_n + nrow(res$strict) + nrow(res$names)

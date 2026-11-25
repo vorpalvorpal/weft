@@ -16,7 +16,7 @@ arm_roles <- function(key, narms) {
 
 #' List the arms of every governed span of a document
 #'
-#' Reads one or more `.qmd` or `.Rmd` files with the scanner and lists, for
+#' Reads one or more `.qmd`, `.Rmd` or `.R` files with the scanner and lists, for
 #' every `n`, `if`, `sign` and `list` span, each of its arms: the span's place, the
 #' key and its expression, the arm's role and the text the author wrote. The
 #' spans are those in prose, in captions, in front-matter fields and in
@@ -30,10 +30,17 @@ arm_roles <- function(key, narms) {
 #' So is an `n` span with more than one arm in a document whose `lang` is not
 #' English, because weft ships no other plural rules (rules 1.6.4, 1.6.5).
 #'
+#' A file whose name ends `.R` or `.r` is read as a script: its spans are those
+#' of the literal strings it passes to `weft()` (`weft(...)`, `weft::weft(...)`,
+#' or the right-hand side of a pipe), with the settings of its project and
+#' English plural rules, and context `"weft"`. The setting `scripts_skip` is not
+#' applied: a script that is named is read. A script that does not parse lists
+#' no spans and no errors.
+#'
 #' Only the spans of the files given are listed; a document that a chunk
 #' includes with `child=` is listed only when it is given too.
 #'
-#' @param file One path, or several, to documents.
+#' @param file One path, or several, to documents or scripts.
 #' @return A data frame of class `weft_arms`, one row per arm, with the
 #'   columns `file`, `line` (where the span starts), `context`, `span` (the
 #'   span's number in the result, in document order), `key` (`"n"`, `"if"`,
@@ -77,11 +84,19 @@ arms_empty <- function() {
 }
 
 arms_one <- function(path, offset = 0L) {
+  script <- is_script_path(path)
   # the configuration and the language are the knit's: the project's classes
   # are known, and the language is Quarto's merged metadata (3.7.1)
-  front <- read_front_matter(path)
+  front <- if (script) list() else read_front_matter(path)
   cfg <- read_config(find_project_root(path), front$weft, doc = path, explicit = FALSE)
-  rows <- scan_file(path, config = cfg)
+  rows <- if (script) {
+    # a script is read for its weft() strings, with no `scripts_skip` (C15); one that does not parse lists nothing
+    sc <- script_scan(path, path, cfg)
+    sc$rows
+  } else {
+    scan_file(path, config = cfg)
+  }
+  if (is.null(rows)) rows <- scan_rows("", file = path, first_line = 1L, config = cfg)
   errors <- data.frame(file = character(), line = integer(), message = character(),
                        stringsAsFactors = FALSE)
   if (nrow(rows)) {
@@ -94,7 +109,7 @@ arms_one <- function(path, offset = 0L) {
   gov <- if (nrow(rows)) which(rows$kind %in% names(ARM_ROLES)) else integer()
   # a two-arm or longer `n` in a language whose plural rules weft does not ship
   # is a construct error (1.6.4, 1.6.5): listed in `errors`, with no rows
-  lang_raw <- document_lang(front, path)
+  lang_raw <- if (script) NA_character_ else document_lang(front, path)
   if (!is.na(lang_raw) && !lang_is_english(lang_raw) && length(gov)) {
     plural <- gov[rows$kind[gov] %in% c("n", "list") & lengths(rows$arms[gov]) > 1L &
                     is.na(rows$error[gov])]
