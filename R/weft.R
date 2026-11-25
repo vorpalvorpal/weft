@@ -35,6 +35,32 @@
 #' `cat()` in a `results = "asis"` chunk writes plain text; to write markdown,
 #' print the object or use `cat(format(x, target = "markdown"))`.
 #'
+#' @section In the console and in cli:
+#' The console form of a `weft` text is its plain text with emphasis in italic,
+#' strong emphasis in bold (both for `***`) and each failure marker in bold
+#' red; with the styles removed it is the plain text. A superscript or subscript
+#' with Unicode characters takes no style, and an element joined by `c()` or
+#' `[<-`, or changed by a function, is plain. `format(x, target = "ansi")` gives
+#' it, and `print()` writes it, but only where cli would write its own styles
+#' (`cli::num_ansi_colors()`; `print()` asks about `stdout()`): not under
+#' `NO_COLOR`, in a knit, into a sink or on a terminal without colour. `format(x)`
+#' and `as.character(x)` are always plain.
+#'
+#' In a cli message, `{.val {x}}` draws the console form, unquoted, in cli's value
+#' colour (`cli_format()`, which returns a bare character vector), and `{x}` gives
+#' the plain text. A `weft` object given to cli as a value is never read as a
+#' template, so braces in it are text; given as the template itself
+#' (`cli_inform(x)`) it is read by cli, which evaluates what is in braces, so pass
+#' it as `"{x}"`. Markup is not written into a cli template: resolve it with
+#' `weft()` first.
+#'
+#' ```r
+#' w <- weft("Depth at *[one site | # sites]{n='k'}*: `r d`{.num unit='m'}")
+#' cli::cli_inform("{.val {w}}")   # emphasis drawn, in the value colour
+#' cli::cli_inform("Plotted {w}")  # plain text
+#' msg <- cli::format_inline("{.val {w}}")
+#' ```
+#'
 #' During a knit with weft active a failed check, a missing value or a value
 #' error is collected as it is in prose (rules 2.4.1, 3.6.3) and marked in the
 #' text with the chunk that holds the call, or the line of the inline R (rule
@@ -69,7 +95,9 @@
 #'   a `weft` object, which is returned as it is. An `NA` element stays `NA`.
 #' @param .envir The environment the markup's code is evaluated in.
 #' @param ... Not used.
-#' @param target For `format()`: `"plain"` (the default) or `"markdown"`.
+#' @param target For `format()`: `"plain"` (the default), `"markdown"` or
+#'   `"ansi"` (the console form, see "In the console and in cli").
+#' @param style Not used (for `cli_format()`).
 #' @param inline For `knit_print()`: `TRUE` for inline R.
 #' @return A `weft` object of the same length and names as `x`.
 #' @examples
@@ -273,12 +301,13 @@ weft_markdown <- function(x) {
 
 weft_target <- function(target) {
   if (is.character(target) && length(target) == 1L && !is.na(target)) {
-    if (target %in% c("plain", "markdown")) return(target)
+    if (target %in% c("plain", "markdown", "ansi")) return(target)
     got <- paste0("\"", target, "\"")
   } else {
     got <- "something else"
   }
-  weft_abort(sprintf("`target` must be \"plain\" or \"markdown\"; got %s.", got), "weft_construct_error")
+  weft_abort(sprintf("`target` must be \"plain\", \"markdown\" or \"ansi\"; got %s.", got),
+             "weft_construct_error")
 }
 
 #' @rdname weft
@@ -289,6 +318,7 @@ as.character.weft <- function(x, ...) weft_plain(x)
 #' @export
 format.weft <- function(x, target = "plain", ...) {
   target <- weft_target(target)
+  if (identical(target, "ansi")) return(weft_ansi(x, cli::num_ansi_colors()))
   out <- if (identical(target, "markdown")) weft_markdown(x) else weft_plain(x)
   out[is.na(out)] <- "NA"
   out
@@ -300,11 +330,19 @@ print.weft <- function(x, ...) {
   if (!length(x)) {
     cat("<weft[0]>\n")
   } else {
-    p <- unname(weft_plain(x))
-    p[is.na(p)] <- "NA"
+    p <- unname(weft_ansi(x, cli::num_ansi_colors(stdout())))
     cat(p, sep = "\n")
   }
   invisible(x)
+}
+
+#' @rdname weft
+#' @exportS3Method cli::cli_format
+#' @importFrom cli cli_format
+cli_format.weft <- function(x, style = NULL, ...) {
+  out <- weft_ansi(x, cli::num_ansi_colors())
+  attributes(out) <- list(names = names(out))
+  out
 }
 
 # A `weft` object of the elements `...` of both forms.

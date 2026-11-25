@@ -2987,8 +2987,9 @@ attribute `markdown` holds the markdown.
 | `as.character(x)` | plain; a bare character vector, names kept, `NA` kept |
 | `format(x)`, `format(x, target = "plain")` | plain; names kept; `NA` is `"NA"` |
 | `format(x, target = "markdown")` | markdown; names kept; `NA` is `"NA"` |
-| `format(x, target = other)` | `weft_construct_error`: "`target` must be \"plain\" or \"markdown\"; got %s." |
-| `print(x)` | each element's plain text on its own line; `<weft[0]>` for length 0 |
+| `format(x, target = "ansi")` | the console form (3.6.9); names kept; `NA` is `"NA"` |
+| `format(x, target = other)` | `weft_construct_error`: "`target` must be \"plain\", \"markdown\" or \"ansi\"; got %s." |
+| `print(x)` | each element on its own line, in the console form when the console draws styles (3.6.9), else plain; `NA` as `NA`; names not shown; a length-0 object prints `<weft[0]>`; returns `x` invisibly |
 | `knitr::knit_print(x, inline = TRUE)` | the markdown elements joined by `", "` |
 | `knitr::knit_print(x)` | the markdown elements joined by a blank line |
 
@@ -3048,6 +3049,28 @@ the same way, and is not a caption string. The context of what is found there is
 `weft()` and returns the markdown as a `str`. The expressions in its markup are R. A named value in
 its markup is left for the filter: in a Python chunk a name is Python's, published by `put()` or
 `auto()`. Outside a knit a bare name prints as written.
+
+**3.6.9** In a console, a `weft` text keeps its emphasis. The console form of an element is its
+plain form (1.4.24) with emphasis in italic, strong emphasis in bold, both for `***`, and each
+failure marker (2.6.8) in bold red; nothing else differs, so with the styles removed it is the plain
+form. A superscript or subscript that has Unicode characters takes no style from inside. An element
+joined by `c()` or `[<-`, or changed by a function, is plain. The styles are written only where cli
+writes its own (`cli::num_ansi_colors()`): not under `NO_COLOR`, in a knit, into a sink or a file,
+or on a terminal without colour. `print()` uses the console form for standard output; `format(x)`
+and `as.character(x)` are always plain.
+
+**3.6.10** Inside cli's messages, `{.val {x}}` draws a `weft` text in its console form, unquoted, in
+cli's value colour; `{x}` gives the plain text. A `weft` text given to cli as a value is never read
+as a cli template, so braces in it are text. Given as the template itself (`cli_inform(x)`), it is
+read by cli, which evaluates what it finds in braces: pass it as `"{x}"`. Markup is not written into
+a cli template: it is resolved by `weft()` first.
+
+```r
+w <- weft("Depth at *[one site | # sites]{n='k'}*: `r d`{.num unit='m'}")
+cli::cli_inform("{.val {w}}")          # emphasis drawn, in the value colour
+cli::cli_inform("Plotted {w}")         # plain text
+msg <- cli::format_inline("{.val {w}}")
+```
 
 ### 3.7 `arms()` and `rehearse()`
 
@@ -7663,6 +7686,16 @@ know the class (`cat()`, `nchar()`) still gets readable text. The configuration
 is kept per project because reading it was most of the 10 ms a call cost. A
 string is prose whoever calls the function, so a caption built in R fails the
 same way as one written in a chunk option.
+
+**3.6.9** A console can draw emphasis, and a title typed with `*Eucalyptus*` loses it in the plain
+form. The console form adds styles and changes no character, so a log that strips escapes holds the
+plain text and the two forms are checked against each other. When to draw them is cli's decision,
+not weft's: cli already knows `NO_COLOR`, knitr, sinks and the terminals, and a weft text inside a
+cli message must agree with the styling cli draws around it. `format()` stays plain because it feeds
+plots, files and `paste()`, which must not change with the terminal.
+
+**3.6.10** cli reads a template once and inserts values after, so a value is safe and a template is
+not; weft escapes nothing, because escaping would be needed in one sink and wrong in every other.
 
 **3.2.3** A function for each governor would be a second syntax to keep in
 step with the first. The markup already works in a string.

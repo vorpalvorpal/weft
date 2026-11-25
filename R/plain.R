@@ -493,3 +493,63 @@ plain_script <- function(x, map, open) {
   if (length(ch) && all(ch %in% names(map))) return(paste(map[ch], collapse = ""))
   paste0(open, "(", x, ")")
 }
+
+# ---- the ANSI renderer (E3, C1 and C2) -----------------------------------------------------------
+
+# The ANSI rendering of runs: the plain rendering with font styles added. The style functions are
+# cli's, so the caller sets `cli.num_colors` to the count its sink decided (D4).
+ansi_render <- function(runs) {
+  paste(vapply(runs, ansi_render_run, ""), collapse = "")
+}
+
+ansi_marker <- function(s) {
+  m <- gregexpr("<<weft: .*?>>", s, perl = TRUE)[[1L]]
+  if (m[[1L]] == -1L) return(s)
+  len <- attr(m, "match.length")
+  out <- character()
+  pos <- 1L
+  for (k in seq_along(m)) {
+    if (m[[k]] > pos) out <- c(out, substr(s, pos, m[[k]] - 1L))
+    out <- c(out, as.character(cli::style_bold(cli::col_red(substr(s, m[[k]], m[[k]] + len[[k]] - 1L)))))
+    pos <- m[[k]] + len[[k]]
+  }
+  if (pos <= nchar(s)) out <- c(out, substr(s, pos, nchar(s)))
+  paste(out, collapse = "")
+}
+
+ansi_render_run <- function(r) {
+  switch(
+    r$type,
+    text = ansi_marker(r$text),
+    code = , math = r$text,
+    em = as.character(cli::style_italic(ansi_render(r$kids))),
+    strong = as.character(cli::style_bold(ansi_render(r$kids))),
+    span = ansi_render(r$kids),
+    sup = ansi_script(r, PLAIN_SUP, "^"),
+    sub = ansi_script(r, PLAIN_SUB, "_"))
+}
+
+# D8: the choice between Unicode characters and `^( )` is made on the plain content.
+ansi_script <- function(r, map, open) {
+  p <- plain_render(r$kids)
+  ch <- strsplit(p, "", fixed = TRUE)[[1L]]
+  if (length(ch) && all(ch %in% names(map))) return(paste(map[ch], collapse = ""))
+  paste0(open, "(", ansi_render(r$kids), ")")
+}
+
+# The ANSI rendering of a `weft` object with `colors` colours (names kept, NA as "NA"). With one
+# colour, or for an element that is not the plain reading of its markdown (C4), the plain text.
+weft_ansi <- function(x, colors) {
+  p <- weft_plain(x)
+  p[is.na(p)] <- "NA"
+  if (!length(p) || colors <= 1L) return(p)
+  md <- weft_markdown(x)
+  old <- options(cli.num_colors = colors)
+  on.exit(options(old), add = TRUE)
+  for (i in seq_along(p)) {
+    m <- md[[i]]
+    if (is.na(m) || !identical(p[[i]], plain_text(m))) next
+    p[[i]] <- ansi_render(plain_read(m))
+  }
+  p
+}

@@ -5,6 +5,7 @@
 \alias{as.character.weft}
 \alias{format.weft}
 \alias{print.weft}
+\alias{cli_format.weft}
 \alias{[.weft}
 \alias{[[.weft}
 \alias{sort.weft}
@@ -22,6 +23,8 @@ weft(x, .envir = parent.frame())
 \method{format}{weft}(x, target = "plain", ...)
 
 \method{print}{weft}(x, ...)
+
+\method{cli_format}{weft}(x, style = NULL, ...)
 
 \method{[}{weft}(x, ...)
 
@@ -47,7 +50,10 @@ a \code{weft} object, which is returned as it is. An \code{NA} element stays \co
 
 \item{...}{Not used.}
 
-\item{target}{For \code{format()}: \code{"plain"} (the default) or \code{"markdown"}.}
+\item{target}{For \code{format()}: \code{"plain"} (the default), \code{"markdown"} or
+\code{"ansi"} (the console form, see "In the console and in cli").}
+
+\item{style}{Not used (for \code{cli_format()}).}
 
 \item{i}{An index.}
 
@@ -73,7 +79,7 @@ variable afterwards changes nothing.
 }
 \details{
 The result is a \code{weft} object, a character vector with two forms of each
-element. Its content is the \strong{plain} text (Unicode, no markup: \verb{m^2},
+element. Its content is the \strong{plain} text (Unicode, no markup: \code{m^2},
 \verb{1.2 x 10^-4}, emphasis without its marks, rule 1.4.24), so
 anything that reads a character vector (\code{cat()}, \code{nchar()}, \code{paste()}, a
 ggplot2 title) gets readable text. The attribute \code{markdown} holds the
@@ -95,6 +101,32 @@ is saved as PDF, use \code{cairo_pdf()} or a ragg device.
 
 \code{cat()} in a \code{results = "asis"} chunk writes plain text; to write markdown,
 print the object or use \code{cat(format(x, target = "markdown"))}.
+}
+\section{In the console and in cli}{
+
+The console form of a \code{weft} text is its plain text with emphasis in italic,
+strong emphasis in bold (both for \verb{***}) and each failure marker in bold
+red; with the styles removed it is the plain text. A superscript or subscript
+with Unicode characters takes no style, and an element joined by \code{c()} or
+\verb{[<-}, or changed by a function, is plain. \code{format(x, target = "ansi")} gives
+it, and \code{print()} writes it, but only where cli would write its own styles
+(\code{cli::num_ansi_colors()}; \code{print()} asks about \code{stdout()}): not under
+\code{NO_COLOR}, in a knit, into a sink or on a terminal without colour. \code{format(x)}
+and \code{as.character(x)} are always plain.
+
+In a cli message, \verb{\{.val \{x\}\}} draws the console form, unquoted, in cli's value
+colour (\code{cli_format()}, which returns a bare character vector), and \code{{x}} gives
+the plain text. A \code{weft} object given to cli as a value is never read as a
+template, so braces in it are text; given as the template itself
+(\code{cli_inform(x)}) it is read by cli, which evaluates what is in braces, so pass
+it as \code{"{x}"}. Markup is not written into a cli template: resolve it with
+\code{weft()} first.
+
+\if{html}{\out{<div class="sourceCode r">}}\preformatted{w <- weft("Depth at *[one site | # sites]\{n='k'\}*: `r d`\{.num unit='m'\}")
+cli::cli_inform("\{.val \{w\}\}")   # emphasis drawn, in the value colour
+cli::cli_inform("Plotted \{w\}")  # plain text
+msg <- cli::format_inline("\{.val \{w\}\}")
+}\if{html}{\out{</div>}}
 
 During a knit with weft active a failed check, a missing value or a value
 error is collected as it is in prose (rules 2.4.1, 3.6.3) and marked in the
@@ -126,6 +158,7 @@ The functions inline code calls by name (\code{claim()}, \code{plural()}, the
 \verb{fmt_*()} functions) are visible to the markup even when weft is not
 attached; a function of the same name that \code{.envir} can see wins.
 }
+
 \examples{
 n_sites <- 3
 w <- weft("Found [a site | # sites]{n=\"n_sites\"} of *Eucalyptus* on 5 m^2^.")
