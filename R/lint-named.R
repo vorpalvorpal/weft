@@ -6,7 +6,7 @@
 
 # The NAME tokens of a condition (N9): string literals taken out, numbers and reserved words are not names.
 cond_names <- function(x) {
-  x <- gsub("'[^']*'", " ", x)
+  x <- gsub("'[^']*'|\"[^\"]*\"", " ", x)
   m <- gregexpr("(?<![A-Za-z0-9_.])[A-Za-z_][A-Za-z0-9_.]*", x, perl = TRUE)[[1L]]
   if (m[1L] < 0L) return(character())
   nm <- regmatches(x, list(m))[[1L]]
@@ -62,6 +62,17 @@ path_inside <- function(p, root) {
   length(f) > length(r) && identical(f[seq_along(r)], r)
 }
 
+# The `file=` of a values block's attributes, in any form of 1.2.2 and decoded (1.2.3), as c(match, value); or
+# character().
+values_file_attr <- function(attrs) {
+  m <- regmatches(attrs, regexec(paste0("file[ \t]*=[ \t]*(?:\"((?:[^\"\\\\]|\\\\.)*)\"|'((?:[^'\\\\]|\\\\.)*)'|",
+                                        "((?:[^\\s}\"'\\\\]|\\\\\\|)+))"), attrs, perl = TRUE))[[1L]]
+  if (!length(m)) return(character())
+  v <- m[2:4][nzchar(m[2:4])][1L]
+  if (is.na(v)) v <- ""
+  c(m[1L], gsub("\\\\([\"'|])", "\\1", v))
+}
+
 # What a text publishes or runs, for the search of N144: the code of its executed chunks, the keys of its
 # hand-written blocks and of the values files they read, and the same of the files it includes (at most 8
 # deep).
@@ -72,7 +83,7 @@ named_sources <- function(lines, chunks, dir, root, depth = 0L) {
     out$code <- unlist(chunks$code[run], use.names = FALSE) %||% character()
   }
   for (b in values_blocks(lines)) {
-    f <- regmatches(b$attrs[1L], regexec("file[ \t]*=[ \t]*\"([^\"]*)\"", b$attrs[1L]))[[1L]]
+    f <- values_file_attr(b$attrs[1L])
     if (length(f)) {
       p <- if (startsWith(f[2L], "/")) file.path(root, substring(f[2L], 2L)) else file.path(dir, f[2L])
       # the filter refuses a values file outside the project root (E32): so does the lint

@@ -184,7 +184,11 @@ def put(*maps, **named):
 
 _auto = {"callback": None, "names": [], "last": {}}
 
-_GOV_RE = _re.compile(r'(?<![A-Za-z0-9_.-])(?i:n|if|sign|list)="([^"]*)"')
+_GOV_RE = _re.compile(
+    r'(?<![A-Za-z0-9_.-])(?i:n|if|sign|list)='
+    r'(?:"((?:[^"\\]|\\.)*)"|\'((?:[^\'\\]|\\.)*)\'|((?:[^\s}"\'\\]|\\\|)+))', _re.S)
+_UNESC_RE = _re.compile(r'\\(["\'|])')
+_LITERAL_RE = _re.compile(r"'[^']*'|\"[^\"]*\"")
 _TOKEN_RE = _re.compile(r"(?<![A-Za-z0-9_.])[A-Za-z_][A-Za-z0-9_.]*")
 _CODE_RE = _re.compile(r"`([A-Za-z_][A-Za-z0-9_.]{0,63})`\{")
 _INCLUDE_RE = _re.compile(r"\{\{<\s*include\s+([^>\s]+)\s*>\}\}")
@@ -208,8 +212,9 @@ def _source_names(path):
             return
         found_code.extend(_CODE_RE.findall(txt))
         found.extend(_CODE_RE.findall(txt))
-        for g in _GOV_RE.findall(txt):
-            found.extend(_TOKEN_RE.findall(_re.sub(r"'[^']*'", " ", g)))
+        for m in _GOV_RE.finditer(txt):
+            g = _UNESC_RE.sub(r"\1", "".join(x for x in m.groups() if x is not None))
+            found.extend(_TOKEN_RE.findall(_LITERAL_RE.sub(" ", g)))
         if depth < 8 and "{{<" in txt:
             for inc in _INCLUDE_RE.findall(txt):
                 inc = inc.strip("\"'")

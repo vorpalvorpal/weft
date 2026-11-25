@@ -421,9 +421,10 @@ weft_values_write <- function(path, ...) {
 
 # ---- the names a source names (N45) ---------------------------------------------------------------
 
-# Every name token of a governor value: single-quoted strings are removed first.
+# Every name token of a governor value: string literals, in either quote, are removed first in one
+# left-to-right pass (two passes would mis-strip `"it's" == x`).
 values_governor_names <- function(x) {
-  x <- gsub("'[^']*'", " ", x)
+  x <- gsub("'[^']*'|\"[^\"]*\"", " ", x)
   unlist(regmatches(x, gregexpr("(?<![A-Za-z0-9_.])[A-Za-z_][A-Za-z0-9_.]*", x, perl = TRUE)),
          use.names = FALSE)
 }
@@ -438,10 +439,18 @@ values_text_names <- function(txt) {
     m <- regmatches(txt, gregexpr("`[A-Za-z_][A-Za-z0-9_.]{0,63}`\\{", txt, perl = TRUE))[[1L]]
     code <- substr(m, 2L, nchar(m) - 2L)
   }
-  if (grepl("=\"", txt, fixed = TRUE)) {
-    m <- regmatches(txt, gregexpr("(?<![A-Za-z0-9_.-])(?i:n|if|sign|list)=\"[^\"]*\"", txt,
-                                  perl = TRUE))[[1L]]
-    if (length(m)) gov <- values_governor_names(sub("^[A-Za-z]+=\"(.*)\"$", "\\1", m))
+  if (grepl("=", txt, fixed = TRUE)) {
+    # a value in any form of 1.2.2, read as 1.2.3: the quotes off, `\"`, `\'` and `\|` unescaped (C7)
+    m <- regmatches(txt, gregexpr(paste0("(?s)(?<![A-Za-z0-9_.-])(?i:n|if|sign|list)=",
+                                         "(?:\"(?:[^\"\\\\]|\\\\.)*\"|'(?:[^'\\\\]|\\\\.)*'|(?:[^\\s}\"'\\\\]|\\\\\\|)+)"),
+                                  txt, perl = TRUE))[[1L]]
+    if (length(m)) {
+      v <- sub("^[A-Za-z]+=", "", m)
+      quoted <- grepl("^[\"']", v)
+      v[quoted] <- substr(v[quoted], 2L, nchar(v[quoted]) - 1L)
+      v <- gsub("\\\\([\"'|])", "\\1", v)
+      gov <- values_governor_names(v)
+    }
   }
   list(code = code, gov = gov)
 }

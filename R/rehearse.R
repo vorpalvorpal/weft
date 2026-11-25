@@ -315,8 +315,8 @@ rehearse_child <- function(args_path) {
 print.weft_rehearsal <- function(x, ...) {
   ar <- x$arms
   shown <- display_files(ar$file)
-  where <- function(rows) sprintf("%s:%d  %s=\"%s\"", shown[match(rows$span, ar$span)],
-                                  rows$line, rows$key, rows$expr)
+  where <- function(rows) sprintf("%s:%d  %s=%s", shown[match(rows$span, ar$span)],
+                                  rows$line, rows$key, attr_shown(rows$expr))
   for (nm in names(x$cases)) {
     cs <- x$cases[[nm]]
     cat(sprintf("case %s: %s\n", nm, if (cs$ok) "ok" else "not ok"))

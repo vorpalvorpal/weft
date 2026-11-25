@@ -1274,16 +1274,17 @@ filter_check_key_error <- function(key, what) {
           key, what)
 }
 
-# The parts of a condition (N10): split at every comma that is not inside a 'string literal'; an empty
-# part is kept.
+# The parts of a condition (N10): split at every comma that is not inside a string literal, in either
+# quote (C6); an empty part is kept.
 cond_parts <- function(x) {
   ch <- strsplit(x, "")[[1L]]
   parts <- character()
   cur <- character()
-  inq <- FALSE
+  inq <- ""
   for (c in ch) {
-    if (c == "'") inq <- !inq
-    if (c == "," && !inq) {
+    if (!nzchar(inq) && (c == "'" || c == "\"")) inq <- c
+    else if (nzchar(inq) && c == inq) inq <- ""
+    if (c == "," && !nzchar(inq)) {
       parts <- c(parts, paste(cur, collapse = ""))
       cur <- character()
     } else {
@@ -1293,7 +1294,7 @@ cond_parts <- function(x) {
   c(parts, paste(cur, collapse = ""))
 }
 
-COND_OPERAND <- "(?:'[^'\\\\]*'|-?[0-9]+(?:\\.[0-9]+)?(?:[eE][+-]?[0-9]+)?|[A-Za-z_][A-Za-z0-9_.]*)"
+COND_OPERAND <- "(?:'[^'\\\\]*'|\"[^\"\\\\]*\"|-?[0-9]+(?:\\.[0-9]+)?(?:[eE][+-]?[0-9]+)?|[A-Za-z_][A-Za-z0-9_.]*)"
 COND_RE <- paste0("^(", COND_OPERAND, ")[ \t]*(<=|>=|==|!=|<|>)[ \t]*(", COND_OPERAND, ")$")
 
 # The error of one part of a condition (N9, N11; E3, E4), or `character()`.
@@ -1304,7 +1305,7 @@ cond_part_error <- function(part) {
   m <- regmatches(part, regexec(COND_RE, part, perl = TRUE))[[1L]]
   if (length(m)) {
     ops <- m[c(2L, 4L)]
-    lit <- grepl("^['0-9-]", ops)
+    lit <- grepl("^['\"0-9-]", ops)
     if (all(lit)) {
       return(sprintf("`%s` compares two literals and has no name, so it is always the same (rule 1.12.4).", part))
     }

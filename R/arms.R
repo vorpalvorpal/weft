@@ -175,8 +175,8 @@ format_arm_tree <- function(x, parent = NA_integer_, parent_arm = NA_integer_,
   for (sp in spans) {
     rows <- x[x$span == sp, , drop = FALSE]
     rows <- rows[order(rows$arm), , drop = FALSE]
-    out <- c(out, sprintf("%s%s:%d  %s=\"%s\"", pad, shown[match(sp, x$span)],
-                          rows$line[1L], rows$key[1L], rows$expr[1L]))
+    out <- c(out, sprintf("%s%s:%d  %s=%s", pad, shown[match(sp, x$span)],
+                          rows$line[1L], rows$key[1L], attr_shown(rows$expr[1L])))
     for (i in seq_len(nrow(rows))) {
       out <- c(out, sprintf("%s  %d (%s)  %s", pad, rows$arm[i], rows$role[i],
                             elide_attrs(rows$text[i])),

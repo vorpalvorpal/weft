@@ -256,10 +256,23 @@ source_label <- function(text, start, end) {
   t
 }
 
+# A value written as markup (C5, D5, D9): double quotes, with `\` as `\\`, `"` as `\"` and `|` as `\|`.
+attr_markup <- function(x) {
+  x <- gsub("\\", "\\\\", as.character(x), fixed = TRUE)
+  x <- gsub("\"", "\\\"", x, fixed = TRUE)
+  paste0("\"", gsub("|", "\\|", x, fixed = TRUE), "\"")
+}
+
+# A value shown in a listing (D13): double quotes, `\` and `"` escaped, so it can be pasted back.
+attr_shown <- function(x) {
+  x <- gsub("\\", "\\\\", as.character(x), fixed = TRUE)
+  paste0("\"", gsub("\"", "\\\"", x, fixed = TRUE), "\"")
+}
+
 # The classes and keys the construct does not own, written back as a span.
 passthrough <- function(text, cl, ky) {
   if (!nzchar(text)) return(text)
-  items <- c(cl, if (length(ky)) sprintf("%s=\"%s\"", names(ky), unname(ky)))
+  items <- c(cl, if (length(ky)) paste0(names(ky), "=", attr_markup(unname(ky))))
   if (!length(items)) return(text)
   sprintf("[%s]{%s}", text, paste(items, collapse = " "))
 }
@@ -1139,7 +1152,7 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
     ky <- R$keys[[k]]
     ky <- ky[!names(ky) %in% c("why", "decision")]
     items <- c(if (!is.na(R$id[k]) && nzchar(R$id[k])) paste0("#", R$id[k]), cl,
-               if (length(ky)) sprintf("%s=\"%s\"", names(ky), unname(ky)))
+               if (length(ky)) paste0(names(ky), "=", attr_markup(unname(ky))))
     blk <- sprintf("{%s}", paste(items, collapse = " "))
     if (startsWith(substr(text, R$start[k], R$start[k]), ":")) {
       return(paste0(substr(text, R$start[k], R$block_start[k] - 1L), blk))
@@ -1180,7 +1193,7 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
       }
       for (u in unknown) {
         add_failure(s, "unknown citation key", file = R$file[k], line = R$line[k],
-                    expr = sprintf("cite=\"%s\"", value),
+                    expr = paste0("cite=", attr_shown(value)),
                     detail = sprintf("the key `%s` is not in the bibliography (rule 1.8.5)%s", u, gone),
                     chunk = chunk_label, option = if (is_str) ctx$option else NA_character_)
       }

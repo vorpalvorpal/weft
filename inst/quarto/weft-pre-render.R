@@ -122,7 +122,7 @@ local({
   is_name <- function(x) {
     grepl("^[A-Za-z_][A-Za-z0-9_.]{0,63}\\z", x, perl = TRUE) && !grepl("[.]$", x) && !(x %in% reserved)
   }
-  operand <- "(?:'[^'\\\\]*'|-?[0-9]+(?:\\.[0-9]+)?(?:[eE][+-]?[0-9]+)?|[A-Za-z_][A-Za-z0-9_.]*)"
+  operand <- "(?:'[^'\\\\]*'|\"[^\"\\\\]*\"|-?[0-9]+(?:\\.[0-9]+)?(?:[eE][+-]?[0-9]+)?|[A-Za-z_][A-Za-z0-9_.]*)"
   comparison <- paste0("^(", operand, ")[ \t]*(<=|>=|==|!=|<|>)[ \t]*(", operand, ")$")
   cond_ok <- function(part) {
     part <- gsub("^[ \t]+|[ \t]+$", "", part)
@@ -132,19 +132,20 @@ local({
     m <- regmatches(part, regexec(comparison, part, perl = TRUE))[[1]]
     if (!length(m)) return(FALSE)
     ops <- m[c(2, 4)]
-    lit <- grepl("^['0-9-]", ops)
+    lit <- grepl("^['\"0-9-]", ops)
     if (all(lit)) return(FALSE)
     all(lit | vapply(ops, is_name, NA))
   }
-  # the comma-separated parts of a condition: a comma inside a 'string' splits nothing
+  # the comma-separated parts of a condition: a comma inside a 'string' or "string" splits nothing
   cond_parts <- function(x) {
     ch <- strsplit(x, "")[[1]]
     parts <- character()
     cur <- character()
-    inq <- FALSE
+    inq <- ""
     for (c in ch) {
-      if (c == "'") inq <- !inq
-      if (c == "," && !inq) {
+      if (!nzchar(inq) && (c == "'" || c == "\"")) inq <- c
+      else if (nzchar(inq) && c == inq) inq <- ""
+      if (c == "," && !nzchar(inq)) {
         parts <- c(parts, paste(cur, collapse = ""))
         cur <- character()
       } else cur <- c(cur, c)
@@ -162,17 +163,20 @@ local({
   }
   # does a span's attribute block on this line hold a governor outside the grammar: `]{... if="..." ...}`
   span_bad <- function(text) {
-    m <- gregexpr("\\]\\{[^}]*\\}", text, perl = TRUE)[[1]]
+    # a value is read as rule 1.2.3 says: double-quoted, single-quoted or bare, `\"`, `\'` and `\|` unescaped
+    qv <- "\"(?:[^\"\\\\]|\\\\.)*\"|'(?:[^'\\\\]|\\\\.)*'"
+    m <- gregexpr(paste0("(?s)\\]\\{(?:=[[:space:]]*(?:", qv, ")|[^}])*\\}"), text, perl = TRUE)[[1]]
     if (m[1] < 0) return(FALSE)
     for (blk in regmatches(text, list(m))[[1]]) {
-      kv <- gregexpr(paste0("(?<![A-Za-z0-9_.-])(n|if|sign|list)[[:space:]]*=[[:space:]]*",
-                            "(?:\"[^\"]*\"|'[^']*'|[^[:space:]}\"']+)"),
+      kv <- gregexpr(paste0("(?s)(?<![A-Za-z0-9_.-])(n|if|sign|list)[[:space:]]*=[[:space:]]*",
+                            "(?:", qv, "|(?:[^[:space:]}\"'\\\\]|\\\\\\|)+)"),
                      blk, perl = TRUE, ignore.case = TRUE)[[1]]
       if (kv[1] < 0) next
       for (one in regmatches(blk, list(kv))[[1]]) {
         key <- tolower(sub("^([A-Za-z]+).*$", "\\1", one))
         val <- sub("^[A-Za-z]+[[:space:]]*=[[:space:]]*", "", one)
-        val <- sub("^([\"'])(.*)\\1$", "\\2", val)
+        if (grepl("^[\"']", val)) val <- substr(val, 2L, nchar(val) - 1L)
+        val <- gsub("\\\\([\"'|])", "\\1", val)
         if (!governor_ok(key, val)) return(TRUE)
       }
     }

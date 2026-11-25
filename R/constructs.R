@@ -193,7 +193,7 @@ decision_pointer_rows <- function(src) {
     for (i in which(r$kind %in% c("literal", "cite"))) {
       d <- unname(r$keys[[i]][names(r$keys[[i]]) == "decision"])
       if (!length(d) || !nzchar(trim_ws(d[1L]))) next
-      add(r$line[i], if (r$kind[i] == "literal") ".weft-literal" else sprintf("cite=\"%s\"", r$expr[i]), d[1L])
+      add(r$line[i], if (r$kind[i] == "literal") ".weft-literal" else paste0("cite=", attr_shown(r$expr[i])), d[1L])
     }
     for (i in which(!is.na(r$expr) & grepl("claim", r$expr, fixed = TRUE) & r$kind %in% c("value", "bare"))) {
       cd <- claim_decisions(r$expr[i])
