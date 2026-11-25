@@ -222,11 +222,9 @@ So a later review does not raise them again without a new argument.
 
 ## From the fixes to the stage 2 fix-round review
 
-- **`units:::` internals.** `ud_install_one()` (`R/unit-defaults.R`)
-  reads `units:::R_ut_parse` and `units:::R_ut_get_symbol` to refuse a
-  project unit defined as a unit with a non-ASCII symbol before
-  `install_unit()` can damage the database. A package check notes the
-  `:::` calls, and a later `units` could rename them.
+- **`units:::` internals.** Closed on 2026-11-25: the units switch
+  removed every `units:::` read (`R_ut_parse`, `R_ut_get_symbol`,
+  `default_units_xml`); weft needs units >= 1.0-1.7.
 - **`.cap` on a mixed vector.** `fmt_cap(c(fmt_unit(u(1, mL)), "abc"))`
   still capitalises the symbol: `c()` of a symbol text and plain text
   loses the flag.
@@ -258,11 +256,10 @@ code; the cost of `weft_setup()`.
   review #12 is fixed for rows of `units:`; a token registered for a
   dictionary entry's unit (`R/dict.R`, near the registration of
   dictionary units) is still not removed when another project is read.
-- **The `units:::` calls** work round a bug in `units::install_unit()`
-  reported as r-quantities/units#448, with a fix proposed in PR #447.
-  Once a release carries the fix, the early refusal in `ud_install_one()`
-  and both `:::` calls can be removed (and `units (>= that version)`
-  required).
+- **The `units:::` calls** (closed 2026-11-25): they worked round
+  r-quantities/units#448, fixed upstream in PRs #449 and #452. The early
+  refusal and the `:::` calls are gone, and `units (>= 1.0-1.7)` is
+  required.
 - **An amended commit's trailer** (H8) is judged against the commit
   being amended, not its parent, so the final commit can carry
   `Weft-Removed: 1` while removing three constructs from its parent.

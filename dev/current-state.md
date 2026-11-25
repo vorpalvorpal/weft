@@ -410,7 +410,13 @@ or hold); no answer yet.
   are `test-sweep-g.R` G3 and `test-review-2x.R:338-345, 492-512`.
 - Robin then: "Pause the change. Ask upstream for a public override."
   Posted https://github.com/r-quantities/units/issues/451. The units
-  change in weft is PAUSED until upstream answers or Robin says otherwise.
+  change in weft was PAUSED until upstream answered (PR 452 added
+  `override`; units main is 1.0-1.7). DONE on 2026-11-25: Robin unpaused
+  it and the switch is made (`units (>= 1.0-1.7)`, `Remotes`,
+  `install_unit(override = TRUE)`, no `units:::`). What remains: the
+  alias-policy tests (`test-review-2g.R` #8 and #13, `test-review-2x.R`
+  #9 and #10, which wait on Robin) and the tests whose setup installs a
+  database id as another unit, which units now refuses.
   Nothing more is posted there without Robin's say.
 - The machine seized at about 07:26: `securityd` aborted ("error
   destroying Mutex: 16") under heavy keychain traffic and memory pressure,
@@ -461,7 +467,7 @@ or hold); no answer yet.
 - Left: watch CI on 2d9574b; bump the version to 0.1.0 (DESCRIPTION,
   README status line), tag and release v0.1.0 on GitHub; package H of
   the refactor sweep; findings 1, 2, 7, 21; `claim-word` noise; the
-  units switch (paused on upstream issue 451); Windows CI (Robin).
+  units switch (done 2026-11-25; the alias-policy tests remain); Windows CI (Robin).
 - Open with Robin: `output_missing` default (warn chosen); `repeats`
   default 3; guest `chunk_claims`; table digests for Jupyter and Julia;
   the hint "Publish it in code above" now that a publication below
@@ -476,7 +482,7 @@ or hold); no answer yet.
   Quarto no render order. Other multi-file test projects without
   `render:` have not been audited.
 - After the release, still open: package H of the refactor sweep;
-  findings 1, 2, 7, 21; `claim-word` noise; the units switch (issue 451);
+  findings 1, 2, 7, 21; `claim-word` noise; the alias-policy tests left by the units switch (done 2026-11-25);
   Windows CI; the questions listed under "Position after stage 7".
 
 ## Goal noted: weft everywhere (14 Nov, from Robin; design open)
@@ -548,6 +554,6 @@ in a later step.
 Open, waiting on Robin: the pieces of "weft everywhere" (section
 above); the default `skills` folders of `use_agent_docs()`. Deferred by Robin: Windows CI; the untested areas
 (Render and Knit buttons, Windows, a real `renv`); project formatters
-for named values in Jupyter and Julia documents. Paused: the `units`
-switch (upstream issue 451). At the next release: bump the version and
+for named values in Jupyter and Julia documents. Done 2026-11-25: the `units`
+switch (the alias-policy tests remain). At the next release: bump the version and
 run `dev/make-skill-folder.R`.
