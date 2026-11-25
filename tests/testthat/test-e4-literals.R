@@ -168,7 +168,7 @@ test_that("T10 C9: the rule that counts constructs and the one that judges numer
   expect_identical(nrow(r$x), 1L)
   expect_identical(r$x$context, "weft")
   expect_identical(r$x$line, 4L)
-  expect_identical(r$x$col, 11L)
+  expect_identical(r$x$col, 12L)  # the `[` of the span
 })
 
 # ---- T11: computed captions (regression; C10 is E1's) -----------------------------------------------------

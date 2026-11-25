@@ -189,7 +189,7 @@ test_that("T7 C3: a CRLF script reports a numeral at the same line and column as
 test_that("T7 C3: a UTF-8 byte-order mark is dropped and does not shift columns", {
   lines <- "weft(\"We found 12 sites\")"
   x <- lints(lint_proj(list("R/a.R" = list(lines = lines, bom = TRUE)), weft_yml = "draft: false"))
-  expect_identical(x$col, 17L)
+  expect_identical(x$col, 16L)
 })
 
 test_that("T7 C4/M2: a script that does not parse gives no finding, and lints() notes it", {
@@ -283,7 +283,7 @@ test_that("T14 C15: changes() lists a tier-2 finding on a line added to a script
   skip_if(Sys.which("git") == "")
   before <- list("a.qmd" = c("# A {#sec-a}", "", "Opening text here.", ""))
   # design ambiguity: the script is a new, untracked file, as f3d_scenario() makes new files for documents
-  after <- list("R/a.R" = c("x <- 1", "weft(\"[a | b]\")"))
+  after <- list("R/a.R" = c("x <- 1", "weft(\"[a | b]{.smallcaps}\")"))  # a span: lone-bar needs an attribute block
   dir <- f3d_scenario(before, after)
   f <- changes(path = dir)$findings
   expect_true("lone-bar" %in% f$rule)
@@ -304,7 +304,7 @@ test_that("T15 C15: verify() counts a script's numeral as it counts a document's
   expect_identical(nrow(rd$res$tolerated), 1L)
   expect_identical(nrow(rs$res$tolerated), 1L)
   expect_identical(rs$res$tolerated$rule, "numeral")
-  expect_identical(rs$res$tolerated$file, "R/a.R")
+  expect_identical(rs$res$tolerated$n, 1L)  # tolerated has rule and n, no file
 })
 
 test_that("T15 C15: verify(files = ) takes a script", {
@@ -318,7 +318,7 @@ test_that("T15 C15: verify(files = ) takes a script", {
 
 test_that("T16 C18/D15: a weft() call in a sourced script records the knitted document as file, context weft", {
   body <- c("```{r fig-a}", "f()", "```")
-  res <- d2_render(body, code = c("k <- 3", "source('R/f.R')"),
+  res <- d2_render(body, code = c("k <- 3", "source('R/f.R', local = TRUE)"),
                    files = list("R/f.R" = "f <- function() weft(\"[one | # sites]{n='k'}\")"))
   entries <- d2_ledger(res)
   w <- Filter(function(e) identical(e$context, "weft"), entries)

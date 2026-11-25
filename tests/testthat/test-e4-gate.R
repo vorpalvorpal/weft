@@ -12,7 +12,6 @@ test_that("T13 C17: a typed numeral added to a script fails as in a document, an
   expect_true("numeral" %in% res$added$rule)
   expect_true(all(res$added$file[res$added$rule == "numeral"] == "R/plot.R"))
   expect_identical(res$n_removed, 1L)
-  expect_false(is.na(res$trailer) && FALSE)
   res2 <- g_gate(d, msg = "Edit plot.\n\nWeft-Removed: 1")
   expect_false(res2$ok)
   expect_true("numeral" %in% res2$added$rule)

@@ -309,7 +309,7 @@ F3_TIERS <- c(numeral = 1, construct = 1, `block-start` = 1, `lone-bar` = 2, `if
 test_that("3a L6: lint_rules() is a data frame id, spec, tier, scope, what", {
   r <- lint_rules()
   expect_s3_class(r, "data.frame")
-  expect_identical(names(r), c("id", "spec", "tier", "scope", "what"))
+  expect_identical(names(r), c("id", "spec", "tier", "scope", "what", "scripts"))
   expect_type(r$id, "character")
   expect_type(r$spec, "character")
   expect_true(is.numeric(r$tier))
