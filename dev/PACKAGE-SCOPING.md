@@ -704,7 +704,8 @@ plain text is the markdown text read as follows, so the two never disagree:
   text.
 - **PL2** Code span: a run of n backticks, then text, then the next run of
   exactly n backticks. A code run of its content, verbatim (no rule applies
-  inside); when the content is not all spaces, the spaces at both ends are removed (Pandoc). A code span directly followed by
+  inside); when the content is not all spaces, the spaces at both ends are removed (Pandoc). A code
+  span directly followed by
   `{`, up to the `}` that closes an attribute block (PL9), is kept as written,
   block included (a named value left for the filter). A backtick run with no
   closing run is text.
@@ -721,11 +722,17 @@ plain text is the markdown text read as follows, so the two never disagree:
   that character. Any other `&` is text.
 - **PL7** Superscript `^...^` and subscript `~...~` (a `~~` is text): the
   content is not empty and holds no unescaped space, tab or newline and no
-  unescaped closing delimiter (Pandoc's rule); a backslash and a space in it is a no-break space (U+00A0, Pandoc's rule). A code span or math in it is opaque to the search for the closing delimiter. A superscript or subscript run of
+  unescaped closing delimiter (Pandoc's rule); a backslash and a space in it is a no-break space
+  (U+00A0, Pandoc's rule). A code span or math in it is opaque to the search for the closing
+  delimiter. A superscript or subscript run of
   the content, read by these rules.
 - **PL8** Emphasis: `***...***` (strong emphasis), `**...**` and `__...__`
   (strong), `*...*` and `_..._` (emphasis). An opening run is not followed by
-  white space; its closing run is the first run of the same character after it that is not preceded by white space and is not used up closing an emphasis opened inside, as Pandoc reads it: a run longer than the opening run closes an inner and an outer emphasis together (`**Total for *E. coli***`), and an opening run of three may be closed in two steps (`***Eucalyptus* sp.**`). A code span or math between them is opaque to the search. For `_`, the opening run is not
+  white space; its closing run is the first run of the same character after it that is not preceded
+  by white space and is not used up closing an emphasis opened inside, as Pandoc reads it: a run
+  longer than the opening run closes an inner and an outer emphasis together (`**Total for *E.
+  coli***`), and an opening run of three may be closed in two steps (`***Eucalyptus* sp.**`). A code
+  span or math between them is opaque to the search. For `_`, the opening run is not
   preceded by a letter or digit and the closing run is not followed by one (so
   `snake_case_name` is text). The content is not empty and is read by these
   rules. A run with no closing run is text (`5 * 3 and 2 * 4` is text; `2*3*4`
@@ -1164,7 +1171,9 @@ decision ids; an inline R construct inside a comment is read like any other
 
 **1.10.1** A caption in a chunk option is prose. A construct works in
 `fig-cap`, `fig-alt`, `fig-subcap` and `tbl-cap` under Quarto, and in
-`fig.cap` and `fig.alt` under rmarkdown. A named value works in any caption, on any chunk: in a caption the hooks resolve, R reads it after the chunk (1.12.12); in any other caption the filter gives it the name's last published value (1.12.7).
+`fig.cap` and `fig.alt` under rmarkdown. A named value works in any caption, on any chunk: in a
+caption the hooks resolve, R reads it after the chunk (1.12.12); in any other caption the filter
+gives it the name's last published value (1.12.7).
 
 ````
 ```{r}
@@ -1199,7 +1208,9 @@ not from `gt::tab_caption()`.
 `>`). A construct in any other form of scalar there is a construct error.
 Bare inline R is not a construct (1.1.8), so this rule does not apply to it:
 ``title: "Report `r x`"`` is legal and prints as stock. In a book or a
-website, `title` holds no construct at all (1.10.11). A named value works in any of the four fields, in any form of scalar, and in either metadata block: the filter resolves it after the body with the name's last published value (1.12.7); R does not read it there (1.12.12).
+website, `title` holds no construct at all (1.10.11). A named value works in any of the four fields,
+in any form of scalar, and in either metadata block: the filter resolves it after the body with the
+name's last published value (1.12.7); R does not read it there (1.12.12).
 
 **1.10.8** Front matter is evaluated before any chunk runs. A construct there
 sees only what exists at that point: `params`, an object made in `.Rprofile`,
@@ -1223,7 +1234,9 @@ abstract: |
 
 **1.10.10** `weft()` resolves markup in R code (§3.6). Text that a chunk prints
 with `results: asis` is not prose the hooks see; it goes through `weft()`: the
-chunk prints the object, and knitr writes its markdown. A caption option that R computes as a `weft` object is written in its markdown form. A named value or a span in text that R code prints without `weft()` is not read by R, and R publishes nothing for it (1.12.14).
+chunk prints the object, and knitr writes its markdown. A caption option that R computes as a `weft`
+object is written in its markdown form. A named value or a span in text that R code prints without
+`weft()` is not read by R, and R publishes nothing for it (1.12.14).
 
 **1.10.11** In a book or a website project, a construct in a document's
 `title`, in either metadata block, is a construct error found from the source.
@@ -1290,12 +1303,16 @@ difference between a value and a vector of one.
 
 ### 1.12 Named values
 
-A named value is a value written by its name. Where R runs (the prose of a knitr document, a caption the hooks resolve, a `weft()` string) R reads the name, as `` `r x` `` reads an expression (1.12.12). Elsewhere the filter of 2.13 resolves it from what code publishes. These rules hold for every language and every engine.
+A named value is a value written by its name. Where R runs (the prose of a knitr document, a caption
+the hooks resolve, a `weft()` string) R reads the name, as `` `r x` `` reads an expression
+(1.12.12). Elsewhere the filter of 2.13 resolves it from what code publishes. These rules hold for
+every language and every engine.
 
 **1.12.1** A **named value** is a code span holding one name, directly
 followed by an attribute block that carries a weft class or a renderer key
 (`digits`, `sigfig`, `sep`, `last`, `trunc`, `none`, `unit`): `` `depth`{.num} ``.
-Where R runs, R reads the name (1.12.12); elsewhere code publishes it (2.13, 3.8). A name is ASCII letters, digits, `_` and
+Where R runs, R reads the name (1.12.12); elsewhere code publishes it (2.13, 3.8). A name is ASCII
+letters, digits, `_` and
 `.`, starting with a letter or `_`, not ending in `.`, at most 64
 characters, and not one of `TRUE FALSE True False true false NA NULL None
 nothing missing Inf NaN`. A dot is part of the name, never a path: there is
@@ -1317,7 +1334,9 @@ shortest digits, no trailing `.0`, and the exponent as R writes it (`1e+23`,
 markdown. `.val` is in the number stage's at-most-one group (1.4.2), so a
 wording class with it is a construct error. A text or collapse class may go
 with it. `.val` is a construct: a missing value is "no value", a check
-counts, and the ledger records it. `digits` on `.val` is ignored. R prints `.val` from the value's record (3.8.4), so it prints what the filter prints for that record; a value whose record is refused or an error (a `units` quantity, a data frame, a list, a function) is a value error under `.val`.
+counts, and the ledger records it. `digits` on `.val` is ignored. R prints `.val` from the value's
+record (3.8.4), so it prints what the filter prints for that record; a value whose record is refused
+or an error (a `units` quantity, a data frame, a list, a function) is a value error under `.val`.
 
 **1.12.3** A code span with a weft class whose text is neither a name nor
 inline R is a construct error.
@@ -1386,7 +1405,9 @@ text. One publication, several identical ones, and a values file and a block
 that agree are one value; a `missing` record counts as a value. The record used
 is the last publication, with its `checks`, which run at the use as any
 record's do (2.13.4). Its ledger entry is a named value's entry, with the
-printed text of that record. This holds in every document the filter resolves. In a knitr document a named value the hooks leave because R does not bind it where it stands (1.12.12) is published by the hooks once R binds it (2.13.11), so its value is in a block below.
+printed text of that record. This holds in every document the filter resolves. In a knitr document a
+named value the hooks leave because R does not bind it where it stands (1.12.12) is published by the
+hooks once R binds it (2.13.11), so its value is in a block below.
 
 When the document publishes more than one value under the name, the use is a
 collected failure of kind "no value", and the render fails at the end
@@ -1396,7 +1417,10 @@ needs a name that takes one value (rule 1.12.7)." Its hint: "Move the sentence
 below the value it means, or publish that value under a name of its own." A
 name the document never publishes is a "no value" failure: "no value is
 published under the name `%s` in this document (rule 1.12.7)." Its hint is
-"Publish it in code in this document: put(%s=...) in Python, @put %s in Julia, or a values file; under knitr, set it in an R chunk, and pass text an R chunk prints through weft(). A cell with include: false or output: false publishes nothing on the jupyter and julia engines." Captions and front-matter fields take the
+"Publish it in code in this document: put(%s=...) in Python, @put %s in Julia, or a values file;
+under knitr, set it in an R chunk, and pass text an R chunk prints through weft(). A cell with
+include: false or output: false publishes nothing on the jupyter and julia engines." Captions and
+front-matter fields take the
 last value and have no several-values failure.
 
 Inline R is not covered: `` `r n_sites` `` above the chunk is evaluated where
@@ -1405,21 +1429,38 @@ found", the failure's hint is "If `%s` is computed further down, write it as a
 named value, `%s`{.num}, which takes its value from below (rule 1.12.7)." No
 setting turns the fallback on or off.
 
-**1.12.8** A named value prints its value as the resolver where it stands formats it: R in a knitr document's prose and resolved captions and in a `weft()` string (1.12.12), the filter elsewhere. One name with one record prints one text in every document and on every engine, for the classes the filter implements (1.12.11, 2.13.3): `.val` and every number class print the same from R and from the filter. R carries more than the filter: a `units` quantity, a unit ladder, a dictionary entry and a project formatter print only where R reads the name; where the filter resolves it they are a value error. In a knitr document write names or R expressions as you prefer: `` `x`{.num} `` and `` `r x`{.num} `` print the same, except for objects of R itself (1.12.12). On the jupyter and julia engines and in plain markdown, write names: no R evaluates an expression there.
+**1.12.8** A named value prints its value as the resolver where it stands formats it: R in a knitr
+document's prose and resolved captions and in a `weft()` string (1.12.12), the filter elsewhere. One
+name with one record prints one text in every document and on every engine, for the classes the
+filter implements (1.12.11, 2.13.3): `.val` and every number class print the same from R and from
+the filter. R carries more than the filter: a `units` quantity, a unit ladder, a dictionary entry
+and a project formatter print only where R reads the name; where the filter resolves it they are a
+value error. In a knitr document write names or R expressions as you prefer: `` `x`{.num} `` and ``
+`r x`{.num} `` print the same, except for objects of R itself, for a function (R leaves the name for
+the filter, which fails it as it would without R, 1.12.12), and for a name a guest publishes later
+than R changes it (the guest's value is the filter's, 1.12.13). On the jupyter and julia engines and
+in plain markdown, write names: no R evaluates an expression there.
 
 **1.12.9** A named value with only a renderer key prints as `.num`, or as
 `.pct` when the default governor class (1.5.18) is `pct`. `none` with no
 collapse class, and `sigfig` below 1, are construct errors, as are `digits`
 and `sigfig` that are not whole numbers from 0 to 100. A governor key on a
-named value is a construct error (1.3.3). So is a `claim` or `level` key, on a named value or on a span the filter resolves, whoever reads the name: the filter does not read it, and
-the check would never run (2.13.4). `unit` is a renderer key (1.12.1). Where R reads the name it works as on an R value (4.4.23); the filter has no units, so where the filter resolves a named value with it, or an `n`, `sign` or `list` span with it, it is a value error (2.13.3). The printed-as-zero warning
+named value is a construct error (1.3.3). So is a `claim` or `level` key, on a named value or on a
+span the filter resolves, whoever reads the name: the filter does not read it, and
+the check would never run (2.13.4). `unit` is a renderer key (1.12.1). Where R reads the name it
+works as on an R value (4.4.23); the filter has no units, so where the filter resolves a named value
+with it, or an `n`, `sign` or `list` span with it, it is a value error (2.13.3). The printed-as-zero
+warning
 (2.6.11) applies to float and decimal records, not integers. `#` and `##`
 are read only inside an `n` arm.
 
 **1.12.10** An id on a named value (1.7.5) goes on the span the filter
 leaves in its place, and the filter's constructs may refer to it. A
 duplicate id is a construct error, and an id defined inside an arm is dropped
-at the end of the arm. In a knitr document a span the hooks resolve may refer to an id on a named value R read; a reference to an id on a named value the hooks left for the filter is a "no value" failure that says so. A span the filter resolves cannot refer to an id on an R value or on a named value R read; that is a construct error found from the source.
+at the end of the arm. In a knitr document a span the hooks resolve may refer to an id on a named
+value R read; a reference to an id on a named value the hooks left for the filter is a "no value"
+failure that says so. A span the filter resolves cannot refer to an id on an R value or on a named
+value R read; that is a construct error found from the source.
 
 **1.12.11** The filter implements the classes `.num`, `.pct`, `.val`, `.sci`,
 `.p`, `.date`, `.plus`, `.no`, `.word`, `.count`, `.ord`, `.and`, `.or`, `.pairs`,
@@ -1462,15 +1503,23 @@ by name. A binding that is a function is not a value.
   1.12.12)."
 - In a knitr document a name that is not bound where it stands, or is a
   function, is left as written for the filter (1.12.7), and the hooks
-  publish it once R binds it (2.13.11). So is a name a guest published later
+  publish it once R binds it to a value (2.13.11). R never publishes a
+  function: the filter takes a guest's value for the name if one is published
+  and otherwise fails "no value", as it would without R. So is a name a guest published later
   than R last changed it (1.12.13).
-- R never reads a named value in front matter, in a caption the hooks do not
+- R never reads a named value in front matter (any form, a block scalar
+  included) or in an end metadata block, in a caption the hooks do not
   resolve (2.3.5), in text a chunk prints (1.12.14), or in a string given to
   Python's `weft_str()`, whose names are Python's: all of these are the
   filter's.
 - When R reads a name above the code that sets it and finds a value the
   session held before the render began, and the document later assigns the
-  name a new value, the use is a "no value" failure at the end of the knit:
+  name a new value, the use is a "no value" failure at the end of the knit,
+  unless an R chunk executed above the read assigns the name (`<-`, `=`,
+  `->`, `<<-`, `->>`, `assign("name", ...)` or a `for` variable, read from the
+  parsed code; `list2env()`, `eval()`, `source()`, `load()`, `assign()` with a
+  name that is not a literal, and code that does not parse count as assigning
+  every name, so the check errs towards not failing):
   "`%s` was read above the code that sets it in this render, from a value
   the R session held before the render began (rule 1.12.12)." Its hint:
   "Render in a fresh R session, as quarto render and the Knit button do, or
@@ -1598,7 +1647,8 @@ knitr's cache, has `eval: false`, or uses an engine other than R. A construct
 in the caption of a chunk with `cache: true` (set on the chunk or for the
 document), `eval: false` or another engine is a construct error, found from
 the source. The message says to write the caption in a figure or table div
-(1.10.5). A named value in such a caption is not an error: the filter resolves it with the name's last published value (1.12.7), and R does not read it (1.12.12).
+(1.10.5). A named value in such a caption is not an error: the filter resolves it with the name's
+last published value (1.12.7), and R does not read it (1.12.12).
 
 ### 2.4 `claim()` by context
 
@@ -2308,7 +2358,8 @@ from the output, then every cell div left with no content. Other classes and
 attributes on the block are ignored, except `file` (2.13.10). A block may sit
 anywhere Pandoc reads a code block; a block in metadata is not read.
 
-**2.13.2** The filter resolves the named values the hooks leave (1.12.12), every construct in a document that is not knit, and a span that reaches Pandoc in a knit document
+**2.13.2** The filter resolves the named values the hooks leave (1.12.12), every construct in a
+document that is not knit, and a span that reaches Pandoc in a knit document
 still carrying a governor in the grammar of 1.12.4. It runs before
 `weft-check.lua`, in the same extension. It works in document order: a block
 adds its names when the walk reaches it. Figure, table and image captions, then the front-matter fields `title`,
@@ -2325,7 +2376,9 @@ size, by an algorithm on its digits: whole when every fraction digit is 0,
 `.pct` multiplies by 100 by moving the decimal point. The refusal beyond
 2^53 of 2.12.5 does not apply to a named value. A class the filter does not
 implement is a value error that says so, never a pass-through and never the
-record's text. R reads the names of a knitr document's prose and resolved captions (1.12.12), so this paragraph is about the names the filter resolves. That covers units (`.uname`, `.usym`, `.nounit`, and `unit=` on a named value
+record's text. R reads the names of a knitr document's prose and resolved captions (1.12.12), so
+this paragraph is about the names the filter resolves. That covers units (`.uname`, `.usym`,
+`.nounit`, and `unit=` on a named value
 or on an `n`, `sign` or `list` span, with or without a class: a named value
 whose only weft key is `unit=` is never left as code), project formatters (named in `formatters:` of the configuration), and a
 `lang` whose words weft does not ship. The text of a filter's output is the
@@ -2435,23 +2488,26 @@ book share values only by each reading the same file.
 
 **2.13.11** In a knit, the hooks publish what the filter will
 resolve and nothing else. Under `names_from: r` their list is: the name of
-each named value in front matter; the name of each named value, and each
-name in a governor value of 1.12.4 to 1.12.6, in a caption the hooks do not
-resolve (2.3.5); and each name the hooks left for the filter because R did
-not bind it where it stood or bound a function (1.12.12), from that point
-on. A name in the governor of a span in prose, a named value R read, and
+each named value in front matter and in an end metadata block; the name of
+each named value in a caption the hooks do not resolve (2.3.5), as the
+source shows it or as the hooks find it at run time (caching set by
+`opts_chunk$set(cache = TRUE)`, say); and each name the hooks left for the
+filter because R did not bind it where it stood or bound a function
+(1.12.12), from that point on. A governor name in a caption is never on it
+(the construct there is an error, 2.3.5, and publishing its tokens would
+leak the value). A name in the governor of a span in prose, a named value R read, and
 anything written only in a chunk's code are never on it. At the start of
 each block of prose and at the end of the document, the hooks publish each
 listed name that R binds in the knit's environment (1.12.12's walk) and
 whose binding changed since the name's last publication by anyone, or that
-was never published; a function is published as an error record. Python's
+was never published; a function is not published at all (1.12.12). Python's
 `put()` and `auto()` and Julia's `put` and `@put` publish under knitr as
 3.8.7 and 3.8.8 say; the hooks note each such publication with R's binding
 at that moment, which decides 1.12.13. Under `names_from: python` or
 `julia` the hooks publish nothing themselves. There is no gate under knitr:
 a document with no named value and no span in an unresolved caption writes
-no block. A value that cannot be published is published as an error record,
-so the failure shows where the name is used.
+no block. A value that cannot be published (not a function) is published as an error
+record, so the failure shows where the name is used.
 
 **2.13.12** A cell on the jupyter or julia engine with `include: false` or
 `output: false` publishes nothing. A cell on the knitr engine with
@@ -2472,7 +2528,12 @@ document the hooks resolve, a leftover span whose governor fits 1.12.4 is
 resolved by the filter; any other is left for `weft-check.lua`, its content
 still resolved.
 
-**2.13.14** The hooks keep R values and spans. R values always have the resolver `hooks`, and so does a named value in prose, in a resolved caption and in a `weft()` string of a knitr document under `names_from: r`; a named value in front matter, in an unresolved caption or under `names_from: python` or `julia` has `filter`. A document served from freeze, a cache, or a kept kernel
+**2.13.14** The hooks keep R values and spans. R values always have the resolver `hooks`, and so
+does a named value in a `weft()` string of a knitr document under every `names_from`; a named value
+in prose or in a resolved caption has `hooks` under `names_from: r`, and has `filter` under
+`names_from: python` or `julia`. A named value in front matter (any form, a block scalar included),
+in an end metadata block or in an unresolved caption has `filter`. A document served from freeze, a
+cache, or a kept kernel
 carries blocks of another run (2.13.8). Under knitr, the hooks' end-of-document
 check does not count named values, and a failure is reported by the resolver
 that owns its construct. When the hooks stop a render, Pandoc does not run, and
@@ -2532,7 +2593,7 @@ it there. The rule is this.
   not resolve", with the excerpt (2.5.3).
 - The scanner reads the same constructs: `handle_named` gives a named value in
   math or raw LaTeX a `named` row with `tex` set (`math` or `raw`), so the
-  lints, the gate and the publication check of 2.13.11 see it. A construct in
+  lints, the gate and the publication of the names (3.8.7) see it. A construct in
   a `{=latex}` fence or a `{=latex}` code span is found in the source too.
 - A construct's line is its own. Where the document has a raw environment
   that is a math environment, the filter takes the text as math (no
@@ -2914,7 +2975,8 @@ each keep their own iteration's values. The functions inline code calls by name
 (`claim`, `plural`, `glue_vec`, `u`, `dict_glossary`, `py_value`,
 `jl_value` and every `fmt_*`) are visible to the markup even when weft is not
 attached; a function of the same name that `.envir` can see wins. Bare inline R
-is evaluated as knitr evaluates it (1.1.8). A named value is read from `.envir` (1.12.12); a name not bound there, or bound to a function, is a "no value" failure.
+is evaluated as knitr evaluates it (1.1.8). A named value is read from `.envir` (1.12.12); a name
+not bound there, or bound to a function, is a "no value" failure.
 
 **3.6.3** A `weft` object is a character vector of class `c("weft",
 "character")` whose content is the plain text of each element (1.4.24) and whose
@@ -2983,7 +3045,9 @@ the same way, and is not a caption string. The context of what is found there is
 `weft`.
 
 **3.6.8** From a Python chunk, `weft_str()` is in the module (2.12.8). It calls
-`weft()` and returns the markdown as a `str`. The expressions in its markup are R. A named value in its markup is left for the filter: in a Python chunk a name is Python's, published by `put()` or `auto()`.
+`weft()` and returns the markdown as a `str`. The expressions in its markup are R. A named value in
+its markup is left for the filter: in a Python chunk a name is Python's, published by `put()` or
+`auto()`. Outside a knit a bare name prints as written.
 
 ### 3.7 `arms()` and `rehearse()`
 
@@ -3090,7 +3154,11 @@ with no back end it is printed. A Python value is read as §1.11 says;
 an integer of any size is published exactly.
 
 **3.8.7** `auto(path=None)` publishes, after each cell, the names the document
-names that the cell changed. The path of the source is
+names that the cell changed. The names the document names are: each `NAME` of
+a `` `NAME`{ `` code span (1.12.1), and each name in a governor value (`n`,
+`if`, `sign` or `list`) in any form of 1.2.2, outside string literals, in the
+source and in the files it includes through `{{< include >}}`, up to 8 deep. The path of the source
+is
 `QUARTO_DOCUMENT_PATH` joined to `QUARTO_DOCUMENT_FILE`, else the argument; with
 neither, it says which variables are not set. The cell that calls `auto()` is
 published. Under a Jupyter kernel it works. On the jupyter engine it has a gate: it publishes
@@ -3100,7 +3168,8 @@ elements raises from `auto()` as from `put()`, and no error record is
 published. Under a knit, `put()` and `auto()` in a Python chunk hand their
 records to the hooks (3.8.3), and nothing is printed in the chunk except by
 `put()` with `results = "asis"`; `auto()` there publishes, at the end of each
-Python chunk, the names R gives it that are bound in Python's `__main__` and
+Python chunk, under every `names_from`, the names R gives it that are bound in Python's `__main__`
+and
 changed: the name of every named value in the source, and each name in a
 governor value of 1.12.4 to 1.12.6 in a Python or Julia chunk's code or in a
 chunk's options. The gate of the jupyter engine does not apply under a knit.
@@ -3117,8 +3186,10 @@ their records to the hooks, as Python's do (3.8.7). Julia has no
 `_quarto.yml` does. Under knitr, R puts the package on the load path.
 
 **3.8.9** Known gaps. Julia has no `auto()`. On the jupyter engine, `auto()`
-cannot tell that a hidden cell's output was dropped (2.13.12). There is no `checked()` that makes a claim from Python or Julia count where the name is
-used (3.9). In a knitr document R's binding counts as later than a guest's publication only when its value changed (1.12.13). R does not read a named value in a Python `weft_str()` string.
+cannot tell that a hidden cell's output was dropped (2.13.12). There is no `checked()` that makes a
+claim from Python or Julia count where the name is
+used (3.9). In a knitr document R's binding counts as later than a guest's publication only when its
+value changed (1.12.13). R does not read a named value in a Python `weft_str()` string.
 
 ### 3.9 `claim()` from Python and Julia
 
@@ -3522,7 +3593,8 @@ inside it; what a function the document defines reads, or whether it draws
 random numbers; two checks combined or chained; the class of an R value;
 coverage across documents; quantities in different units; and Python and
 Julia checks. The rebinding count is read from the source, so it misses
-`assign()` with a computed name, `list2env()`, a value changed in place without an assignment, and a data file
+`assign()` with a computed name, `list2env()`, a value changed in place without an assignment, and a
+data file
 read twice that changes between the reads. Since the gate's verdicts decide
 nothing (6.3.7), such a miss costs a wrong line in a report, not a wrong
 commit. `verify(since = )` keeps listing constructs only (8.2.2), and the filter
@@ -5362,7 +5434,8 @@ All rules have scope `file`.
   its governor value with spaces collapsed, unparsed (7.1.4). R's parse check
   (5.3.5) does not apply to either. A document is decided to be the filter's or
   the hooks' from its source lines (2.13.13). `scan` rows carry a `resolver`
-  column, `hooks` or `filter`; named rows are `hooks` or `filter` as 2.13.14 says; the `engine` rule reads a named value as needing no R whatever its column.
+  column, `hooks` or `filter`; named rows are `hooks` or `filter` as 2.13.14 says; the `engine` rule
+  reads a named value as needing no R whatever its column.
 
 ---
 

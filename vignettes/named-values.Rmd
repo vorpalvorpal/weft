@@ -15,7 +15,8 @@ ri <- function(x) knitr::inline_expr(x)
 This article is for authors whose prose cannot call R: a Quarto document on
 the Jupyter or Julia engine, a plain Pandoc document, or a chapter built
 from a values file. It is also for knitr authors: in a knitr document a name
-reads R, as `` `r x` `` does; elsewhere code publishes it. It assumes you know `vignette("values", package =
+reads R, as `` `r x` `` does; elsewhere code publishes it. It assumes you know `vignette("values",
+package =
 "weft")` and `vignette("wording", package = "weft")`. After it you will be
 able to write a value in a sentence by name, publish it from Python, Julia
 or a pipeline, say what the resolver does with it, and know what fails and what is
@@ -53,7 +54,8 @@ Mean depth was 3.14 m. One site read above the trigger.
 
 The block in the middle is how code hands a value over. You rarely write one
 by hand: `put()` in Python, `@put` in Julia and `weft_values_write()` in R
-write it for you, and in a knitr document the hooks write what is needed. A name is ASCII letters, digits, `_` and `.`, starting with a letter or
+write it for you, and in a knitr document the hooks write what is needed. A name is ASCII letters,
+digits, `_` and `.`, starting with a letter or
 `_`, and at most 64 characters. A dot is part of the name: `n.sites` is one
 name, and there is no `site.depth` that reaches into a value. A name cannot
 be `TRUE`, `FALSE`, `True`, `False`, `true`, `false`, `NA`, `NULL`, `None`,
@@ -164,7 +166,9 @@ own values:
 
 ````{verbatim, lang = "markdown"}
 ```{r, results = "asis"}
+ntu <- c(8.2, 7.9, 9.1)
 for (n_sites in 2:4) {
+  mean_ntu <- ntu[n_sites - 1]
   cat(format(weft("We sampled `n_sites`{.word} sites, mean `mean_ntu`{.num} NTU."),
              target = "markdown"), "\n")
 }
@@ -175,6 +179,8 @@ It prints:
 
 ```text
 We sampled two sites, mean 8.2 NTU.
+We sampled three sites, mean 7.9 NTU.
+We sampled four sites, mean 9.1 NTU.
 ```
 
 A named value in text that R prints without `weft()` is not read, and the
@@ -437,7 +443,8 @@ More differences:
   when there is exactly one (see "A name used above its value" below).
   Captions the hooks do not resolve and the front-matter fields `title`,
   `subtitle`, `abstract` and `description` see each name's last published
-  value, so a named value works in any caption on any chunk. A named value in another front-matter field is
+  value, so a named value works in any caption on any chunk. A named value in another front-matter
+  field is
   a failure that says the filter does not resolve that field.
 - A named value in an arm that is not chosen is never read.
 
@@ -541,7 +548,8 @@ claim in the inline R or as a guard span:
 The worst reading was `r claim(worst, . < 50)`{.num} NTU.
 ````
 
-A check can also travel with the value in a values file: `claim()` given directly to `weft_values_write()`
+A check can also travel with the value in a values file: `claim()` given directly to
+`weft_values_write()`
 is captured, and counts each time the name is used in a sentence:
 
 ```r
@@ -702,7 +710,10 @@ The share was $s = `share`{.pct}$ of the flow, and the volume
 $$ V = `volume`{.sci} $$
 `````
 
-gives the formulas `s = 12.3\%` and `V = 1.2 \times 10^{6}`. The same holds in
+gives the formulas `s = 12.3\%` and `V = 1.2 \times 10^{6}`. In a knitr
+document R reads the name there, as it does in prose, so `share` and `volume`
+need no block when R binds them; the filter resolves the name only where R
+left it. The same holds in
 a math environment such as `align` and in raw LaTeX (a `{=latex}` fence, another
 `\begin{...}` environment, a code span followed by `{=latex}`), where the output
 is wrapped in `\ensuremath{...}`.
