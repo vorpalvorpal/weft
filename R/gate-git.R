@@ -88,14 +88,16 @@ git_sizes <- function(top, blobs) {
   stats::setNames(sz, ids)
 }
 
-# the bytes of blobs, from one `cat-file --batch` (a named list of raw vectors)
-git_blobs <- function(top, blobs) {
-  blobs <- unique(blobs)
-  if (!length(blobs)) return(list())
-  r <- git_ok(top, c("cat-file", "--batch"), input = blobs)
+# the bytes of blobs, from one `cat-file --batch`, as an environment of raw vectors named by blob id
+# (`[[id]]` is NULL for one git does not have as a blob). `cache` holds the blobs already read, which are not
+# read again: pass one environment for a whole run.
+git_blobs <- function(top, blobs, cache = new.env(parent = emptyenv())) {
+  blobs <- unique(blobs[!is.na(blobs) & nzchar(blobs)])
+  need <- blobs[!vapply(blobs, exists, NA, envir = cache, inherits = FALSE)]
+  if (!length(need)) return(cache)
+  r <- git_ok(top, c("cat-file", "--batch"), input = need)
   x <- r$out
   n <- length(x)
-  out <- list()
   pos <- 1L
   nl <- as.raw(10L)
   while (pos <= n) {
@@ -107,11 +109,11 @@ git_blobs <- function(top, blobs) {
     h <- strsplit(hdr, " ", fixed = TRUE)[[1L]]
     if (length(h) >= 3L && h[2L] == "blob") {
       size <- as.integer(h[3L])
-      out[[h[1L]]] <- if (size > 0L) x[pos:(pos + size - 1L)] else raw()
+      assign(h[1L], if (size > 0L) x[pos:(pos + size - 1L)] else raw(), envir = cache)
       pos <- pos + size + 1L
     }
   }
-  out
+  cache
 }
 
 # ---- classifying a project's side (G6-G8) -------------------------------------------------------------
@@ -123,11 +125,11 @@ is_doc_path <- function(rel) (grepl(DOC_EXT_RE, rel) | grepl(SCRIPT_EXT_RE, rel)
 is_content_path <- function(rel) grepl(GATE_CONTENT_RE, rel) | basename(rel) == ".Rprofile" | is_doc_path(rel)
 
 # The folders of a project's targets store: `_targets`, or `_targets.yaml`'s `main: store:`.
-store_dirs <- function(top, ent) {
+store_dirs <- function(top, ent, cache = new.env(parent = emptyenv())) {
   s <- "_targets"
   i <- match("_targets.yaml", ent$rel)
   if (!is.na(i) && ent$mode[i] %in% c("100644", "100755")) {
-    b <- git_blobs(top, ent$blob[i])[[ent$blob[i]]]
+    b <- git_blobs(top, ent$blob[i], cache)[[ent$blob[i]]]
     y <- if (length(b)) tryCatch(yaml_read_text(rawToChar(b)), error = function(e) NULL) else NULL
     v <- tryCatch(y$main$store, error = function(e) NULL)
     if (is.character(v) && length(v) == 1L && nzchar(v)) s <- c(s, sub("/+$", "", sub("^\\./", "", v)))

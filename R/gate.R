@@ -94,6 +94,8 @@ gate_state <- function(w) {
   g$cache <- gate_cache_new(w$common)
   g$notes <- character()
   g$added <- new.env(parent = emptyenv())
+  # the bytes of every blob read in this run, by id: a blob never changes
+  g$blobs <- new.env(parent = emptyenv())
   g
 }
 
@@ -116,7 +118,7 @@ gate_side_entries <- function(g, ent, prefix, deeper = character()) {
     e$rel <- e$path
   }
   for (d in deeper) e <- e[!startsWith(e$path, paste0(d, "/")), , drop = FALSE]
-  stores <- store_dirs(g$top, e)
+  stores <- store_dirs(g$top, e, g$blobs)
   in_store <- rep(FALSE, nrow(e))
   for (s in stores) in_store <- in_store | e$rel == s | startsWith(e$rel, paste0(s, "/"))
   e <- e[!in_store, , drop = FALSE]
@@ -195,7 +197,7 @@ gate_script_read <- function(g, e, docs = rep(TRUE, nrow(e))) {
   # the `scripts_skip` of each `_weft.yml` of the side: read from its blob, the default when it does not read
   skips <- list()
   if (length(all_yml)) {
-    bl <- git_blobs(g$top, e$blob[all_yml])
+    bl <- git_blobs(g$top, e$blob[all_yml], g$blobs)
     for (j in all_yml) {
       b <- bl[[e$blob[j]]]
       y <- if (length(b)) tryCatch(yaml_read_text(rawToChar(b)), error = function(err) NULL) else NULL
@@ -215,7 +217,7 @@ gate_script_read <- function(g, e, docs = rep(TRUE, nrow(e))) {
     read[k] <- !script_skipped(inner, sk)
   }
   if (any(read)) {
-    bl <- git_blobs(g$top, e$blob[scr[read]])
+    bl <- git_blobs(g$top, e$blob[scr[read]], g$blobs)
     read[read] <- vapply(e$blob[scr[read]], function(b) {
       x <- bl[[b]]
       length(x) > 0L && bytes_mention_weft(x)
@@ -278,7 +280,7 @@ gate_materialise <- function(g, e, root) {
   dirs <- dirs[dirs != "."]
   for (d in dirs[order(nchar(dirs))]) dir.create(file.path(root, d), recursive = TRUE, showWarnings = FALSE)
   ok <- e$ok
-  blobs <- git_blobs(g$top, e$blob[ok])
+  blobs <- git_blobs(g$top, e$blob[ok], g$blobs)
   for (i in which(ok)) {
     b <- blobs[[e$blob[i]]]
     writeBin(if (is.null(b)) raw() else b, file.path(root, e$rel[i]))
