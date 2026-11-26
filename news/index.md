@@ -84,6 +84,17 @@
   [`weft()`](https://vorpalvorpal.github.io/weft/reference/weft.md)
   string in a `!expr` caption of a chunk inside a block quote is now
   read by the lints, as it is outside one.
+- A string given to
+  [`lookup()`](https://vorpalvorpal.github.io/weft/reference/lookup.md)
+  or [`brk()`](https://vorpalvorpal.github.io/weft/reference/lookup.md)
+  in an R chunk, and a string the `string-markup` lint reports, is
+  placed at its own column after a tab, and a construct in a phrase
+  after an escaped newline (`\n`) on its own line, as for a
+  [`weft()`](https://vorpalvorpal.github.io/weft/reference/weft.md)
+  string. A caption written as a string in a chunk header
+  (`fig.cap = "..."`) below a block-quoted chunk is placed at its own
+  column by the scanner (it was placed as many characters early as the
+  quote markers above it).
 - [`print()`](https://rdrr.io/r/base/print.html) of a `weft` object
   draws emphasis in a console that supports it (italic, bold, and
   failure markers in bold red); `format(x, target = "ansi")` gives that
