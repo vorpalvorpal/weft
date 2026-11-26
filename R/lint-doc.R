@@ -1266,12 +1266,11 @@ dl_fig_divs <- function(src, prefix) {
 }
 
 lint_figure <- function(src, ctx) {
-  out <- list()
-  # add() records a finding in `out`, defined beside it, with `<<-`: it is called from seven places in the loops
-  # below, and a pure form would repeat `out[[length(out) + 1L]] <-` at each
+  fnd <- new.env(parent = emptyenv())
+  fnd$out <- list()
   add <- function(pos, text, part, msg_text, hint) {
-    out[[length(out) + 1L]] <<- finding_at(src, pos, pos, "figure", text, msg_text, hint,  # <<- ok: see above
-                                           context = if (part == "chunk") "chunk" else "prose")
+    fnd$out[[length(fnd$out) + 1L]] <- finding_at(src, pos, pos, "figure", text, msg_text, hint,
+                                                  context = if (part == "chunk") "chunk" else "prose")
   }
   ls <- src$line_start
   # chunks
@@ -1368,17 +1367,17 @@ lint_figure <- function(src, ctx) {
       }
     }
   }
-  bind_findings(out)
+  bind_findings(fnd$out)
 }
 
 lint_table_caption <- function(src, ctx) {
-  out <- list()
+  fnd <- new.env(parent = emptyenv())
+  fnd$out <- list()
   ls <- src$line_start
   lines <- src$lines
   nl <- length(lines)
-  # add() records a finding in `out`, defined beside it, with `<<-`, for the same reason as in lint_figure()
   add <- function(pos, text, ref) {
-    out[[length(out) + 1L]] <<- finding_at(  # <<- ok: see above
+    fnd$out[[length(fnd$out) + 1L]] <- finding_at(
       src, pos, pos, "table-caption", text, sprintf("The table `%s` has no caption (rule 5.9.1).", ref),
       "Add a caption line `: Caption {#tbl-name}` after the table.", spec = "5.9.1")
   }
@@ -1417,7 +1416,7 @@ lint_table_caption <- function(src, ctx) {
       if (!dl_has_option(ch$options[[k]], c("tbl-cap", "tbl.cap"))) add(ls[ch$open[k]], ch$label[k], ch$label[k])
     }
   }
-  bind_findings(out)
+  bind_findings(fnd$out)
 }
 
 # ---- tier-2 findings for changes() (L40, L41) --------------------------------------------------------------

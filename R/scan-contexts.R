@@ -304,9 +304,10 @@ scan_front_matter_rows <- function(lines, file = NA_character_, config = NULL,
   rows$option <- field
   # the hooks' rules about where a construct may sit do not apply to what the filter resolves
   top <- is.na(rows$parent) & !(rows$kind %in% c("bare", "link")) & rows$resolver == "hooks"
+  errs <- new.env(parent = emptyenv())
+  errs$v <- rows$error
   add <- function(i, msg) {
-    rows$error[i] <<-  # <<- ok: adds to the error of a row of `rows`, which a pure form repeats at each call
-      if (is.na(rows$error[i])) msg else paste(rows$error[i], msg, sep = "\n")
+    errs$v[i] <- if (is.na(errs$v[i])) msg else paste(errs$v[i], msg, sep = "\n")
   }
   for (i in which(top)) {
     f <- field[i]
@@ -326,6 +327,7 @@ scan_front_matter_rows <- function(lines, file = NA_character_, config = NULL,
                             "or in a heading."), rows$kind[i], project))
     }
   }
+  rows$error <- errs$v
   rows
 }
 
@@ -690,9 +692,10 @@ scan_chunk_captions <- function(lines, ch, doc_exec, file, config, cr, code_keys
   rows <- bind_scan_rows(rows)
   rows$context <- "caption"
   rows$chunk <- label
+  errs <- new.env(parent = emptyenv())
+  errs$v <- rows$error
   add <- function(i, msg) {
-    rows$error[i] <<-  # <<- ok: adds to the error of a row of `rows`, which a pure form repeats at each call
-      if (is.na(rows$error[i])) msg else paste(rows$error[i], msg, sep = "\n")
+    errs$v[i] <- if (is.na(errs$v[i])) msg else paste(errs$v[i], msg, sep = "\n")
   }
   # chunk-level reasons a caption is not resolved (2.3.5)
   cache <- truthy(doc_exec$cache)
@@ -742,6 +745,7 @@ scan_chunk_captions <- function(lines, ch, doc_exec, file, config, cr, code_keys
                      rows$kind[i], label, paste(why, collapse = " and "), DIV_REMEDY))
     }
   }
+  rows$error <- errs$v
   rows
 }
 

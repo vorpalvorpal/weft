@@ -43,9 +43,10 @@ quarto_copies <- function() {
 use_weft <- function(path = ".") {
   setup <- setup_plan(path, "auto")
   root <- setup$root
-  steps <- list()
+  acc <- new.env(parent = emptyenv())
+  acc$steps <- list()
   add <- function(fn, what, run) {
-    steps[[length(steps) + 1L]] <<- list(fn = fn, what = what, run = run) # <<- ok: appends to `steps` just above
+    acc$steps[[length(acc$steps) + 1L]] <- list(fn = fn, what = what, run = run)
   }
 
   # use_setup(), and the version line
@@ -122,7 +123,7 @@ use_weft <- function(path = ".") {
   })
 
   message("weft will set up ", root, ":")
-  for (s in steps) message(sprintf("  %-15s %s", s$fn, s$what))
+  for (s in acc$steps) message(sprintf("  %-15s %s", s$fn, s$what))
 
   # a step that fails undoes what the earlier ones wrote (review 4, #10): every file a step can touch is
   # copied first, and put back (or removed, when it was new) if any step stops
@@ -141,7 +142,7 @@ use_weft <- function(path = ".") {
 
   written <- character()
   tryCatch({
-    for (s in steps) written <- c(written, s$run())
+    for (s in acc$steps) written <- c(written, s$run())
   }, error = function(e) {
     undone <- install_rollback(snap, root)
     msg <- sub("(?s)\\s*(Nothing was written\\.|Written before it failed:.*)$", "", conditionMessage(e), perl = TRUE)
@@ -307,13 +308,14 @@ dictionary_plan <- function(root) {
 #' @export
 status <- function(path = ".") {
   root <- install_root(path, "status")
-  rows <- list()
-  nexts <- list()
+  acc <- new.env(parent = emptyenv())
+  acc$rows <- list()
+  acc$nexts <- list()
   add <- function(part, state, detail, fn = NA_character_, purpose = NA_character_) {
     row <- data.frame(part = part, state = state, detail = detail, stringsAsFactors = FALSE)
-    rows[[length(rows) + 1L]] <<- row # <<- ok: appends to `rows` just above; about twenty calls
+    acc$rows[[length(acc$rows) + 1L]] <- row
     if (state %in% c("missing", "outdated") && !is.na(fn)) {
-      nexts[[length(nexts) + 1L]] <<- sprintf("Next: run weft::%s() to %s.", fn, purpose) # <<- ok: as `rows`
+      acc$nexts[[length(acc$nexts) + 1L]] <- sprintf("Next: run weft::%s() to %s.", fn, purpose)
     }
   }
   inst <- weft_version_string()
@@ -413,9 +415,9 @@ status <- function(path = ".") {
     add("strict", "ok", "no rule is strict")
   }
 
-  out <- do.call(rbind, rows)
+  out <- do.call(rbind, acc$rows)
   rownames(out) <- NULL
-  attr(out, "next") <- if (length(nexts)) nexts[[1L]] else
+  attr(out, "next") <- if (length(acc$nexts)) acc$nexts[[1L]] else
     "Nothing to install. Run weft::verify() to check the project."
   attr(out, "root") <- root
   class(out) <- c("weft_status", "data.frame")
