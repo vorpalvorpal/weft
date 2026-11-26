@@ -73,6 +73,8 @@ include_skipped_lines <- function(lines) {
     !(skip_hr && k > 1L && blank(k - 1L) && k < n && blank(k + 1L))
   }
   ticks <- function(x) regmatches(x, regexec(end_rx, x, perl = TRUE))[[1L]][2L]
+  # a block shortcode line holds `{{< `: the others are not read one by one
+  maybe <- grepl("{{< ", lines, fixed = TRUE)
   in_yaml <- FALSE
   in_cell <- FALSE
   in_code <- 0L
@@ -89,7 +91,7 @@ include_skipped_lines <- function(lines) {
         buf <- k
         in_yaml <- TRUE
       }
-    } else if (plain && !is.null(tryCatch(block_shortcode(line), error = function(e) NULL))) {
+    } else if (plain && maybe[k] && !is.null(tryCatch(block_shortcode(line), error = function(e) NULL))) {
       flush()
       buf <- k
       flush()

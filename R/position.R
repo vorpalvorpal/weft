@@ -39,23 +39,22 @@ expand_includes <- function(path, base, seen = character(), nested = FALSE,
   me <- rel(path)
   here <- norm_path(path)
   tg <- include_targets(lines, norm_path(base), root, in_included = nested)
-  files <- character()
-  nums <- integer()
-  for (k in seq_along(lines)) {
-    inc <- tg$path[match(k, tg$line)]
-    if (!is.na(inc) && utils::file_test("-f", inc) && !(inc %in% c(seen, here))) {
-      sub <- expand_includes(inc, base, c(seen, here), nested = TRUE, root = root)
+  # each line is itself, unless it is an include that is expanded
+  inc <- tg$path[match(seq_along(lines), tg$line)]
+  files <- as.list(rep(me, length(lines)))
+  nums <- as.list(seq_along(lines))
+  for (k in which(!is.na(inc))) {
+    if (utils::file_test("-f", inc[k]) && !(inc[k] %in% c(seen, here))) {
+      sub <- expand_includes(inc[k], base, c(seen, here), nested = TRUE, root = root)
       # Quarto splices the file's lines, then a blank line (which is the include
       # line); an include inside an included file leaves two
       pad <- if (nested) 2L else 1L
-      files <- c(files, sub$file, rep(me, pad))
-      nums <- c(nums, sub$line, rep(k, pad))
-    } else {
-      files <- c(files, me)
-      nums <- c(nums, k)
+      files[[k]] <- c(sub$file, rep(me, pad))
+      nums[[k]] <- c(sub$line, rep(k, pad))
     }
   }
-  list(file = files, line = nums)
+  list(file = as.character(unlist(files, use.names = FALSE)),
+       line = as.integer(unlist(nums, use.names = FALSE)))
 }
 
 # ---- normal forms for the content search ----------------------------------------
@@ -77,9 +76,11 @@ normalise_file <- function(lines) {
   kept <- rep(TRUE, length(nlpos))
   if (m[1] > 0L) {
     len <- attr(m, "match.length")
-    for (k in seq_along(m)) {
-      kept[nlpos > m[k] & nlpos < m[k] + len[k]] <- FALSE
-    }
+    # the newlines inside a span, `m < nlpos < m + len`: those after the first
+    # `lo` newlines and among the first `hi` (`nlpos` is in order)
+    lo <- findInterval(m, nlpos)
+    hi <- findInterval(m + len - 1L, nlpos)
+    for (k in which(hi > lo)) kept[(lo[k] + 1L):hi[k]] <- FALSE
     regmatches(text, list(m)) <- list(rep(PH_TOKEN, length(m)))
   }
   norm <- strsplit(text, "\n", fixed = TRUE)[[1]]
