@@ -6,7 +6,13 @@
 #              of the line, a `#` comment that follows white space removed, trimmed, one pair of
 #              surrounding quotes removed.
 #   document   when the source ends .qmd or .md: the key `chunk_claims` of the `weft:` mapping of its
-#              front matter, in block or flow form. The document's value, when it has one, wins.
+#              front matter, in block or flow form. The front matter is every metadata block, as Pandoc
+#              and weft's R side read them (rule 2.1.6 of dev/PACKAGE-SCOPING.md): a line that is exactly
+#              `---` at the top (only blank lines above) or after a blank line, a next line that is not
+#              blank, closed at the next `---` or `...` line, holding a mapping, and not inside a fence
+#              or an HTML comment. A later block's `weft:` replaces an earlier one's whole, so the value
+#              is read from the last block with a top-level `weft:` key. The document's value, when it
+#              has one, wins.
 #
 # The result is "collect" exactly when the value that applies is `collect`, else "stop".
 
@@ -126,18 +132,78 @@ function _cc_split_flow(text::AbstractString)
     out
 end
 
+const _CC_FENCE = r"^[ \t>]*(`{3,}|~{3,})"
+const _CC_OPEN = r"^---[ \t]*$"
+const _CC_CLOSE = r"^(---|\.\.\.)[ \t]*$"
+const _CC_COMMENT_OPEN = r"^ {0,3}<!--"
+const _CC_MAP_KEY = r"^[A-Za-z_\"'][^:]*:([ \t]|$)"
+const _CC_WEFT_KEY = r"^weft[ \t]*:"
+
+_cc_blank(s::AbstractString) = isempty(strip(s))
+
+# Whether the lines of a candidate block read as a YAML mapping: its first line that is not blank and not
+# a comment is `key:` or opens a flow mapping (no YAML parser here; plain text or a list is what it has to
+# tell apart).
+function _cc_is_mapping(inner)
+    for line in inner
+        t = strip(line, [' ', '\t'])
+        (isempty(t) || startswith(t, "#")) && continue
+        return occursin(_CC_MAP_KEY, line) || startswith(t, "{")
+    end
+    false
+end
+
+# The inner lines of each metadata block of a document, in order (see the note at the top).
+function _cc_blocks(lines)
+    out = Vector{Vector{String}}()
+    n = length(lines)
+    k = 1
+    while k <= n
+        line = lines[k]
+        m = match(_CC_FENCE, line)
+        if m !== nothing
+            mark = m.captures[1]
+            closer = Regex("^[ \\t>]*" * string(first(mark)) * "{" * string(length(mark)) * ",}[ \\t]*\$")
+            j = k + 1
+            while j <= n && !occursin(closer, lines[j])
+                j += 1
+            end
+            k = j + 1
+            continue
+        end
+        if occursin(_CC_COMMENT_OPEN, line)
+            # the comment ends at the first `-->` after its `<!--`; one that never ends hides nothing
+            after = split(line, "<!--"; limit = 2)[2]
+            stop = occursin("-->", after) ? k : findnext(l -> occursin("-->", l), lines, k + 1)
+            k = stop === nothing ? k + 1 : stop + 1
+            continue
+        end
+        if occursin(_CC_OPEN, line) && (k == 1 || _cc_blank(lines[k - 1])) && k < n && !_cc_blank(lines[k + 1])
+            j = k + 1
+            while j <= n && !occursin(_CC_CLOSE, lines[j])
+                j += 1
+            end
+            if j <= n && _cc_is_mapping(lines[k + 1:j - 1])
+                push!(out, String.(lines[k + 1:j - 1]))
+                k = j + 1
+                continue
+            end
+        end
+        k += 1
+    end
+    out
+end
+
 function _cc_front_value(source::AbstractString)
     lines = _cc_lines(source)
-    (lines === nothing || isempty(lines) || rstrip(lines[1], [' ', '\t']) != "---") && return nothing
-    stop = nothing
-    for i in 2:length(lines)
-        if rstrip(lines[i], [' ', '\t']) in ("---", "...")
-            stop = i
-            break
-        end
-    end
-    stop === nothing && return nothing
-    front = lines[2:stop - 1]
+    (lines === nothing || isempty(lines)) && return nothing
+    weft = filter(b -> any(l -> occursin(_CC_WEFT_KEY, l), b), _cc_blocks(lines))
+    isempty(weft) && return nothing
+    _cc_weft_value(last(weft))
+end
+
+# `chunk_claims` of the `weft:` mapping in the lines `front` of one block, or nothing.
+function _cc_weft_value(front)
     for (i, line) in enumerate(front)
         m = match(r"^weft[ \t]*:(.*)$", line)
         m === nothing && continue

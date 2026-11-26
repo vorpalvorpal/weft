@@ -1587,8 +1587,8 @@ own file.
 
 **2.1.6** The document's own front matter is read from the source file, by
 one rule for every reader: the knit (its `weft:` settings, `lang` and
-`dict_local`), the lints, `verify()`, `checks()`, `status()` and the Python
-module. It is not read from `rmarkdown::metadata`, which holds the first block
+`dict_local`), the lints, `verify()`, `checks()`, `status()`, the Python and
+Julia modules (`chunk_claims`) and the Quarto filter's own reader of `weft:`. It is not read from `rmarkdown::metadata`, which holds the first block
 only. The rule is Pandoc's, which Quarto follows for its own options:
 
 1. The front matter is every metadata block of the document, merged in order,

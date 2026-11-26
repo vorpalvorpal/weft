@@ -6,6 +6,11 @@
 -- Reads `_weft.yml` (found upward from the source's folder, at most 8 levels) and the `weft:`
 -- mapping of the source's own front matter, as text, with a flat reader and never through
 -- Pandoc's metadata (which mangles " " and "--", measured 10). The document's value wins.
+-- The front matter is every metadata block, as Pandoc and weft's R side read them (rule 2.1.6 of
+-- dev/PACKAGE-SCOPING.md): a line that is exactly `---` at the top (only blank lines above) or after a
+-- blank line, a next line that is not blank, closed at the next `---` or `...` line, holding a mapping,
+-- and not inside a fence or an HTML comment. A later block's `weft:` replaces an earlier one's whole, so
+-- the `weft:` mapping is read from the last block with a top-level `weft:` key.
 -- A mapping may be written in block style or in flow style (`weft: {digits: 3}`, `formatters:
 -- {.f: {digits: 2}}`), on one line or several; both give the same settings. A `weft:` or `formatters:`
 -- value that is neither is a problem (E33), never ignored.
@@ -277,22 +282,86 @@ end
 --   { kind = "block", lines = {...}, indent = n }   its lines, and the indent they are read at
 --   { kind = "flow", text = "{...}" }               a flow mapping
 --   { kind = "bad", text = <value> }                a value that is not a mapping
+local function blank(l) return l:match("^[ \t\r\n]*$") ~= nil end
+
+-- Do the lines of a candidate block read as a YAML mapping: the first line that is not blank and not a
+-- comment is `key:` or opens a flow mapping (no YAML parser here; plain text or a list is what it has to
+-- tell apart).
+local function is_mapping(inner)
+  for _, l in ipairs(inner) do
+    local t = trim(l)
+    if t ~= "" and t:sub(1, 1) ~= "#" then
+      return l:match("^[A-Za-z_\"'][^:]*:[ \t\r]") ~= nil or l:match("^[A-Za-z_\"'][^:]*:$") ~= nil
+        or t:sub(1, 1) == "{"
+    end
+  end
+  return false
+end
+
+-- The inner lines of each metadata block of a document, in order (the rule in the note at the top).
+local function metadata_blocks(lines)
+  local out, n, k = {}, #lines, 1
+  while k <= n do
+    local l = lines[k]
+    local mark = l:match("^[ \t>]*(```+)") or l:match("^[ \t>]*(~~~+)")
+    local lead = l:match("^( *)<!%-%-")
+    if mark then
+      local c, j = mark:sub(1, 1), k + 1
+      while j <= n do
+        local m = lines[j]:match("^[ \t>]*(" .. c .. "+)[ \t\r]*$")
+        if m and #m >= #mark then break end
+        j = j + 1
+      end
+      k = j + 1
+    elseif lead and #lead <= 3 then
+      -- the comment ends at the first `-->` after its `<!--`; one that never ends hides nothing
+      local at = l:find("<!--", 1, true)
+      local stop
+      if l:find("-->", at + 4, true) then stop = k
+      else
+        for j = k + 1, n do
+          if lines[j]:find("-->", 1, true) then stop = j; break end
+        end
+      end
+      k = (stop or k) + 1
+    else
+      local opened = false
+      if l:match("^%-%-%-[ \t\r]*$") and (k == 1 or blank(lines[k - 1])) and k < n and not blank(lines[k + 1]) then
+        local j = k + 1
+        while j <= n and not (lines[j]:match("^%-%-%-[ \t\r]*$") or lines[j]:match("^%.%.%.[ \t\r]*$")) do
+          j = j + 1
+        end
+        if j <= n then
+          local inner = {}
+          for q = k + 1, j - 1 do inner[#inner + 1] = lines[q] end
+          if is_mapping(inner) then
+            out[#out + 1] = inner
+            k = j + 1
+            opened = true
+          end
+        end
+      end
+      if not opened then k = k + 1 end
+    end
+  end
+  return out
+end
+
 local function front_matter_weft(text)
   local lines = {}
   for l in (text .. "\n"):gmatch("(.-)\r?\n") do lines[#lines + 1] = l end
-  if not lines[1] or not lines[1]:match("^%-%-%-[ \t\r\n]*$") then return nil end
-  local stop
-  for i = 2, #lines do
-    if lines[i]:match("^%-%-%-[ \t\r\n]*$") or lines[i]:match("^%.%.%.[ \t\r\n]*$") then stop = i; break end
+  local fm
+  for _, b in ipairs(metadata_blocks(lines)) do
+    for _, l in ipairs(b) do
+      if l:match("^weft[ \t]*:") then fm = b; break end
+    end
   end
-  if not stop then return nil end
-  local fm = {}
-  for k = 2, stop - 1 do fm[#fm + 1] = lines[k] end
+  if not fm then return nil end
   local out, inside = {}, false
   local i = 1
   while i <= #fm do
     local l = fm[i]
-    local rest = (not inside) and l:match("^weft:(.*)$") or nil
+    local rest = (not inside) and l:match("^weft[ \t]*:(.*)$") or nil
     if rest ~= nil then
       local body = trim(rest)
       if body == "" or body:sub(1, 1) == "#" then
