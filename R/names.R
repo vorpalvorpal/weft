@@ -79,15 +79,15 @@ named_val_elements <- function(v, name) {
 named_code_assigns <- function(code) {
   ex <- tryCatch(parse(text = paste(code, collapse = "\n"), keep.source = FALSE), error = function(e) NULL)
   if (is.null(ex)) return(list(names = character(), all = TRUE))
-  out <- character()
-  all <- FALSE
   target <- function(lhs) {
     while (is.call(lhs) && length(lhs) >= 2L) lhs <- lhs[[2L]]
     if (is.character(lhs) && length(lhs) == 1L) return(lhs)
     if (is.symbol(lhs)) as.character(lhs) else NULL
   }
   ALL_CALLS <- c("list2env", "eval", "evalq", "source", "sys.source", "load", "delayedAssign", "makeActiveBinding")
+  # what `e` and the calls inside it assign, in source order: list(names, all)
   walk <- function(e) {
+    res <- list(names = character(), all = FALSE)
     if (is.call(e)) {
       f <- e[[1L]]
       fn <- if (is.symbol(f)) as.character(f) else if (is.call(f) && length(f) == 3L &&
@@ -96,25 +96,30 @@ named_code_assigns <- function(code) {
       } else ""
       if (fn %in% c("<-", "=", "<<-") && length(e) == 3L) {
         t <- target(e[[2L]])
-        if (!is.null(t)) out <<- c(out, t) else all <<- TRUE
+        if (!is.null(t)) res$names <- t else res$all <- TRUE
       } else if (identical(fn, "assign")) {
         a <- if (length(e) >= 2L) e[[2L]] else NULL
         nm <- names(e)
         if (!is.null(nm) && "x" %in% nm) a <- e[[which(nm == "x")[1L]]]
-        if (is.character(a) && length(a) == 1L) out <<- c(out, a) else all <<- TRUE
+        if (is.character(a) && length(a) == 1L) res$names <- a else res$all <- TRUE
       } else if (identical(fn, "for") && length(e) >= 2L && is.symbol(e[[2L]])) {
-        out <<- c(out, as.character(e[[2L]]))
+        res$names <- as.character(e[[2L]])
       } else if (fn %in% ALL_CALLS) {
-        all <<- TRUE
+        res$all <- TRUE
       }
-      for (i in seq_along(e)) if (!identical(e[[i]], quote(expr = ))) walk(e[[i]])
-    } else if (is.pairlist(e) || is.expression(e)) {
-      for (i in seq_along(e)) if (!identical(e[[i]], quote(expr = ))) walk(e[[i]])
     }
-    invisible()
+    if (is.call(e) || is.pairlist(e) || is.expression(e)) {
+      for (i in seq_along(e)) {
+        if (identical(e[[i]], quote(expr = ))) next
+        r <- walk(e[[i]])
+        res$names <- c(res$names, r$names)
+        res$all <- res$all || r$all
+      }
+    }
+    res
   }
-  for (i in seq_along(ex)) walk(ex[[i]])
-  list(names = unique(out), all = all)
+  res <- walk(ex)
+  list(names = unique(res$names), all = res$all)
 }
 
 # Record the code of a chunk that is about to run (the `evaluate` hook).

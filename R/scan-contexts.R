@@ -272,7 +272,8 @@ scan_front_matter_rows <- function(lines, file = NA_character_, config = NULL,
   # the hooks' rules about where a construct may sit do not apply to what the filter resolves
   top <- is.na(rows$parent) & !(rows$kind %in% c("bare", "link")) & rows$resolver == "hooks"
   add <- function(i, msg) {
-    rows$error[i] <<- if (is.na(rows$error[i])) msg else paste(rows$error[i], msg, sep = "\n")
+    rows$error[i] <<-  # <<- ok: adds to the error of a row of `rows`, which a pure form repeats at each call
+      if (is.na(rows$error[i])) msg else paste(rows$error[i], msg, sep = "\n")
   }
   for (i in which(top)) {
     f <- field[i]
@@ -570,11 +571,10 @@ scan_chunk_captions <- function(lines, ch, doc_exec, file, config, cr, code_keys
   keep <- rep(FALSE, length(lines))
   txt <- lines
   regions <- list()   # option, first, last, kind of region
-  add_region <- function(option, first, last, form, item = FALSE) {
-    if (first > last) return()
-    keep[first:last] <<- TRUE
-    regions[[length(regions) + 1L]] <<- list(option = option, first = first, last = last,
-                                            form = form, item = item)
+  # `regions` with one more region, unless the region holds no line
+  add_region <- function(regions, option, first, last, form, item = FALSE) {
+    if (first > last) return(regions)
+    c(regions, list(list(option = option, first = first, last = last, form = form, item = item)))
   }
   for (o in optblk) {
     if (!(o$name %in% CAPTION_OPTIONS)) next
@@ -582,7 +582,7 @@ scan_chunk_captions <- function(lines, ch, doc_exec, file, config, cr, code_keys
     if (identical(o$form, "expr") && o$key %in% code_keys) next
     if (o$form == "list") {
       for (it in o$items) {
-        add_region(o$name, it$first, it$last, it$form, item = TRUE)
+        regions <- add_region(regions, o$name, it$first, it$last, it$form, item = TRUE)
         if (it$form == "scalar") {
           new <- sub(OPT_ITEM_RE, "", txt[it$first])
           rem[it$first] <- rem[it$first] + nchar(txt[it$first]) - nchar(new)
@@ -590,7 +590,7 @@ scan_chunk_captions <- function(lines, ch, doc_exec, file, config, cr, code_keys
         }
       }
     } else {
-      add_region(o$name, o$first, o$last, o$form)
+      regions <- add_region(regions, o$name, o$first, o$last, o$form)
       if (o$form != "block") {
         # the key is not part of the value
         new <- sub(OPT_KEY_RE, "", txt[o$first])
@@ -599,6 +599,7 @@ scan_chunk_captions <- function(lines, ch, doc_exec, file, config, cr, code_keys
       }
     }
   }
+  for (rg in regions) keep[rg$first:rg$last] <- TRUE
   # the `#|` prefix is not part of a caption
   txt[keep] <- sub("^([ \t]*)#\\|", "\\1  ", txt[keep])
   # lines the prefix strip left unaligned are scanned as they are: only line
@@ -657,7 +658,8 @@ scan_chunk_captions <- function(lines, ch, doc_exec, file, config, cr, code_keys
   rows$context <- "caption"
   rows$chunk <- label
   add <- function(i, msg) {
-    rows$error[i] <<- if (is.na(rows$error[i])) msg else paste(rows$error[i], msg, sep = "\n")
+    rows$error[i] <<-  # <<- ok: adds to the error of a row of `rows`, which a pure form repeats at each call
+      if (is.na(rows$error[i])) msg else paste(rows$error[i], msg, sep = "\n")
   }
   # chunk-level reasons a caption is not resolved (2.3.5)
   cache <- truthy(doc_exec$cache)

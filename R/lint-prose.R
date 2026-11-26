@@ -245,10 +245,12 @@ lint_claim_word <- function(src, ctx) {
   ps <- ps[hit]
   orig <- orig[hit]
   run <- run[hit]
+  # keep() filters the three parallel word vectors together, with `<<-`: a pure form would need three
+  # assignments, or a table in place of the vectors, at each of its seven calls
   keep <- function(ok) {
-    ps <<- ps[ok]
-    orig <<- orig[ok]
-    run <<- run[ok]
+    ps <<- ps[ok]  # <<- ok: see above
+    orig <<- orig[ok]  # <<- ok: see above
+    run <<- run[ok]  # <<- ok: see above
   }
   r <- src$rows
   if (nrow(r)) {

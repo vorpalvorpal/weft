@@ -417,22 +417,26 @@ doc_bib <- function(src, ctx) {
     if (grepl("^(/|~|[A-Za-z]:[/\\\\])", p)) return(path.expand(p))
     if (base %in% c(".", "")) file.path(root, p) else file.path(root, base, p)
   }
-  add_files <- function(files, base, own) {
+  # the keys of the bibliography files `files` that exist, and those of the document's `own` files that do not
+  read_files <- function(files, base, own) {
+    found <- list(keys = character(), missing = character())
     for (f in files[!is.na(files) & nzchar(files)]) {
       path <- resolve(f, base)
       if (file.exists(path)) {
-        keys <<- c(keys, dl_bib_keys(ctx, path))
+        found$keys <- c(found$keys, dl_bib_keys(ctx, path))
       } else if (own) {
-        missing <<- c(missing, f)
+        found$missing <- c(found$missing, f)
       } else {
         ctx$note(sprintf("The bibliography file %s named for %s was not found (rule 5.4.4).", f, src$file))
       }
     }
+    found
   }
   for (m in src$meta) {
     mb <- metadata_bibliography(m$yaml)
-    add_files(mb$files, dir_rel, TRUE)
-    keys <- c(keys, mb$keys)
+    rf <- read_files(mb$files, dir_rel, TRUE)
+    keys <- c(keys, rf$keys, mb$keys)
+    missing <- c(missing, rf$missing)
   }
   # the project's `_quarto` file, then the `_metadata` file of each folder from the document's up; of
   # the two spellings in one place the first counts
@@ -442,10 +446,9 @@ doc_bib <- function(src, ctx) {
                pm[pm$kind == "metadata" & !duplicated(pm$base), , drop = FALSE])
   for (i in seq_len(nrow(use))) {
     mb <- metadata_bibliography(dl_yaml_file(ctx, use$path[i]))
-    add_files(mb$files, use$base[i], FALSE)
-    keys <- c(keys, mb$keys)
+    keys <- c(keys, read_files(mb$files, use$base[i], FALSE)$keys, mb$keys)
   }
-  add_files(as.character(unlist(src$cfg$bibliography)), ".", FALSE)
+  keys <- c(keys, read_files(as.character(unlist(src$cfg$bibliography)), ".", FALSE)$keys)
   res <- list(keys = unique(as.character(keys)), missing = unique(missing))
   cache[[key]] <- res
   res
@@ -1216,8 +1219,10 @@ dl_fig_divs <- function(src, prefix) {
 
 lint_figure <- function(src, ctx) {
   out <- list()
+  # add() records a finding in `out`, defined beside it, with `<<-`: it is called from seven places in the loops
+  # below, and a pure form would repeat `out[[length(out) + 1L]] <-` at each
   add <- function(pos, text, part, msg_text, hint) {
-    out[[length(out) + 1L]] <<- finding_at(src, pos, pos, "figure", text, msg_text, hint,
+    out[[length(out) + 1L]] <<- finding_at(src, pos, pos, "figure", text, msg_text, hint,  # <<- ok: see above
                                            context = if (part == "chunk") "chunk" else "prose")
   }
   ls <- src$line_start
@@ -1323,8 +1328,9 @@ lint_table_caption <- function(src, ctx) {
   ls <- src$line_start
   lines <- src$lines
   nl <- length(lines)
+  # add() records a finding in `out`, defined beside it, with `<<-`, for the same reason as in lint_figure()
   add <- function(pos, text, ref) {
-    out[[length(out) + 1L]] <<- finding_at(
+    out[[length(out) + 1L]] <<- finding_at(  # <<- ok: see above
       src, pos, pos, "table-caption", text, sprintf("The table `%s` has no caption (rule 5.9.1).", ref),
       "Add a caption line `: Caption {#tbl-name}` after the table.", spec = "5.9.1")
   }

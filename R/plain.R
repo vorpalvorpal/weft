@@ -50,17 +50,19 @@ plain_read_chars <- function(ch) {
   n <- length(ch)
   out <- list()
   buf <- character()
+  # flush(), add() and text() are the reader's emitters: they write `out` and `buf`, defined beside them, with
+  # `<<-`, and a state environment would only rename the two in this hot loop
   flush <- function() {
     if (length(buf)) {
-      out[[length(out) + 1L]] <<- plain_run("text", text = paste(buf, collapse = ""))
-      buf <<- character()
+      out[[length(out) + 1L]] <<- plain_run("text", text = paste(buf, collapse = ""))  # <<- ok: emitter beside `out`
+      buf <<- character()  # <<- ok: emitter beside `buf`
     }
   }
   add <- function(run) {
     flush()
-    out[[length(out) + 1L]] <<- run
+    out[[length(out) + 1L]] <<- run  # <<- ok: emitter beside `out`
   }
-  text <- function(x) buf <<- c(buf, x)
+  text <- function(x) buf <<- c(buf, x)  # <<- ok: emitter beside `buf`
   at <- function(j) plain_at(ch, j)
   sp <- ch %in% PLAIN_SPECIAL
   i <- 1L

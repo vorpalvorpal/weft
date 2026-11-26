@@ -85,10 +85,6 @@ values_scalars <- function(x) {
   miss <- function(why) paste0("{\"t\":\"missing\",\"why\":", values_str(why), "}")
   js <- character(n)
   kind <- rep(NA_character_, n)
-  put <- function(i, k, json) {
-    js[i] <<- json
-    kind[i] <<- k
-  }
   # the missing elements, read once: a double (a Date's too) is missing when it is not finite, and
   # says which; any other is missing when it is NA
   u <- if (inherits(x, "integer64") || is.factor(x)) as.character(x) else x
@@ -99,23 +95,27 @@ values_scalars <- function(x) {
   dbl <- is.double(u)
   bad <- if (dbl) !is.finite(u) else is.na(u)
   why <- if (dbl) ifelse(is.nan(u), "NaN", ifelse(is.na(u), "NA", ifelse(u > 0, "Inf", "-Inf"))) else "NA"
-  put(bad, "missing", miss(if (dbl) why[bad] else why))
+  js[bad] <- miss(if (dbl) why[bad] else why)
+  kind[bad] <- "missing"
   ok <- !bad
-  if (inherits(x, "integer64")) {
-    put(ok, "int", paste0("{\"t\":\"int\",\"v\":", values_str(u[ok]), "}"))
+  # the kind and the JSON of the elements that are not missing
+  rec <- if (inherits(x, "integer64")) {
+    list("int", paste0("{\"t\":\"int\",\"v\":", values_str(u[ok]), "}"))
   } else if (is.factor(x)) {
-    put(ok, "string", paste0("{\"t\":\"string\",\"v\":", values_str(u[ok]), "}"))
+    list("string", paste0("{\"t\":\"string\",\"v\":", values_str(u[ok]), "}"))
   } else if (inherits(x, "Date")) {
-    put(ok, "date", paste0("{\"t\":\"date\",\"v\":", values_str(format(x[ok], "%Y-%m-%d")), "}"))
+    list("date", paste0("{\"t\":\"date\",\"v\":", values_str(format(x[ok], "%Y-%m-%d")), "}"))
   } else if (is.logical(x)) {
-    put(ok, "bool", ifelse(x[ok], "{\"t\":\"bool\",\"v\":true}", "{\"t\":\"bool\",\"v\":false}"))
+    list("bool", ifelse(x[ok], "{\"t\":\"bool\",\"v\":true}", "{\"t\":\"bool\",\"v\":false}"))
   } else if (is.integer(x)) {
-    put(ok, "int", paste0("{\"t\":\"int\",\"v\":\"", sprintf("%d", x[ok]), "\"}"))
+    list("int", paste0("{\"t\":\"int\",\"v\":\"", sprintf("%d", x[ok]), "\"}"))
   } else if (is.double(x)) {
-    put(ok, "float", paste0("{\"t\":\"float\",\"v\":\"", float_text(x[ok]), "\"}"))
+    list("float", paste0("{\"t\":\"float\",\"v\":\"", float_text(x[ok]), "\"}"))
   } else {
-    put(ok, "string", paste0("{\"t\":\"string\",\"v\":", values_str(x[ok]), "}"))
+    list("string", paste0("{\"t\":\"string\",\"v\":", values_str(x[ok]), "}"))
   }
+  js[ok] <- rec[[2L]]
+  kind[ok] <- rec[[1L]]
   list(json = js, kind = kind)
 }
 
@@ -464,20 +464,22 @@ values_scan_lists <- function(path, cfg, F = NULL) {
     out$front <- extra$expr[named & extra$context == "front-matter"]
     out$cap <- extra$expr[named & extra$context == "caption" & extra$resolver == "filter"]
   }
+  # the names of one file's text that go to `auto`
   one <- function(ln) {
-    out$auto <<- c(out$auto, values_text_names(paste(ln, collapse = "\n"))$code)
+    auto <- values_text_names(paste(ln, collapse = "\n"))$code
     cr <- tryCatch(chunk_code_regions(ln), error = function(e) NULL)
     if (length(cr$chs)) {
       tb <- chunk_table(ln, cr)
       for (i in seq_len(nrow(tb))) {
         opt <- if (tb$code_line[i] > tb$open[i]) ln[tb$open[i]:(tb$code_line[i] - 1L)] else ln[tb$open[i]]
         code <- if (tolower(tb$engine[i]) %in% c("python", "julia")) tb$code[[i]] else character()
-        out$auto <<- c(out$auto, values_text_names(paste(c(opt, code), collapse = "\n"))$gov)
+        auto <- c(auto, values_text_names(paste(c(opt, code), collapse = "\n"))$gov)
       }
     }
+    auto
   }
-  one(lines)
-  for (f in include_walk(path, lines = lines)$files) if (length(f$lines)) one(f$lines)
+  out$auto <- c(out$auto, one(lines))
+  for (f in include_walk(path, lines = lines)$files) if (length(f$lines)) out$auto <- c(out$auto, one(f$lines))
   ok <- function(x) { x <- unique(x); x[values_name_ok(x)] }
   lapply(out, ok)
 }

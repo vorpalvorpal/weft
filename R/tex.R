@@ -125,13 +125,15 @@ unit_md_to_tex <- function(md, un) {
   n <- length(ch)
   out <- character()
   run <- ""
+  # flush() and emit() are the loop's emitters: they write `out` and `run`, defined beside them, with `<<-`,
+  # and a state environment would only rename the two
   flush <- function() {
-    if (nzchar(run)) out <<- c(out, paste0("\\text{", run, "}"))
-    run <<- ""
+    if (nzchar(run)) out <<- c(out, paste0("\\text{", run, "}"))  # <<- ok: emitter beside `out`
+    run <<- ""  # <<- ok: emitter beside `run`
   }
   emit <- function(x) {
     flush()
-    out <<- c(out, x)
+    out <<- c(out, x)  # <<- ok: emitter beside `out`
   }
   inner <- function(s) {
     s <- gsub("\u2212", "-", s, fixed = TRUE)

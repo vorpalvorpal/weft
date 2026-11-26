@@ -502,13 +502,15 @@ mask_prose <- function(S) {
   if (nrow(pc)) keepv <- keepv | mark_ranges(n, pc$start, pc$end)
   chars[!keepv & chars != "\n"] <- " "
   regs <- list()
+  # addreg() and blank() are the steps of the masking below: they write `regs` and `chars`, defined beside
+  # them, with `<<-`; passing the two through some 30 calls would bury each step
   addreg <- function(type, s, e, name = NA_character_, row = NA_integer_) {
-    if (length(s)) regs[[length(regs) + 1L]] <<- new_regions(type, s, e, row, name)
+    if (length(s)) regs[[length(regs) + 1L]] <<- new_regions(type, s, e, row, name)  # <<- ok: step beside `regs`
   }
   blank <- function(s, e) {
     if (!length(s)) return(invisible())
     m <- mark_ranges(n, s, e) & chars != "\n"
-    chars[m] <<- " "
+    chars[m] <<- " "  # <<- ok: step beside `chars`
     invisible()
   }
   cur <- function() paste(chars, collapse = "")
@@ -778,11 +780,10 @@ build_blocks <- function(S) {
   blank <- nonbody | !grepl("[^ \t]", lines)
   lt <- ifelse(blank, "blank", "text")
   prev_blank <- c(TRUE, blank[-nl])
-  set <- function(idx, v) if (length(idx)) lt[idx] <<- v
-  set(which(!blank & grepl("^ {0,3}:[ \t]+\\S", dl) & prev_blank & !grepl("^[ \t]*:{3,}", dl)), "tcap")
-  set(which(!blank & grepl("^ {0,3}\\[\\^[^\\]\\s]+\\]:", dl, perl = TRUE)), "fndef")
-  set(c(S$bullets, S$num_items), "item")
-  set(S$atx, "heading")
+  lt[which(!blank & grepl("^ {0,3}:[ \t]+\\S", dl) & prev_blank & !grepl("^[ \t]*:{3,}", dl))] <- "tcap"
+  lt[which(!blank & grepl("^ {0,3}\\[\\^[^\\]\\s]+\\]:", dl, perl = TRUE))] <- "fndef"
+  lt[c(S$bullets, S$num_items)] <- "item"
+  lt[S$atx] <- "heading"
   # tables
   tbl <- list()
   cell_lines <- integer()
@@ -807,9 +808,9 @@ build_blocks <- function(S) {
       k <- k + sum(gridb < j)
     }
   }
-  set(cell_lines, "cell")
-  set(S$structural, "struct")
-  set(which(!blank & grepl("^[ \t]*:{3,}", lines)), "div")
+  lt[cell_lines] <- "cell"
+  lt[S$structural] <- "struct"
+  lt[which(!blank & grepl("^[ \t]*:{3,}", lines))] <- "div"
   prevlt <- c("blank", lt[-nl])
   newblk <- lt %in% c("heading", "item", "fndef", "tcap") |
     (lt == "text" & prevlt %in% c("blank", "heading", "struct", "div", "cell"))
@@ -1002,21 +1003,22 @@ source_assemble <- function(rel, path, ext, cfg, text, lines, ls, inmeta, infenc
   S$divs <- NULL; S$inline_notes <- NULL
   mp <- mask_prose(S)
   regions <- mp$regions
-  # regions from the rows, chunks, fields and pieces
-  add <- function(r) if (nrow(r)) regions <<- rbind(regions, with_attrs(r, rep(NA_character_, nrow(r))))
+  # regions from the rows, chunks, fields and pieces; add(regions, r) is `regions` with `r` added
+  add <- function(regions, r) if (nrow(r)) rbind(regions, with_attrs(r, rep(NA_character_, nrow(r)))) else regions
   if (nrow(rows)) {
     kmap <- c(value = "value", named = "value", bare = "bare", n = "n", `if` = "if", sign = "sign", list = "list",
               cite = "cite_span", literal = "literal", text = "text_span")
     ty <- unname(kmap[rows$kind])
     ok <- !is.na(ty)
     r <- new_regions(ty[ok], rows$fstart[ok], rows$fend[ok], row = which(ok), name = rows$expr[ok])
-    add(r)
+    regions <- add(regions, r)
     # a row's index on the span it sits in
     sp <- which(regions$type == "span")
     if (length(sp)) regions$row[sp] <- match(regions$start[sp], rows$fstart)
   }
   if (nrow(chunks)) {
-    add(new_regions("chunk", ls[chunks$open], ls[chunks$close] + nchar(lines[chunks$close]) - 1L, name = chunks$label))
+    regions <- add(regions, new_regions("chunk", ls[chunks$open], ls[chunks$close] + nchar(lines[chunks$close]) - 1L,
+                                        name = chunks$label))
   }
   if (nrow(pieces)) {
     for (k in c("front", "caption", "weft", "phrase")) {
@@ -1026,7 +1028,8 @@ source_assemble <- function(rel, path, ext, cfg, text, lines, ls, inmeta, infenc
       st <- vapply(g, function(ix) min(pk$start[ix]), 1)
       en <- vapply(g, function(ix) max(pk$end[ix]), 1)
       nm <- vapply(g, function(ix) pk$name[ix[1L]], "")
-      add(new_regions(c(front = "yaml_field", caption = "caption", weft = "weft", phrase = "phrase")[[k]], st, en, name = nm))
+      rtype <- c(front = "yaml_field", caption = "caption", weft = "weft", phrase = "phrase")[[k]]
+      regions <- add(regions, new_regions(rtype, st, en, name = nm))
     }
   }
   # text spans: a span with a formatter class and no weft row
