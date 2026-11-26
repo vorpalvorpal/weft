@@ -153,7 +153,8 @@ gate_side_keys <- function(g, s, vers) {
   big <- e$content & !is.na(sz) & sz > GATE_MAX_BYTES
   e$ok <- e$content & !big
   e$doc <- e$ok & is_doc_path(e$rel)
-  e$doc[e$doc] <- gate_script_read(g, e[e$doc, , drop = FALSE])
+  # the whole listing goes in: the `_weft.yml` blobs that carry `scripts_skip` are not documents
+  e$doc <- e$doc & gate_script_read(g, e, e$doc)
   cfgb <- function(name) {
     i <- match(name, e$rel)
     if (is.na(i)) "" else e$blob[i]
@@ -180,9 +181,9 @@ gate_side_keys <- function(g, s, vers) {
 # Which of the document entries `e` (relative paths and blobs of one side) the lints read: every document,
 # and a script only when its own settings root's `scripts_skip` does not leave it out and its bytes hold
 # `weft` (K13), so a script that adds nothing to the findings or the counts has no cache entry.
-gate_script_read <- function(g, e) {
+gate_script_read <- function(g, e, docs = rep(TRUE, nrow(e))) {
   keep <- rep(TRUE, nrow(e))
-  scr <- which(is_script_path(e$rel))
+  scr <- which(docs & is_script_path(e$rel))
   if (!length(scr)) return(keep)
   all_yml <- grep("(^|/)_weft\\.yml$", e$rel)
   # the `scripts_skip` of each `_weft.yml` of the side: read from its blob, the default when it does not read
@@ -194,7 +195,7 @@ gate_script_read <- function(g, e) {
       y <- if (length(b)) tryCatch(yaml_read_text(rawToChar(b)), error = function(err) NULL) else NULL
       v <- scripts_skip_list(if (is.list(y)) y$scripts_skip else NULL)
       key <- sub("/?_weft\\.yml$", "", e$rel[j])
-      skips[[if (nzchar(key)) key else "."]] <- if (is.null(v)) "tests" else v
+      skips[[if (nzchar(key)) key else "."]] <- v %||% "tests"
     }
   }
   has_yml <- names(skips)
