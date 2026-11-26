@@ -196,3 +196,5 @@ cond	s%20==%20"a"b"	E3
 cond	s%20==%20"a"%20"b"	E3	
 cond	!"x"	E3	
 cond	s%20==%20"a,b",%203%20>%202	E4	
+doc	%0A%0A---%0Aengine:%20knitr%0A---%0A%0AThe%20depth%20is%20`r%20x`{.num}%20metres.	knitr	
+doc	%0A%20%20%0A---%0Aengine:%20knitr%0A---%0A%0AProse.	knitr	

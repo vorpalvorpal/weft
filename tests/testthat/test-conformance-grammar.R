@@ -13,6 +13,7 @@
 #   name  R is_weft_name() and values_name_ok(); Lua cond.is_name and weft-check.lua's own is_name (driven
 #         through its Code check); Python is_name; Julia is_name
 #   doc   R filter_resolves(); Lua config.source_is_knitr (the move of B2)
+#         (front matter preceded only by blank lines is still the first block, F2: its engine: counts)
 # Decisions: where Lua and R disagreed on the whitespace in a condition, R's rule wins (only a space or a tab
 # around the operator; a newline there is E3); a name with a trailing newline is no name anywhere; the upward
 # search for `.weft/run` is the document's folder and 8 parents, 9 folders, in all three Lua searches.
