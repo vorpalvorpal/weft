@@ -19,6 +19,9 @@
   spaces), and an include inside a fence, a code cell or a multi-line
   HTML comment is followed, but not inside a `{shortcodes=false}` cell.
   The limit of 8 levels is gone; a cycle ends.
+- A `file=` values file named in an included file is now read against
+  the main document’s folder by the `named-unpublished` lint too, as
+  Quarto and the Lua filter do, not against the included file’s folder.
 - [`lints()`](https://vorpalvorpal.github.io/weft/reference/lints.md),
   the commit gate,
   [`arms()`](https://vorpalvorpal.github.io/weft/reference/arms.md),
