@@ -438,619 +438,6 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
   rc$gov <- NULL            # the record of the governor whose arm is being rendered (`n="."`)
   rc$picked <- NULL         # the last ladder pick (its row and the quantity in the rung), for the row's id
 
-  # ---- the parts not yet moved out (they take `rc` as the moved ones do) ----
-
-  # ---- resolve_markup(): ranges and sentences -------------------------------------------
-
-  # The items of the text from `a` to `b`: the rows `kid_ids` and the parked spans that lie
-  # in no row, in textual order.
-  range_items <- function(rc, a, b, kid_ids) {
-    R <- rc$R
-    spans <- rc$spans
-    items <- lapply(kid_ids, function(k) list(type = "row", k = k, start = R$start[k], end = R$end[k]))
-    if (nrow(spans)) {
-      for (i in seq_len(nrow(spans))) {
-        st <- spans$start[i]
-        if (st < a || st > b || st %in% R$start) next
-        if (any(vapply(items, function(it) st >= it$start && st <= it$end, NA))) next
-        items[[length(items) + 1L]] <- list(type = "span", idx = spans$idx[i],
-                                           start = st, end = spans$end[i])
-      }
-    }
-    if (length(items)) items <- items[order(vapply(items, function(it) it$start, 0L))]
-    items
-  }
-
-  # The file and line of the text at `start`: `view` is its line in the knitted view.
-  span_line <- function(rc, start) {
-    if (rc$is_str) return(data.frame(file = as.character(rc$ctx$file %||% current_file_name(rc$s)),
-                                     line = as.integer(rc$ctx$line %||% NA_integer_),
-                                     stringsAsFactors = FALSE))
-    lv <- rc$first_line + sum(rc$nlpos < start)
-    out <- map_lines(rc$F, lv)
-    out$view <- as.integer(lv)
-    out
-  }
-
-  # Sentence starts (5.10.1): a value or span of the prose whose printed text
-  # opens a sentence with a digit or a lower-case letter.
-  # Only the end of what precedes the construct decides: its blankness (the
-  # first non-blank character of the block, found once), and its last two
-  # lines, which hold every test below. A run of blank space that ends in
-  # two newlines is a paragraph break, so no test reaches further back.
-  note_sentence <- function(rc, it, out) {
-    R <- rc$R
-    s <- rc$s
-    text <- rc$text
-    if (rc$is_str || !nzchar(out)) return("")
-    # a value in math or raw LaTeX is never a sentence start (TX11)
-    if (it$type == "row" && nzchar(R$tex[it$k])) return("")
-    body <- sub("^[*_\\[]+", "", out)
-    if (!grepl("^[0-9[:lower:]]", body)) return("")
-    if (!starts_sentence(it$start, text, rc$nlpos, rc$first_ink)) return("")
-    if (it$type == "span") {
-      li <- span_line(rc, it$start)
-      expr <- s$parked[[it$idx]]$code
-      file <- li$file
-      line <- li$line
-    } else {
-      expr <- R$expr[it$k]
-      if (R$kind[it$k] == "if") {
-        expr <- sprintf("\"%s\"", gsub("[ \t\r\n]+", " ", trim_ws(out)))
-      } else if (R$kind[it$k] %in% c("text", "cite", "literal")) {
-        expr <- source_label(text, R$start[it$k], R$end[it$k])
-      }
-      file <- R$file[it$k]
-      line <- R$line[it$k]
-    }
-    s$sentence_starts[[length(s$sentence_starts) + 1L]] <- list(
-      file = as.character(file), line = as.integer(line),
-      expr = as.character(expr), text = out)
-    if (isTRUE(rc$cfg$sentence_start_fail)) {
-      add_failure(s, "sentence start", file = file, line = line, expr = as.character(expr),
-                  detail = sprintf("a printed \"%s\" opens a sentence; write .cap (with .count or .word for a number) (rule 5.10.1)", out),
-                  chunk = rc$chunk_label)
-      return(resolve_marker(rc, "sentence start", line))
-    }
-    ""
-  }
-
-  # `n`, `if` and `sign` spans: when one prints nothing, one adjacent space
-  # goes with it (1.5.12, stage 1g)
-  governed <- function(it, R) it$type == "row" && R$kind[it$k] %in% c("n", "if", "sign", "list")
-
-  # The text from `a` to `b` with its items rendered. `top`: the items are the
-  # block's own, whose positions the ledger's sentences are read from.
-  render_plain <- function(rc, a, b, items, top = FALSE) {
-    R <- rc$R
-    text <- rc$text
-    outs <- character()
-    for (ii in seq_along(items)) {
-      it <- items[[ii]]
-      if (top) rc$cur_top <- ii
-      o <- render_item(rc, it)
-      if (top && (it$type == "span" ||
-                  R$kind[it$k] %in% c("bare", "value", "named", "n", "if", "sign", "list", "text", "cite", "literal"))) {
-        o <- paste0(o, note_sentence(rc, it, o))
-      }
-      outs <- c(outs, o)
-    }
-    gaps <- character(length(items) + 1L)
-    cur <- a
-    for (i in seq_along(items)) {
-      it <- items[[i]]
-      gaps[i] <- substr(text, cur, it$start - 1L)
-      # two emphasis constructs side by side would read as `*a**b*`; an empty
-      # comment keeps the delimiters apart (1.4.3)
-      if (i > 1L && it$start == cur && endsWith(outs[i - 1L], "*") && startsWith(outs[i], "*")) {
-        outs[i] <- paste0("<!-- -->", outs[i])
-      }
-      cur <- it$end + 1L
-    }
-    gaps[length(items) + 1L] <- substr(text, cur, b)
-    for (i in seq_along(items)) {
-      it <- items[[i]]
-      rec <- if (it$type == "row") rc$L_rec[[as.character(it$k)]]
-      if (!is.null(rec)) typed_after(rc, rec, gaps[i + 1L], R$file[it$k], R$line[it$k], source_label(text, R$start[it$k], R$end[it$k]))
-    }
-    res <- join_pieces(gaps, outs, vapply(items, governed, NA, R = R), pos = top)
-    if (top) {
-      rc$top_pos <- attr(res, "pos")
-      attr(res, "pos") <- NULL
-    }
-    res
-  }
-
-  # Where arm `i` of the governed span at row `k` lies in the text.
-  arm_range <- function(rc, k, i) {
-    R <- rc$R
-    S <- rc$S
-    body_a <- R$start[k] + 1L
-    body_b <- R$block_start[k] - 2L
-    seps <- R$sep_pos[[k]]
-    n <- length(R$arms[[k]])
-    # a separator written `\|` starts at its backslash
-    past <- function(p) p + if (identical(S$chars[p], "\\")) 2L else 1L
-    list(a = if (i == 1L) body_a else past(seps[i - 1L]),
-         b = if (i == n) body_b else seps[i] - 1L)
-  }
-
-  # Arm `i` of the governed span at row `k`, its `#` printed as `hash`. `record` is the
-  # governor's record, which `n="."` inside the arm reads.
-  render_arm <- function(rc, k, i, hash, record = NULL) {
-    R <- rc$R
-    r <- arm_range(rc, k, i)
-    items <- range_items(rc, r$a, r$b, which(R$parent == k & R$arm %in% i))
-    old <- rc$gov
-    if (!is.null(record)) rc$gov <- record
-    on.exit(rc$gov <- old, add = TRUE)
-    outs <- vapply(items, function(it) render_item(rc, it), "")
-    idf <- data.frame(start = vapply(items, function(it) it$start, 0L),
-                      end = vapply(items, function(it) it$end, 0L))
-    tmpl <- arm_template_range(rc$S, r$a, r$b, idf)
-    if (!is.null(record) && length(attr(record, "unit_suffix"))) {
-      after <- regmatches(tmpl, regexec("([^]*)", tmpl))[[1L]]
-      if (length(after) == 2L) typed_after(rc, record, after[2L], R$file[k], R$line[k], source_label(rc$text, R$start[k], R$end[k]))
-    }
-    fill_template(tmpl, hash, as.list(outs), vapply(items, governed, NA, R = R))
-  }
-
-  # ---- resolve_markup(): the governed spans ----------------------------------------------
-
-  render_n <- function(rc, k) {
-    R <- rc$R
-    cfg <- rc$cfg
-    cc <- split_classes(R$classes[[k]], R$keys[[k]], rc$owned, cfg$formatters)
-    arms <- R$arms[[k]]
-    narms <- length(arms)
-    msg <- lang_check(rc$s$lang, R$kind[k], R$expr[k], cc$own, cc$keys, narms)
-    if (!is.null(msg)) return(construct_fail(rc, k, msg))
-    label <- sprintf("\"%s\"", gsub("[ \t\r\n]+", " ", arms[1L]))
-    g <- get_governor(rc, k, label, cc)
-    if (!is.null(g$stop)) return(g$stop)
-    v <- g$v
-    claim_failed <- g$claim_failed
-    rc$L_raw[k] <- ledger_raw(v)
-    rc$L_unit[k] <- ledger_unit(v)
-    own_fmt <- has_own_format(cc, cfg$formatters)
-    # a range of two ends is one governor (1.5.11)
-    if (!(".range" %in% cc$own)) {
-      chk <- check_governor(v)
-      if (!is.null(chk)) return(record_fail(rc, k, chk$kind, label, chk$detail))
-    }
-    rec <- if (inherits(v, "weft_text") && !own_fmt && !(".range" %in% cc$own)) v else tryCatch(
-      apply_formatters(v, cc$own, as.list(cc$keys), cfg, governor = TRUE, on_pick = pick_note(rc, k)),
-      error = function(e) e)
-    if (inherits(rec, "error")) return(fail_from_error(rc, k, rec, label))
-    rc$L_rel[k] <- ledger_rel(rec)
-    register_id(rc, k, v, cc, rec)
-    i <- choose_arm_n(rec, narms)
-    rc$chosen[k] <- i
-    out <- render_arm(rc, k, i, as.character(rec)[1L], record = rec)
-    finish_construct(rc, k, out, cc, claim_failed)
-  }
-
-  # The magnitude of a printed change, without its sign (1.5.8): the record
-  # of the number as printed, or of its absolute value when the span
-  # formats the raw value.
-  render_sign <- function(rc, k) {
-    R <- rc$R
-    cfg <- rc$cfg
-    cc <- split_classes(R$classes[[k]], R$keys[[k]], rc$owned, cfg$formatters)
-    arms <- R$arms[[k]]
-    narms <- length(arms)
-    msg <- lang_check(rc$s$lang, R$kind[k], R$expr[k], cc$own, cc$keys, narms)
-    if (!is.null(msg)) return(construct_fail(rc, k, msg))
-    label <- sprintf("\"%s\"", gsub("[ \t\r\n]+", " ", arms[1L]))
-    g <- get_governor(rc, k, label, cc)
-    if (!is.null(g$stop)) return(g$stop)
-    v <- g$v
-    claim_failed <- g$claim_failed
-    rc$L_raw[k] <- ledger_raw(v)
-    rc$L_unit[k] <- ledger_unit(v)
-    chk <- check_governor(v)
-    if (!is.null(chk)) return(record_fail(rc, k, chk$kind, label, chk$detail))
-    own_fmt <- has_own_format(cc, cfg$formatters)
-    rec <- if (inherits(v, "weft_text") && !own_fmt) {
-      v
-    } else {
-      # the sign is judged on the number as printed; wording classes and the
-      # magnitude are read from the absolute value
-      judge <- setdiff(cc$own, c(".no", WORDING_CLASSES))
-      tryCatch(apply_formatters(v, judge, as.list(cc$keys), cfg, governor = TRUE, on_pick = pick_note(rc, k)),
-               error = function(e) e)
-    }
-    if (inherits(rec, "error")) return(fail_from_error(rc, k, rec, label))
-    num <- attr(rec, "number")[1L]
-    rc$L_rel[k] <- ledger_rel(rec)
-    if (!identical(attr(rec, "relation")[1L], "=")) {
-      return(record_fail(rc, k, "value error", label, sprintf(
-        "A `sign` governor that prints as a bound (\"%s\") has no magnitude to print (rule 1.5.17); write that case with `if`.",
-        as.character(rec)[1L])))
-    }
-    if (is.na(num)) {
-      return(record_fail(rc, k, "value error", label, "A `sign` governor needs a number, and this has none."))
-    }
-    i <- if (num > 0) 1L else if (num < 0) 2L else 3L
-    if (i == 3L && narms == 2L) {
-      return(record_fail(rc, k, "failed claim", label, sprintf(
-        "the value printed as \"%s\", which is zero, and a two-arm `sign` has no arm for zero (rule 1.5.3)",
-        as.character(rec)[1L]), hint = "add a third arm for zero"))
-    }
-    mag <- if (inherits(v, "weft_text") && !own_fmt) {
-      txt <- as.character(rec)[1L]
-      if (num < 0 && startsWith(txt, cfg$minus)) txt <- substring(txt, nchar(cfg$minus) + 1L)
-      new_weft_text(txt, abs(num), attr(rec, "decimals")[1L], "=", abs(raw_of(v)))
-    } else {
-      tryCatch(apply_formatters(abs(if (inherits(v, "weft_text")) with_unit(raw_of(v), unit_of(v)) else v),
-                                cc$own, as.list(cc$keys), cfg, governor = TRUE),
-               error = function(e) e)
-    }
-    if (inherits(mag, "error")) return(fail_from_error(rc, k, mag, label))
-    register_id(rc, k, v, cc, rec)
-    rc$chosen[k] <- i
-    out <- render_arm(rc, k, i, as.character(mag)[1L], record = mag)
-    finish_construct(rc, k, out, cc, claim_failed)
-  }
-
-  # A `list` span (stage 1h): the governor is an atomic vector, the arm is
-  # chosen by its length as `n` chooses by a count, and `#` is the vector
-  # collapsed as `.and` collapses it.
-  render_list <- function(rc, k) {
-    R <- rc$R
-    cfg <- rc$cfg
-    cc <- split_classes(R$classes[[k]], R$keys[[k]], rc$owned, cfg$formatters)
-    arms <- R$arms[[k]]
-    narms <- length(arms)
-    msg <- lang_check(rc$s$lang, R$kind[k], R$expr[k], cc$own, cc$keys, narms)
-    if (!is.null(msg)) return(construct_fail(rc, k, msg))
-    label <- sprintf("\"%s\"", gsub("[ \t\r\n]+", " ", arms[1L]))
-    ev <- eval_expr(rc, k, R$expr[k], gov_label(R$expr[k]))
-    if (!ev$ok) return(fail_from_error(rc, k, ev$error, label))
-    prob <- guest_governor_problem(ev$guest, "list")
-    if (!is.null(prob)) return(record_fail(rc, k, "value error", label, prob))
-    v <- ev$value
-    claim_failed <- ev$claim_failed
-    if (is.null(v) || !is.atomic(v) || !is.null(dim(v))) {
-      return(record_fail(rc, k, "no value", label, paste0(
-        "A `list` governor must be an atomic vector (NULL, an R list, a data frame, a matrix and an array are not); ",
-        "NULL is not an empty list.")))
-    }
-    if (anyNA(v)) {
-      return(record_fail(rc, k, "no value", label, "A `list` governor has a missing element (NA)."))
-    }
-    len <- length(v)
-    if (len == 0L && narms == 2L) {
-      return(record_fail(rc, k, "failed claim", label, paste0(
-        "the list is empty, and a two-arm `list` span has no arm for the empty case (rule 1.5.3); ",
-        "add a first arm for the empty case")))
-    }
-    hash <- ""
-    if (len > 0L) {
-      reg <- cfg$formatters
-      fcl <- cc$own[!(cc$own %in% text_classes(reg))]
-      if (!length(intersect(fcl, c(COLLAPSE_CLASSES, registered_classes(reg, "collapse"))))) fcl <- c(fcl, ".and")
-      # a number vector with no number or wording class prints each element as
-      # a bare value prints
-      if (is.numeric(v) && !inherits(v, "units") && !has_own_format(cc, cfg$formatters)) {
-        v <- stats::setNames(vapply(v, stock_print, ""), names(v))
-      }
-      out <- tryCatch(
-        paste(as.character(apply_formatters(v, fcl, as.list(cc$keys), cfg, join = ", ",
-                                            on_zero = zero_note(rc, k, gov_label(R$expr[k])),
-                                            on_pick = pick_note(rc, k))), collapse = ""),
-        error = function(e) e)
-      if (inherits(out, "error")) return(fail_from_error(rc, k, out, label))
-      hash <- out
-    }
-    rec <- new_weft_text(as.character(len), len, FALSE, "=", len)
-    i <- choose_arm_n(rec, narms)
-    rc$chosen[k] <- i
-    out <- render_arm(rc, k, i, hash, record = rec)
-    finish_construct(rc, k, out, cc, claim_failed)
-  }
-
-  render_if <- function(rc, k) {
-    R <- rc$R
-    s <- rc$s
-    cc <- split_classes(R$classes[[k]], R$keys[[k]], rc$owned, rc$cfg$formatters)
-    msg <- lang_check(s$lang, R$kind[k], R$expr[k], cc$own, cc$keys)
-    if (!is.null(msg)) return(construct_fail(rc, k, msg))
-    arms <- R$arms[[k]]
-    narms <- length(arms)
-    expr <- R$expr[k]
-    label <- sprintf("\"%s\"", gsub("[ \t\r\n]+", " ", arms[1L]))
-    parts <- tryCatch(split_args(expr), error = function(e) NULL)
-    if (is.null(parts)) return(construct_fail(rc, k, "The condition list does not parse (rule 5.3.5)."))
-    truth <- logical(length(parts$exprs))
-    claim_failed <- FALSE
-    guest_marker <- NULL
-    for (i in seq_along(parts$exprs)) {
-      ev <- eval_expr(rc, k, parts$texts[i], label)
-      if (!ev$ok) return(fail_from_error(rc, k, ev$error, label))
-      claim_failed <- claim_failed || ev$claim_failed
-      # a guest value of the wrong kind: each condition is judged on its own (G13)
-      prob <- guest_governor_problem(ev$guest, "if")
-      if (!is.null(prob)) {
-        guest_marker <- record_fail(rc, k, "value error", label, prob)
-        next
-      }
-      v <- ev$value
-      if (length(v) == 0L || (length(v) == 1L && is.na(v))) {
-        return(record_fail(rc, k, "no value", label,
-                           sprintf("The condition `%s` is missing (NA or length zero).", parts$texts[i])))
-      }
-      if (!is.logical(v) || length(v) != 1L) {
-        return(record_fail(rc, k, "value error", label,
-                           sprintf("The condition `%s` must be a single TRUE or FALSE.", parts$texts[i])))
-      }
-      truth[i] <- v
-    }
-    if (!is.null(guest_marker)) return(guest_marker)
-    guard_ids <- integer()
-    if (narms == 1L) {
-      if (rc$strict && any(!truth)) {
-        weft_abort(sprintf("weft: %s: %s was FALSE", loc_str(rc, k), parts$texts[which(!truth)[1L]]),
-                   "weft_claim_failed")
-      }
-      for (i in which(!truth)) {
-        guard_ids <- c(guard_ids, add_failure(
-          s, "failed claim", file = R$file[k], line = R$line[k], expr = label,
-          detail = sprintf("%s was FALSE", parts$texts[i]),
-          hint = "optional text is written [phrase | ]{if=\"…\"}",
-          chunk = rc$chunk_label, option = if (rc$is_str) rc$ctx$option else NA_character_))
-        claim_failed <- TRUE
-      }
-      i <- 1L
-    } else {
-      i <- if (all(truth)) 1L else 2L
-    }
-    rc$chosen[k] <- i
-    register_id(rc, k, NA_real_, cc)
-    out <- render_arm(rc, k, i, "#")
-    res <- finish_construct(rc, k, out, cc, claim_failed)
-    # a failed guard is reported by its phrase as printed (2.6.2, 2.6.3)
-    if (length(guard_ids)) {
-      phrase <- gsub("[ \t\r\n]+", " ", trim_ws(apply_text_classes(out, cc$own, rc$cfg, keys = cc$keys)))
-      for (g in guard_ids) s$failures[[g]]$expr <- sprintf("\"%s\"", phrase)
-    }
-    res
-  }
-
-  # ---- resolve_markup(): text, literal and cite spans -------------------------------------
-
-  render_text <- function(rc, k) {
-    R <- rc$R
-    cc <- split_classes(R$classes[[k]], R$keys[[k]], rc$owned, rc$cfg$formatters)
-    msg <- lang_check(rc$s$lang, R$kind[k], R$expr[k], cc$own, cc$keys)
-    if (!is.null(msg)) return(construct_fail(rc, k, msg))
-    a <- R$start[k] + 1L
-    b <- R$block_start[k] - 2L
-    out <- render_plain(rc, a, b, range_items(rc, a, b, which(R$parent == k)))
-    finish_construct(rc, k, out, cc, FALSE)
-  }
-
-  # `.weft-literal` (1.8.9 to 1.8.11): the `why` is removed from the output;
-  # the class, the other classes and the other keys stay. A span's prose is
-  # resolved as any prose is; a div is its opening line, the body being
-  # prose of its own.
-  render_literal <- function(rc, k) {
-    R <- rc$R
-    text <- rc$text
-    cl <- R$classes[[k]]
-    ky <- R$keys[[k]]
-    ky <- ky[!names(ky) %in% c("why", "decision")]
-    items <- c(if (!is.na(R$id[k]) && nzchar(R$id[k])) paste0("#", R$id[k]), cl,
-               if (length(ky)) attr_pairs(ky))
-    blk <- sprintf("{%s}", paste(items, collapse = " "))
-    if (startsWith(substr(text, R$start[k], R$start[k]), ":")) {
-      return(paste0(substr(text, R$start[k], R$block_start[k] - 1L), blk))
-    }
-    a <- R$start[k] + 1L
-    b <- R$block_start[k] - 2L
-    inner <- if (b >= a) render_plain(rc, a, b, range_items(rc, a, b, which(R$parent == k))) else ""
-    paste0("[", inner, "]", blk)
-  }
-
-  # A `cite` span (1.8): its prose, and in the citation form the value in
-  # brackets after it; each key must be in the bibliography (1.8.5).
-  render_cite <- function(rc, k) {
-    R <- rc$R
-    s <- rc$s
-    cc <- split_classes(R$classes[[k]], R$keys[[k]], rc$owned, rc$cfg$formatters)
-    msg <- lang_check(s$lang, R$kind[k], R$expr[k], cc$own, cc$keys)
-    if (!is.null(msg)) return(construct_fail(rc, k, msg))
-    a <- R$start[k] + 1L
-    b <- R$block_start[k] - 2L
-    prose <- if (b >= a) render_plain(rc, a, b, range_items(rc, a, b, which(R$parent == k))) else ""
-    value <- R$expr[k]
-    out <- finish_construct(rc, k, prose, cc, FALSE)
-    if (grepl("@", value, fixed = TRUE)) out <- paste0(out, " [", value, "]")
-    keys <- cite_keys(value)
-    known <- bibliography_keys(s)
-    gone <- if (length(s$bib_missing)) {
-      sprintf("; the bibliography file `%s` was not found", paste(s$bib_missing, collapse = "`, `"))
-    } else ""
-    if (length(s$bib_unreadable)) {
-      gone <- paste0(gone, paste(sprintf("; the bibliography file `%s` could not be read (%s)",
-                                         basename(names(s$bib_unreadable)), unname(s$bib_unreadable)),
-                                 collapse = ""))
-    }
-    unknown <- unique(keys[!(keys %in% known)])
-    if (length(unknown)) {
-      if (rc$strict) {
-        weft_abort(sprintf("weft: %s: the citation key `%s` is not in the bibliography%s.",
-                           loc_str(rc, k), unknown[1L], gone), "weft_value_error")
-      }
-      for (u in unknown) {
-        add_failure(s, "unknown citation key", file = R$file[k], line = R$line[k],
-                    expr = paste0("cite=", attr_shown(value)),
-                    detail = sprintf("the key `%s` is not in the bibliography (rule 1.8.5)%s", u, gone),
-                    chunk = rc$chunk_label, option = if (rc$is_str) rc$ctx$option else NA_character_)
-      }
-      fail_note(rc, k, "value error")
-      out <- paste0(out, resolve_marker(rc, "unknown key", R$line[k]))
-    }
-    out
-  }
-
-  # ---- resolve_markup(): one item, and its ledger entry -----------------------------------
-
-  # the ledger entry of a construct, after it has been rendered (D7, D8)
-  make_entry <- function(rc, it, out) {
-    R <- rc$R
-    s <- rc$s
-    spans <- rc$spans
-    if (it$type == "span") {
-      p <- s$parked[[it$idx]]
-      li <- span_line(rc, it$start)
-      view <- li$view %||% NA_integer_
-      wh <- ledger_where(s, rc$F, li$file, view, rc$chunk_label)
-      bare_aux <- rc$bare_aux
-      fail <- bare_aux$failed
-      return(list(file = wh$file, section = wh$section, kind = "bare",
-                  expr = expr_key(unwrap_quarto(trim_ws(p$code))), id = NULL,
-                  context = if (wh$front) "front-matter" else (if (rc$is_str) (rc$ctx$context %||% "weft") else "prose"),
-                  text = if (is.na(fail)) out else NULL, arm = NULL, rel = NULL,
-                  raw = if (is.na(bare_aux$raw)) NULL else bare_aux$raw,
-                  unit = if (is.na(bare_aux$raw) || is.na(bare_aux$unit)) NULL else bare_aux$unit,
-                  failed = if (is.na(fail)) NULL else fail,
-                  dict = dict_refs(unwrap_quarto(trim_ws(p$code)))))
-    }
-    k <- it$k
-    kind <- R$kind[k]
-    # a named value R read is a value of the ledger, keyed as `r NAME` is (BN12); one left for the filter is not
-    named_read <- kind == "named"
-    if (named_read) {
-      if (!rc$L_read[k] && is.na(rc$L_fail[k])) return(NULL)
-      kind <- "value"
-    }
-    if (!(kind %in% LEDGER_KINDS)) return(NULL)
-    if (!named_read && kind %in% c("bare", "value") && is.na(match(R$start[k], spans$start))) return(NULL)
-    wh <- ledger_where(s, rc$F, R$file[k], R$line_view[k], rc$chunk_label)
-    bare_aux <- rc$bare_aux
-    fail <- rc$L_fail[k]
-    code <- NULL
-    expr <- if (kind == "bare") {
-      code <- unwrap_quarto(trim_ws(s$parked[[spans$idx[match(R$start[k], spans$start)]]]$code))
-      expr_key(code)
-    } else if (kind == "cite") {
-      br <- if (R$block_start[k] - 2L >= R$start[k] + 1L) substr(rc$text, R$start[k] + 1L, R$block_start[k] - 2L) else ""
-      paste(collapse_ws(R$expr[k]), collapse_ws(br), sep = " | ")
-    } else {
-      code <- if (kind == "value") unwrap_quarto(R$expr[k]) else R$expr[k]
-      expr_key(code)
-    }
-    raw <- if (kind == "bare") bare_aux$raw else if (kind %in% c("value", "n", "sign")) rc$L_raw[k] else NA_real_
-    if (kind == "bare" && is.na(fail)) fail <- bare_aux$failed
-    unit <- if (kind == "bare") bare_aux$unit else if (kind %in% c("value", "n", "sign")) rc$L_unit[k] else NA_character_
-    rel <- if (kind %in% c("value", "n", "sign")) rc$L_rel[k] else NA_character_
-    arm <- NA_character_
-    if (kind %in% c("n", "if", "sign", "list") && is.na(fail)) {
-      arm <- ledger_arm(kind, length(R$arms[[k]]), rc$chosen[k])
-    }
-    id <- if (kind %in% c("value", "n", "if", "sign", "list") && !is.na(R$id[k]) && nzchar(R$id[k])) R$id[k] else NULL
-    list(file = wh$file, section = wh$section, kind = kind, expr = expr, id = id,
-         context = if (wh$front) "front-matter" else
-           if (identical(R$context[k], "prose") && nzchar(R$tex[k])) c(math = "math", raw = "tex")[[R$tex[k]]] else R$context[k],
-         text = if (is.na(fail)) out else NULL,
-         arm = if (is.na(arm)) NULL else arm, rel = if (is.na(rel)) NULL else rel,
-         raw = if (is.na(raw)) NULL else raw,
-         unit = if (is.na(raw) || is.na(unit)) NULL else unit,
-         failed = if (is.na(fail)) NULL else fail,
-         dict = if (is.null(code)) character() else dict_refs(code))
-  }
-
-  # One item rendered, its ledger entry kept in the slot it took when it began.
-  render_item <- function(rc, it) {
-    R <- rc$R
-    slot <- length(rc$ents) + 1L
-    rc$ents[slot] <- list(NULL)
-    top_i <- rc$cur_top
-    old_tex <- rc$cur_tex
-    rc$cur_tex <- if (it$type == "row") R$tex[it$k] else ""
-    out <- render_item0(rc, it)
-    rc$cur_tex <- old_tex
-    # in raw LaTeX a construct's output, a marker included, is wrapped (TX3); a bare value that
-    # printed is not, but its marker is
-    if (it$type == "row" && identical(R$tex[it$k], "raw") && nzchar(out) &&
-        (R$kind[it$k] == "value" || (R$kind[it$k] == "named" && rc$L_read[it$k]) || (R$kind[it$k] == "bare" && grepl("\\text{<<weft:", out, fixed = TRUE)))) {
-      out <- paste0("\\ensuremath{", out, "}")
-    }
-    e <- make_entry(rc, it, out)
-    if (!is.null(e)) {
-      e$top <- top_i
-      rc$ents[slot] <- list(e)
-    }
-    out
-  }
-
-  render_item0 <- function(rc, it) {
-    R <- rc$R
-    s <- rc$s
-    if (it$type == "span") {
-      li <- span_line(rc, it$start)
-      return(render_bare(rc, NA_integer_, idx = it$idx,
-                         line_info = list(file = li$file, line = li$line, view = li$view),
-                         start = it$start))
-    }
-    k <- it$k
-    rc$evaluated[k] <- TRUE
-    if (!is.na(R$error[k])) return(construct_fail(rc, k, R$error[k]))
-    # a named value: R reads it where it can, else it is left for the filter (E2 BN1, BN5)
-    if (R$kind[k] == "named") {
-      return(tryCatch(render_named(rc, k),
-                      weft_construct_error = function(e) {
-                        if (inherits(e, "weft_located")) stop(e)
-                        construct_fail(rc, k, conditionMessage(e))
-                      }))
-    }
-    # an id met a second time at another place, over the document as knitted:
-    # a parent and its children, prose and captions (1.7.5)
-    if (has_id(R, k)) {
-      prev <- s$ids[[R$id[k]]]
-      if (!is.null(prev) && !identical(prev$loc, id_loc(R, k))) {
-        return(construct_fail(rc, k, sprintf(
-          "The id `%s` is defined twice; an id is unique within a document (rule 1.7.5).", R$id[k])))
-      }
-    }
-    # inline R knitr did not park (the `{r}` form under rmarkdown) is not
-    # evaluated: it stays as it is, as stock leaves it (1.3.1)
-    if (R$kind[k] %in% c("bare", "value") && is.na(match(R$start[k], rc$spans$start))) {
-      return(substr(rc$text, R$start[k], R$end[k]))
-    }
-    out <- tryCatch(
-      switch(R$kind[k],
-             bare = render_bare(rc, k),
-             value = render_value(rc, k),
-             n = render_n(rc, k),
-             `if` = render_if(rc, k),
-             sign = render_sign(rc, k),
-             list = render_list(rc, k),
-             text = render_text(rc, k),
-             cite = render_cite(rc, k),
-             literal = render_literal(rc, k),
-             construct_fail(rc, k, sprintf("The `%s` construct is not built yet.", R$kind[k]))),
-      weft_construct_error = function(e) {
-        if (inherits(e, "weft_located")) stop(e)
-        construct_fail(rc, k, conditionMessage(e))
-      },
-      weft_value_error = function(e) {
-        if (rc$strict) rethrow(rc, k, e)
-        record_fail(rc, k, "value error", source_label(rc$text, R$start[k], R$end[k]), conditionMessage(e))
-      },
-      weft_no_value = function(e) {
-        if (rc$strict) rethrow(rc, k, e)
-        record_fail(rc, k, "no value", source_label(rc$text, R$start[k], R$end[k]), conditionMessage(e))
-      })
-    # a value that failed still defined its id: a reference to it follows
-    # from that failure (1.7.10)
-    if (has_id(R, k) && is.null(s$ids[[R$id[k]]])) {
-      s$ids[[R$id[k]]] <- list(rec = NULL, raw = NA_real_, failed = TRUE, loc = id_loc(R, k))
-    }
-    out
-  }
-
   on.exit({
     if (nr) {
       R[c("evaluated", "unit_picked", "chosen")] <- list(rc$evaluated, rc$unit_picked, rc$chosen)
@@ -1300,6 +687,161 @@ finish_construct <- function(rc, k, text, cc, claim_failed, text_classes = TRUE)
     text <- paste0(text, resolve_marker(rc, "failed claim", rc$R$line[k]))
   }
   text
+}
+
+# ---- resolve_markup(): ranges and sentences -------------------------------------------
+
+# The items of the text from `a` to `b`: the rows `kid_ids` and the parked spans that lie
+# in no row, in textual order.
+range_items <- function(rc, a, b, kid_ids) {
+  R <- rc$R
+  spans <- rc$spans
+  items <- lapply(kid_ids, function(k) list(type = "row", k = k, start = R$start[k], end = R$end[k]))
+  if (nrow(spans)) {
+    for (i in seq_len(nrow(spans))) {
+      st <- spans$start[i]
+      if (st < a || st > b || st %in% R$start) next
+      if (any(vapply(items, function(it) st >= it$start && st <= it$end, NA))) next
+      items[[length(items) + 1L]] <- list(type = "span", idx = spans$idx[i],
+                                         start = st, end = spans$end[i])
+    }
+  }
+  if (length(items)) items <- items[order(vapply(items, function(it) it$start, 0L))]
+  items
+}
+
+# The file and line of the text at `start`: `view` is its line in the knitted view.
+span_line <- function(rc, start) {
+  if (rc$is_str) return(data.frame(file = as.character(rc$ctx$file %||% current_file_name(rc$s)),
+                                   line = as.integer(rc$ctx$line %||% NA_integer_),
+                                   stringsAsFactors = FALSE))
+  lv <- rc$first_line + sum(rc$nlpos < start)
+  out <- map_lines(rc$F, lv)
+  out$view <- as.integer(lv)
+  out
+}
+
+# Sentence starts (5.10.1): a value or span of the prose whose printed text
+# opens a sentence with a digit or a lower-case letter.
+# Only the end of what precedes the construct decides: its blankness (the
+# first non-blank character of the block, found once), and its last two
+# lines, which hold every test below. A run of blank space that ends in
+# two newlines is a paragraph break, so no test reaches further back.
+note_sentence <- function(rc, it, out) {
+  R <- rc$R
+  s <- rc$s
+  text <- rc$text
+  if (rc$is_str || !nzchar(out)) return("")
+  # a value in math or raw LaTeX is never a sentence start (TX11)
+  if (it$type == "row" && nzchar(R$tex[it$k])) return("")
+  body <- sub("^[*_\\[]+", "", out)
+  if (!grepl("^[0-9[:lower:]]", body)) return("")
+  if (!starts_sentence(it$start, text, rc$nlpos, rc$first_ink)) return("")
+  if (it$type == "span") {
+    li <- span_line(rc, it$start)
+    expr <- s$parked[[it$idx]]$code
+    file <- li$file
+    line <- li$line
+  } else {
+    expr <- R$expr[it$k]
+    if (R$kind[it$k] == "if") {
+      expr <- sprintf("\"%s\"", gsub("[ \t\r\n]+", " ", trim_ws(out)))
+    } else if (R$kind[it$k] %in% c("text", "cite", "literal")) {
+      expr <- source_label(text, R$start[it$k], R$end[it$k])
+    }
+    file <- R$file[it$k]
+    line <- R$line[it$k]
+  }
+  s$sentence_starts[[length(s$sentence_starts) + 1L]] <- list(
+    file = as.character(file), line = as.integer(line),
+    expr = as.character(expr), text = out)
+  if (isTRUE(rc$cfg$sentence_start_fail)) {
+    add_failure(s, "sentence start", file = file, line = line, expr = as.character(expr),
+                detail = sprintf("a printed \"%s\" opens a sentence; write .cap (with .count or .word for a number) (rule 5.10.1)", out),
+                chunk = rc$chunk_label)
+    return(resolve_marker(rc, "sentence start", line))
+  }
+  ""
+}
+
+# `n`, `if` and `sign` spans: when one prints nothing, one adjacent space
+# goes with it (1.5.12, stage 1g)
+governed <- function(it, R) it$type == "row" && R$kind[it$k] %in% c("n", "if", "sign", "list")
+
+# The text from `a` to `b` with its items rendered. `top`: the items are the
+# block's own, whose positions the ledger's sentences are read from.
+render_plain <- function(rc, a, b, items, top = FALSE) {
+  R <- rc$R
+  text <- rc$text
+  outs <- character()
+  for (ii in seq_along(items)) {
+    it <- items[[ii]]
+    if (top) rc$cur_top <- ii
+    o <- render_item(rc, it)
+    if (top && (it$type == "span" ||
+                R$kind[it$k] %in% c("bare", "value", "named", "n", "if", "sign", "list", "text", "cite", "literal"))) {
+      o <- paste0(o, note_sentence(rc, it, o))
+    }
+    outs <- c(outs, o)
+  }
+  gaps <- character(length(items) + 1L)
+  cur <- a
+  for (i in seq_along(items)) {
+    it <- items[[i]]
+    gaps[i] <- substr(text, cur, it$start - 1L)
+    # two emphasis constructs side by side would read as `*a**b*`; an empty
+    # comment keeps the delimiters apart (1.4.3)
+    if (i > 1L && it$start == cur && endsWith(outs[i - 1L], "*") && startsWith(outs[i], "*")) {
+      outs[i] <- paste0("<!-- -->", outs[i])
+    }
+    cur <- it$end + 1L
+  }
+  gaps[length(items) + 1L] <- substr(text, cur, b)
+  for (i in seq_along(items)) {
+    it <- items[[i]]
+    rec <- if (it$type == "row") rc$L_rec[[as.character(it$k)]]
+    if (!is.null(rec)) typed_after(rc, rec, gaps[i + 1L], R$file[it$k], R$line[it$k], source_label(text, R$start[it$k], R$end[it$k]))
+  }
+  res <- join_pieces(gaps, outs, vapply(items, governed, NA, R = R), pos = top)
+  if (top) {
+    rc$top_pos <- attr(res, "pos")
+    attr(res, "pos") <- NULL
+  }
+  res
+}
+
+# Where arm `i` of the governed span at row `k` lies in the text.
+arm_range <- function(rc, k, i) {
+  R <- rc$R
+  S <- rc$S
+  body_a <- R$start[k] + 1L
+  body_b <- R$block_start[k] - 2L
+  seps <- R$sep_pos[[k]]
+  n <- length(R$arms[[k]])
+  # a separator written `\|` starts at its backslash
+  past <- function(p) p + if (identical(S$chars[p], "\\")) 2L else 1L
+  list(a = if (i == 1L) body_a else past(seps[i - 1L]),
+       b = if (i == n) body_b else seps[i] - 1L)
+}
+
+# Arm `i` of the governed span at row `k`, its `#` printed as `hash`. `record` is the
+# governor's record, which `n="."` inside the arm reads.
+render_arm <- function(rc, k, i, hash, record = NULL) {
+  R <- rc$R
+  r <- arm_range(rc, k, i)
+  items <- range_items(rc, r$a, r$b, which(R$parent == k & R$arm %in% i))
+  old <- rc$gov
+  if (!is.null(record)) rc$gov <- record
+  on.exit(rc$gov <- old, add = TRUE)
+  outs <- vapply(items, function(it) render_item(rc, it), "")
+  idf <- data.frame(start = vapply(items, function(it) it$start, 0L),
+                    end = vapply(items, function(it) it$end, 0L))
+  tmpl <- arm_template_range(rc$S, r$a, r$b, idf)
+  if (!is.null(record) && length(attr(record, "unit_suffix"))) {
+    after <- regmatches(tmpl, regexec("([^]*)", tmpl))[[1L]]
+    if (length(after) == 2L) typed_after(rc, record, after[2L], R$file[k], R$line[k], source_label(rc$text, R$start[k], R$end[k]))
+  }
+  fill_template(tmpl, hash, as.list(outs), vapply(items, governed, NA, R = R))
 }
 
 # ---- resolve_markup(): bare and formatted values ---------------------------------------
@@ -1638,3 +1180,458 @@ get_governor <- function(rc, k, label, cc) {
   list(v = ev$value, claim_failed = ev$claim_failed)
 }
 
+# ---- resolve_markup(): the governed spans ----------------------------------------------
+
+render_n <- function(rc, k) {
+  R <- rc$R
+  cfg <- rc$cfg
+  cc <- split_classes(R$classes[[k]], R$keys[[k]], rc$owned, cfg$formatters)
+  arms <- R$arms[[k]]
+  narms <- length(arms)
+  msg <- lang_check(rc$s$lang, R$kind[k], R$expr[k], cc$own, cc$keys, narms)
+  if (!is.null(msg)) return(construct_fail(rc, k, msg))
+  label <- sprintf("\"%s\"", gsub("[ \t\r\n]+", " ", arms[1L]))
+  g <- get_governor(rc, k, label, cc)
+  if (!is.null(g$stop)) return(g$stop)
+  v <- g$v
+  claim_failed <- g$claim_failed
+  rc$L_raw[k] <- ledger_raw(v)
+  rc$L_unit[k] <- ledger_unit(v)
+  own_fmt <- has_own_format(cc, cfg$formatters)
+  # a range of two ends is one governor (1.5.11)
+  if (!(".range" %in% cc$own)) {
+    chk <- check_governor(v)
+    if (!is.null(chk)) return(record_fail(rc, k, chk$kind, label, chk$detail))
+  }
+  rec <- if (inherits(v, "weft_text") && !own_fmt && !(".range" %in% cc$own)) v else tryCatch(
+    apply_formatters(v, cc$own, as.list(cc$keys), cfg, governor = TRUE, on_pick = pick_note(rc, k)),
+    error = function(e) e)
+  if (inherits(rec, "error")) return(fail_from_error(rc, k, rec, label))
+  rc$L_rel[k] <- ledger_rel(rec)
+  register_id(rc, k, v, cc, rec)
+  i <- choose_arm_n(rec, narms)
+  rc$chosen[k] <- i
+  out <- render_arm(rc, k, i, as.character(rec)[1L], record = rec)
+  finish_construct(rc, k, out, cc, claim_failed)
+}
+
+# The magnitude of a printed change, without its sign (1.5.8): the record
+# of the number as printed, or of its absolute value when the span
+# formats the raw value.
+render_sign <- function(rc, k) {
+  R <- rc$R
+  cfg <- rc$cfg
+  cc <- split_classes(R$classes[[k]], R$keys[[k]], rc$owned, cfg$formatters)
+  arms <- R$arms[[k]]
+  narms <- length(arms)
+  msg <- lang_check(rc$s$lang, R$kind[k], R$expr[k], cc$own, cc$keys, narms)
+  if (!is.null(msg)) return(construct_fail(rc, k, msg))
+  label <- sprintf("\"%s\"", gsub("[ \t\r\n]+", " ", arms[1L]))
+  g <- get_governor(rc, k, label, cc)
+  if (!is.null(g$stop)) return(g$stop)
+  v <- g$v
+  claim_failed <- g$claim_failed
+  rc$L_raw[k] <- ledger_raw(v)
+  rc$L_unit[k] <- ledger_unit(v)
+  chk <- check_governor(v)
+  if (!is.null(chk)) return(record_fail(rc, k, chk$kind, label, chk$detail))
+  own_fmt <- has_own_format(cc, cfg$formatters)
+  rec <- if (inherits(v, "weft_text") && !own_fmt) {
+    v
+  } else {
+    # the sign is judged on the number as printed; wording classes and the
+    # magnitude are read from the absolute value
+    judge <- setdiff(cc$own, c(".no", WORDING_CLASSES))
+    tryCatch(apply_formatters(v, judge, as.list(cc$keys), cfg, governor = TRUE, on_pick = pick_note(rc, k)),
+             error = function(e) e)
+  }
+  if (inherits(rec, "error")) return(fail_from_error(rc, k, rec, label))
+  num <- attr(rec, "number")[1L]
+  rc$L_rel[k] <- ledger_rel(rec)
+  if (!identical(attr(rec, "relation")[1L], "=")) {
+    return(record_fail(rc, k, "value error", label, sprintf(
+      "A `sign` governor that prints as a bound (\"%s\") has no magnitude to print (rule 1.5.17); write that case with `if`.",
+      as.character(rec)[1L])))
+  }
+  if (is.na(num)) {
+    return(record_fail(rc, k, "value error", label, "A `sign` governor needs a number, and this has none."))
+  }
+  i <- if (num > 0) 1L else if (num < 0) 2L else 3L
+  if (i == 3L && narms == 2L) {
+    return(record_fail(rc, k, "failed claim", label, sprintf(
+      "the value printed as \"%s\", which is zero, and a two-arm `sign` has no arm for zero (rule 1.5.3)",
+      as.character(rec)[1L]), hint = "add a third arm for zero"))
+  }
+  mag <- if (inherits(v, "weft_text") && !own_fmt) {
+    txt <- as.character(rec)[1L]
+    if (num < 0 && startsWith(txt, cfg$minus)) txt <- substring(txt, nchar(cfg$minus) + 1L)
+    new_weft_text(txt, abs(num), attr(rec, "decimals")[1L], "=", abs(raw_of(v)))
+  } else {
+    tryCatch(apply_formatters(abs(if (inherits(v, "weft_text")) with_unit(raw_of(v), unit_of(v)) else v),
+                              cc$own, as.list(cc$keys), cfg, governor = TRUE),
+             error = function(e) e)
+  }
+  if (inherits(mag, "error")) return(fail_from_error(rc, k, mag, label))
+  register_id(rc, k, v, cc, rec)
+  rc$chosen[k] <- i
+  out <- render_arm(rc, k, i, as.character(mag)[1L], record = mag)
+  finish_construct(rc, k, out, cc, claim_failed)
+}
+
+# A `list` span (stage 1h): the governor is an atomic vector, the arm is
+# chosen by its length as `n` chooses by a count, and `#` is the vector
+# collapsed as `.and` collapses it.
+render_list <- function(rc, k) {
+  R <- rc$R
+  cfg <- rc$cfg
+  cc <- split_classes(R$classes[[k]], R$keys[[k]], rc$owned, cfg$formatters)
+  arms <- R$arms[[k]]
+  narms <- length(arms)
+  msg <- lang_check(rc$s$lang, R$kind[k], R$expr[k], cc$own, cc$keys, narms)
+  if (!is.null(msg)) return(construct_fail(rc, k, msg))
+  label <- sprintf("\"%s\"", gsub("[ \t\r\n]+", " ", arms[1L]))
+  ev <- eval_expr(rc, k, R$expr[k], gov_label(R$expr[k]))
+  if (!ev$ok) return(fail_from_error(rc, k, ev$error, label))
+  prob <- guest_governor_problem(ev$guest, "list")
+  if (!is.null(prob)) return(record_fail(rc, k, "value error", label, prob))
+  v <- ev$value
+  claim_failed <- ev$claim_failed
+  if (is.null(v) || !is.atomic(v) || !is.null(dim(v))) {
+    return(record_fail(rc, k, "no value", label, paste0(
+      "A `list` governor must be an atomic vector (NULL, an R list, a data frame, a matrix and an array are not); ",
+      "NULL is not an empty list.")))
+  }
+  if (anyNA(v)) {
+    return(record_fail(rc, k, "no value", label, "A `list` governor has a missing element (NA)."))
+  }
+  len <- length(v)
+  if (len == 0L && narms == 2L) {
+    return(record_fail(rc, k, "failed claim", label, paste0(
+      "the list is empty, and a two-arm `list` span has no arm for the empty case (rule 1.5.3); ",
+      "add a first arm for the empty case")))
+  }
+  hash <- ""
+  if (len > 0L) {
+    reg <- cfg$formatters
+    fcl <- cc$own[!(cc$own %in% text_classes(reg))]
+    if (!length(intersect(fcl, c(COLLAPSE_CLASSES, registered_classes(reg, "collapse"))))) fcl <- c(fcl, ".and")
+    # a number vector with no number or wording class prints each element as
+    # a bare value prints
+    if (is.numeric(v) && !inherits(v, "units") && !has_own_format(cc, cfg$formatters)) {
+      v <- stats::setNames(vapply(v, stock_print, ""), names(v))
+    }
+    out <- tryCatch(
+      paste(as.character(apply_formatters(v, fcl, as.list(cc$keys), cfg, join = ", ",
+                                          on_zero = zero_note(rc, k, gov_label(R$expr[k])),
+                                          on_pick = pick_note(rc, k))), collapse = ""),
+      error = function(e) e)
+    if (inherits(out, "error")) return(fail_from_error(rc, k, out, label))
+    hash <- out
+  }
+  rec <- new_weft_text(as.character(len), len, FALSE, "=", len)
+  i <- choose_arm_n(rec, narms)
+  rc$chosen[k] <- i
+  out <- render_arm(rc, k, i, hash, record = rec)
+  finish_construct(rc, k, out, cc, claim_failed)
+}
+
+render_if <- function(rc, k) {
+  R <- rc$R
+  s <- rc$s
+  cc <- split_classes(R$classes[[k]], R$keys[[k]], rc$owned, rc$cfg$formatters)
+  msg <- lang_check(s$lang, R$kind[k], R$expr[k], cc$own, cc$keys)
+  if (!is.null(msg)) return(construct_fail(rc, k, msg))
+  arms <- R$arms[[k]]
+  narms <- length(arms)
+  expr <- R$expr[k]
+  label <- sprintf("\"%s\"", gsub("[ \t\r\n]+", " ", arms[1L]))
+  parts <- tryCatch(split_args(expr), error = function(e) NULL)
+  if (is.null(parts)) return(construct_fail(rc, k, "The condition list does not parse (rule 5.3.5)."))
+  truth <- logical(length(parts$exprs))
+  claim_failed <- FALSE
+  guest_marker <- NULL
+  for (i in seq_along(parts$exprs)) {
+    ev <- eval_expr(rc, k, parts$texts[i], label)
+    if (!ev$ok) return(fail_from_error(rc, k, ev$error, label))
+    claim_failed <- claim_failed || ev$claim_failed
+    # a guest value of the wrong kind: each condition is judged on its own (G13)
+    prob <- guest_governor_problem(ev$guest, "if")
+    if (!is.null(prob)) {
+      guest_marker <- record_fail(rc, k, "value error", label, prob)
+      next
+    }
+    v <- ev$value
+    if (length(v) == 0L || (length(v) == 1L && is.na(v))) {
+      return(record_fail(rc, k, "no value", label,
+                         sprintf("The condition `%s` is missing (NA or length zero).", parts$texts[i])))
+    }
+    if (!is.logical(v) || length(v) != 1L) {
+      return(record_fail(rc, k, "value error", label,
+                         sprintf("The condition `%s` must be a single TRUE or FALSE.", parts$texts[i])))
+    }
+    truth[i] <- v
+  }
+  if (!is.null(guest_marker)) return(guest_marker)
+  guard_ids <- integer()
+  if (narms == 1L) {
+    if (rc$strict && any(!truth)) {
+      weft_abort(sprintf("weft: %s: %s was FALSE", loc_str(rc, k), parts$texts[which(!truth)[1L]]),
+                 "weft_claim_failed")
+    }
+    for (i in which(!truth)) {
+      guard_ids <- c(guard_ids, add_failure(
+        s, "failed claim", file = R$file[k], line = R$line[k], expr = label,
+        detail = sprintf("%s was FALSE", parts$texts[i]),
+        hint = "optional text is written [phrase | ]{if=\"…\"}",
+        chunk = rc$chunk_label, option = if (rc$is_str) rc$ctx$option else NA_character_))
+      claim_failed <- TRUE
+    }
+    i <- 1L
+  } else {
+    i <- if (all(truth)) 1L else 2L
+  }
+  rc$chosen[k] <- i
+  register_id(rc, k, NA_real_, cc)
+  out <- render_arm(rc, k, i, "#")
+  res <- finish_construct(rc, k, out, cc, claim_failed)
+  # a failed guard is reported by its phrase as printed (2.6.2, 2.6.3)
+  if (length(guard_ids)) {
+    phrase <- gsub("[ \t\r\n]+", " ", trim_ws(apply_text_classes(out, cc$own, rc$cfg, keys = cc$keys)))
+    for (g in guard_ids) s$failures[[g]]$expr <- sprintf("\"%s\"", phrase)
+  }
+  res
+}
+
+# ---- resolve_markup(): text, literal and cite spans -------------------------------------
+
+render_text <- function(rc, k) {
+  R <- rc$R
+  cc <- split_classes(R$classes[[k]], R$keys[[k]], rc$owned, rc$cfg$formatters)
+  msg <- lang_check(rc$s$lang, R$kind[k], R$expr[k], cc$own, cc$keys)
+  if (!is.null(msg)) return(construct_fail(rc, k, msg))
+  a <- R$start[k] + 1L
+  b <- R$block_start[k] - 2L
+  out <- render_plain(rc, a, b, range_items(rc, a, b, which(R$parent == k)))
+  finish_construct(rc, k, out, cc, FALSE)
+}
+
+# `.weft-literal` (1.8.9 to 1.8.11): the `why` is removed from the output;
+# the class, the other classes and the other keys stay. A span's prose is
+# resolved as any prose is; a div is its opening line, the body being
+# prose of its own.
+render_literal <- function(rc, k) {
+  R <- rc$R
+  text <- rc$text
+  cl <- R$classes[[k]]
+  ky <- R$keys[[k]]
+  ky <- ky[!names(ky) %in% c("why", "decision")]
+  items <- c(if (!is.na(R$id[k]) && nzchar(R$id[k])) paste0("#", R$id[k]), cl,
+             if (length(ky)) attr_pairs(ky))
+  blk <- sprintf("{%s}", paste(items, collapse = " "))
+  if (startsWith(substr(text, R$start[k], R$start[k]), ":")) {
+    return(paste0(substr(text, R$start[k], R$block_start[k] - 1L), blk))
+  }
+  a <- R$start[k] + 1L
+  b <- R$block_start[k] - 2L
+  inner <- if (b >= a) render_plain(rc, a, b, range_items(rc, a, b, which(R$parent == k))) else ""
+  paste0("[", inner, "]", blk)
+}
+
+# A `cite` span (1.8): its prose, and in the citation form the value in
+# brackets after it; each key must be in the bibliography (1.8.5).
+render_cite <- function(rc, k) {
+  R <- rc$R
+  s <- rc$s
+  cc <- split_classes(R$classes[[k]], R$keys[[k]], rc$owned, rc$cfg$formatters)
+  msg <- lang_check(s$lang, R$kind[k], R$expr[k], cc$own, cc$keys)
+  if (!is.null(msg)) return(construct_fail(rc, k, msg))
+  a <- R$start[k] + 1L
+  b <- R$block_start[k] - 2L
+  prose <- if (b >= a) render_plain(rc, a, b, range_items(rc, a, b, which(R$parent == k))) else ""
+  value <- R$expr[k]
+  out <- finish_construct(rc, k, prose, cc, FALSE)
+  if (grepl("@", value, fixed = TRUE)) out <- paste0(out, " [", value, "]")
+  keys <- cite_keys(value)
+  known <- bibliography_keys(s)
+  gone <- if (length(s$bib_missing)) {
+    sprintf("; the bibliography file `%s` was not found", paste(s$bib_missing, collapse = "`, `"))
+  } else ""
+  if (length(s$bib_unreadable)) {
+    gone <- paste0(gone, paste(sprintf("; the bibliography file `%s` could not be read (%s)",
+                                       basename(names(s$bib_unreadable)), unname(s$bib_unreadable)),
+                               collapse = ""))
+  }
+  unknown <- unique(keys[!(keys %in% known)])
+  if (length(unknown)) {
+    if (rc$strict) {
+      weft_abort(sprintf("weft: %s: the citation key `%s` is not in the bibliography%s.",
+                         loc_str(rc, k), unknown[1L], gone), "weft_value_error")
+    }
+    for (u in unknown) {
+      add_failure(s, "unknown citation key", file = R$file[k], line = R$line[k],
+                  expr = paste0("cite=", attr_shown(value)),
+                  detail = sprintf("the key `%s` is not in the bibliography (rule 1.8.5)%s", u, gone),
+                  chunk = rc$chunk_label, option = if (rc$is_str) rc$ctx$option else NA_character_)
+    }
+    fail_note(rc, k, "value error")
+    out <- paste0(out, resolve_marker(rc, "unknown key", R$line[k]))
+  }
+  out
+}
+
+# ---- resolve_markup(): one item, and its ledger entry -----------------------------------
+
+# the ledger entry of a construct, after it has been rendered (D7, D8)
+make_entry <- function(rc, it, out) {
+  R <- rc$R
+  s <- rc$s
+  spans <- rc$spans
+  if (it$type == "span") {
+    p <- s$parked[[it$idx]]
+    li <- span_line(rc, it$start)
+    view <- li$view %||% NA_integer_
+    wh <- ledger_where(s, rc$F, li$file, view, rc$chunk_label)
+    bare_aux <- rc$bare_aux
+    fail <- bare_aux$failed
+    return(list(file = wh$file, section = wh$section, kind = "bare",
+                expr = expr_key(unwrap_quarto(trim_ws(p$code))), id = NULL,
+                context = if (wh$front) "front-matter" else (if (rc$is_str) (rc$ctx$context %||% "weft") else "prose"),
+                text = if (is.na(fail)) out else NULL, arm = NULL, rel = NULL,
+                raw = if (is.na(bare_aux$raw)) NULL else bare_aux$raw,
+                unit = if (is.na(bare_aux$raw) || is.na(bare_aux$unit)) NULL else bare_aux$unit,
+                failed = if (is.na(fail)) NULL else fail,
+                dict = dict_refs(unwrap_quarto(trim_ws(p$code)))))
+  }
+  k <- it$k
+  kind <- R$kind[k]
+  # a named value R read is a value of the ledger, keyed as `r NAME` is (BN12); one left for the filter is not
+  named_read <- kind == "named"
+  if (named_read) {
+    if (!rc$L_read[k] && is.na(rc$L_fail[k])) return(NULL)
+    kind <- "value"
+  }
+  if (!(kind %in% LEDGER_KINDS)) return(NULL)
+  if (!named_read && kind %in% c("bare", "value") && is.na(match(R$start[k], spans$start))) return(NULL)
+  wh <- ledger_where(s, rc$F, R$file[k], R$line_view[k], rc$chunk_label)
+  bare_aux <- rc$bare_aux
+  fail <- rc$L_fail[k]
+  code <- NULL
+  expr <- if (kind == "bare") {
+    code <- unwrap_quarto(trim_ws(s$parked[[spans$idx[match(R$start[k], spans$start)]]]$code))
+    expr_key(code)
+  } else if (kind == "cite") {
+    br <- if (R$block_start[k] - 2L >= R$start[k] + 1L) substr(rc$text, R$start[k] + 1L, R$block_start[k] - 2L) else ""
+    paste(collapse_ws(R$expr[k]), collapse_ws(br), sep = " | ")
+  } else {
+    code <- if (kind == "value") unwrap_quarto(R$expr[k]) else R$expr[k]
+    expr_key(code)
+  }
+  raw <- if (kind == "bare") bare_aux$raw else if (kind %in% c("value", "n", "sign")) rc$L_raw[k] else NA_real_
+  if (kind == "bare" && is.na(fail)) fail <- bare_aux$failed
+  unit <- if (kind == "bare") bare_aux$unit else if (kind %in% c("value", "n", "sign")) rc$L_unit[k] else NA_character_
+  rel <- if (kind %in% c("value", "n", "sign")) rc$L_rel[k] else NA_character_
+  arm <- NA_character_
+  if (kind %in% c("n", "if", "sign", "list") && is.na(fail)) {
+    arm <- ledger_arm(kind, length(R$arms[[k]]), rc$chosen[k])
+  }
+  id <- if (kind %in% c("value", "n", "if", "sign", "list") && !is.na(R$id[k]) && nzchar(R$id[k])) R$id[k] else NULL
+  list(file = wh$file, section = wh$section, kind = kind, expr = expr, id = id,
+       context = if (wh$front) "front-matter" else
+         if (identical(R$context[k], "prose") && nzchar(R$tex[k])) c(math = "math", raw = "tex")[[R$tex[k]]] else R$context[k],
+       text = if (is.na(fail)) out else NULL,
+       arm = if (is.na(arm)) NULL else arm, rel = if (is.na(rel)) NULL else rel,
+       raw = if (is.na(raw)) NULL else raw,
+       unit = if (is.na(raw) || is.na(unit)) NULL else unit,
+       failed = if (is.na(fail)) NULL else fail,
+       dict = if (is.null(code)) character() else dict_refs(code))
+}
+
+# One item rendered, its ledger entry kept in the slot it took when it began.
+render_item <- function(rc, it) {
+  R <- rc$R
+  slot <- length(rc$ents) + 1L
+  rc$ents[slot] <- list(NULL)
+  top_i <- rc$cur_top
+  old_tex <- rc$cur_tex
+  rc$cur_tex <- if (it$type == "row") R$tex[it$k] else ""
+  out <- render_item0(rc, it)
+  rc$cur_tex <- old_tex
+  # in raw LaTeX a construct's output, a marker included, is wrapped (TX3); a bare value that
+  # printed is not, but its marker is
+  if (it$type == "row" && identical(R$tex[it$k], "raw") && nzchar(out) &&
+      (R$kind[it$k] == "value" || (R$kind[it$k] == "named" && rc$L_read[it$k]) || (R$kind[it$k] == "bare" && grepl("\\text{<<weft:", out, fixed = TRUE)))) {
+    out <- paste0("\\ensuremath{", out, "}")
+  }
+  e <- make_entry(rc, it, out)
+  if (!is.null(e)) {
+    e$top <- top_i
+    rc$ents[slot] <- list(e)
+  }
+  out
+}
+
+render_item0 <- function(rc, it) {
+  R <- rc$R
+  s <- rc$s
+  if (it$type == "span") {
+    li <- span_line(rc, it$start)
+    return(render_bare(rc, NA_integer_, idx = it$idx,
+                       line_info = list(file = li$file, line = li$line, view = li$view),
+                       start = it$start))
+  }
+  k <- it$k
+  rc$evaluated[k] <- TRUE
+  if (!is.na(R$error[k])) return(construct_fail(rc, k, R$error[k]))
+  # a named value: R reads it where it can, else it is left for the filter (E2 BN1, BN5)
+  if (R$kind[k] == "named") {
+    return(tryCatch(render_named(rc, k),
+                    weft_construct_error = function(e) {
+                      if (inherits(e, "weft_located")) stop(e)
+                      construct_fail(rc, k, conditionMessage(e))
+                    }))
+  }
+  # an id met a second time at another place, over the document as knitted:
+  # a parent and its children, prose and captions (1.7.5)
+  if (has_id(R, k)) {
+    prev <- s$ids[[R$id[k]]]
+    if (!is.null(prev) && !identical(prev$loc, id_loc(R, k))) {
+      return(construct_fail(rc, k, sprintf(
+        "The id `%s` is defined twice; an id is unique within a document (rule 1.7.5).", R$id[k])))
+    }
+  }
+  # inline R knitr did not park (the `{r}` form under rmarkdown) is not
+  # evaluated: it stays as it is, as stock leaves it (1.3.1)
+  if (R$kind[k] %in% c("bare", "value") && is.na(match(R$start[k], rc$spans$start))) {
+    return(substr(rc$text, R$start[k], R$end[k]))
+  }
+  out <- tryCatch(
+    switch(R$kind[k],
+           bare = render_bare(rc, k),
+           value = render_value(rc, k),
+           n = render_n(rc, k),
+           `if` = render_if(rc, k),
+           sign = render_sign(rc, k),
+           list = render_list(rc, k),
+           text = render_text(rc, k),
+           cite = render_cite(rc, k),
+           literal = render_literal(rc, k),
+           construct_fail(rc, k, sprintf("The `%s` construct is not built yet.", R$kind[k]))),
+    weft_construct_error = function(e) {
+      if (inherits(e, "weft_located")) stop(e)
+      construct_fail(rc, k, conditionMessage(e))
+    },
+    weft_value_error = function(e) {
+      if (rc$strict) rethrow(rc, k, e)
+      record_fail(rc, k, "value error", source_label(rc$text, R$start[k], R$end[k]), conditionMessage(e))
+    },
+    weft_no_value = function(e) {
+      if (rc$strict) rethrow(rc, k, e)
+      record_fail(rc, k, "no value", source_label(rc$text, R$start[k], R$end[k]), conditionMessage(e))
+    })
+  # a value that failed still defined its id: a reference to it follows
+  # from that failure (1.7.10)
+  if (has_id(R, k) && is.null(s$ids[[R$id[k]]])) {
+    s$ids[[R$id[k]]] <- list(rec = NULL, raw = NA_real_, failed = TRUE, loc = id_loc(R, k))
+  }
+  out
+}
