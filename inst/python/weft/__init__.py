@@ -191,36 +191,199 @@ _UNESC_RE = _re.compile(r'\\(["\'| ])')
 _LITERAL_RE = _re.compile(r"'[^']*'|\"[^\"]*\"")
 _TOKEN_RE = _re.compile(r"(?<![A-Za-z0-9_.])[A-Za-z_][A-Za-z0-9_.]*")
 _CODE_RE = _re.compile(r"`([A-Za-z_][A-Za-z0-9_.]{0,63})`\{")
-_INCLUDE_RE = _re.compile(r"\{\{<\s*include\s+([^>\s]+)\s*>\}\}")
+
+
+# ---- Quarto's {{< include >}} (the include rules I1 to I6, Quarto 1.11.9) ----------------------------
+# The Python twin of R's include_targets() and include_walk() (R/include.R): a line is an include only
+# when the whole line is the shortcode, one space inside each bracket (I1); `include` is lowercase in the
+# main document, any case in an included file (I2); the path is the first positional parameter (I3);
+# every path, at any depth, resolves against the MAIN document's folder, a leading / against the Quarto
+# project root (I4); fences, cells and comments do not hide an include, a cell of the main document
+# holding ```{shortcodes=false} does (I5); no depth limit, and a file already reached is not read again
+# (I6).
+
+_SHORTCODE_LINE_RE = _re.compile(r"^\s*\{\{< (?!/\*)(.+?)(?<!\*/) >\}\}\s*$")
+_SC_NAME_RE = _re.compile(r"^/?[a-zA-Z0-9_]+")
+_SC_NAMED_RES = (_re.compile(r'^[a-zA-Z0-9_-]+="[^"]*"'), _re.compile(r"^[a-zA-Z0-9_-]+='[^']*'"),
+                 _re.compile(r"^[a-zA-Z0-9_-]+=[^\"'\s]+"))
+_SC_BARE_RE = _re.compile(r"^[^\"'\s]+")
+_SC_QUOTED_RE = _re.compile(r'^"[^"]*"|^\'[^\']*\'')
+_CELL_START_RE = _re.compile(r"^\s*(```+)\s*\{([=A-Za-z][=A-Za-z0-9._]*)( *[ ,].*)?\}\s*$")
+_CODE_END_RE = _re.compile(r"^\s*(```+)\s*$")
+_YAML_RE = _re.compile(r"^---\s*$")
+_NO_SHORTCODES_RE = _re.compile(r"\s*```\s*\{\s*shortcodes\s*=\s*false\s*\}")
+
+
+def _block_shortcode(line):
+    """The name and positional parameters of a line that is a block shortcode (I1), else None."""
+    m = _SHORTCODE_LINE_RE.match(line)
+    if not m:
+        return None
+    cap = m.group(1)
+    nm = _SC_NAME_RE.match(cap)
+    if not nm:
+        return None
+    rest = cap[nm.end():].strip()
+    params = []
+    while rest:
+        hit = None
+        for rx in _SC_NAMED_RES:
+            hit = rx.match(rest)
+            if hit:
+                break
+        if hit:
+            rest = rest[hit.end():].strip()
+            continue
+        hit = _SC_BARE_RE.match(rest)
+        if hit:
+            params.append(hit.group(0))
+        else:
+            hit = _SC_QUOTED_RE.match(rest)
+            if not hit:
+                return None
+            params.append(hit.group(0)[1:-1])
+        rest = rest[hit.end():].strip()
+    return nm.group(0), params
+
+
+def _include_skipped(lines):
+    """Which lines of the main document sit in a cell Quarto does not expand includes in (I5)."""
+    n = len(lines)
+    skip = [False] * n
+    if not any("shortcodes" in x for x in lines):
+        return skip
+    buf = []
+
+    def flush(force=False):
+        if buf or force:
+            if _NO_SHORTCODES_RE.search("\n".join(lines[k] for k in buf)):
+                for k in buf:
+                    skip[k] = True
+        del buf[:]
+
+    def blank(k):
+        return 0 <= k < n and lines[k].strip() == ""
+
+    def yaml_delim(k, skip_hr):
+        if not _YAML_RE.match(lines[k]):
+            return False
+        return not (skip_hr and k > 0 and blank(k - 1) and k < n - 1 and blank(k + 1))
+
+    in_yaml = in_cell = False
+    in_code = 0
+    for k, line in enumerate(lines):
+        plain = not in_cell and not in_code and not in_yaml
+        end = _CODE_END_RE.match(line)
+        if not in_code and not in_cell and yaml_delim(k, not in_yaml):
+            if in_yaml:
+                buf.append(k)
+                flush()
+                in_yaml = False
+            else:
+                flush()
+                buf.append(k)
+                in_yaml = True
+        elif plain and _block_shortcode(line) is not None:
+            flush()
+            buf.append(k)
+            flush()
+        elif plain and _CELL_START_RE.match(line):
+            flush()
+            in_cell = True
+            in_code = len(_CELL_START_RE.match(line).group(1))
+            buf.append(k)
+        elif in_code and end and len(end.group(1)) == in_code:
+            buf.append(k)
+            if in_cell:
+                in_cell = False
+                flush(True)
+            in_code = 0
+        elif not in_code and line.startswith("```"):
+            in_code = line.split(" ")[0].count("`")
+            buf.append(k)
+        else:
+            buf.append(k)
+    flush()
+    return skip
+
+
+def _quarto_root(main_dir):
+    """The folder of _quarto.yml above the main document's folder, else that folder (I4)."""
+    d = main_dir
+    while True:
+        if any(_os.path.isfile(_os.path.join(d, m)) for m in ("_quarto.yml", "_quarto.yaml")):
+            return d
+        up = _os.path.dirname(d)
+        if up == d:
+            return main_dir
+        d = up
+
+
+def _include_targets(lines, main_dir, root, in_included):
+    """The paths the includes of one file's lines resolve to (absolute; the file may not exist)."""
+    skip = None if in_included else _include_skipped(lines)
+    out = []
+    for k, line in enumerate(lines):
+        if "{{< " not in line or (skip is not None and skip[k]):
+            continue
+        sc = _block_shortcode(line)
+        if sc is None or not sc[1]:
+            continue
+        name = sc[0].lower() if in_included else sc[0]
+        if name != "include":
+            continue
+        p = sc[1][0]
+        p = root.rstrip("/") + p if p.startswith("/") else _os.path.join(main_dir, p)
+        out.append(_os.path.realpath(_os.path.normpath(p)))
+    return out
+
+
+def _include_walk(path, read):
+    """The lines of the main document and of every file it includes, each read once (I6)."""
+    main = _os.path.realpath(_os.path.abspath(path))
+    main_dir = _os.path.dirname(main)
+    root = _quarto_root(main_dir)
+    seen = {main}
+    out = []
+
+    def walk(lines, in_included):
+        for p in _include_targets(lines, main_dir, root, in_included):
+            if p in seen or not _os.path.isfile(p):
+                continue
+            seen.add(p)
+            il = read(p)
+            out.append(il or [])
+            if il:
+                walk(il, True)
+
+    if not _os.path.isfile(main):
+        return out
+    lines = read(main)
+    out.append(lines or [])
+    if lines:
+        walk(lines, False)
+    return out
+
+
+def _read_lines(p):
+    try:
+        with open(p, encoding="utf-8", errors="replace") as fh:
+            return fh.read().split("\n")
+    except OSError:
+        return None
 
 
 def _source_names(path):
-    """The names a source names (N45): its code spans and governors, and its includes (8 deep)."""
-    seen = set()
+    """The names a source names (N45): its code spans and governors, and those of the files it includes."""
     found = []
     found_code = []
-
-    def walk(p, depth):
-        p = _os.path.abspath(p)
-        if p in seen or not _os.path.isfile(p):
-            return
-        seen.add(p)
-        try:
-            with open(p, encoding="utf-8", errors="replace") as fh:
-                txt = fh.read()
-        except OSError:
-            return
+    for lines in _include_walk(path, _read_lines):
+        txt = "\n".join(lines)
         found_code.extend(_CODE_RE.findall(txt))
         found.extend(_CODE_RE.findall(txt))
         for m in _GOV_RE.finditer(txt):
             g = _UNESC_RE.sub(r"\1", "".join(x for x in m.groups() if x is not None))
             found.extend(_TOKEN_RE.findall(_LITERAL_RE.sub(" ", g)))
-        if depth < 8 and "{{<" in txt:
-            for inc in _INCLUDE_RE.findall(txt):
-                inc = inc.strip("\"'")
-                walk(_os.path.join(_os.path.dirname(p), inc), depth + 1)
-
-    walk(path, 0)
     # a document with no named value (a code span with a name) publishes nothing by itself (N43)
     if not any(_backend.is_name(n) for n in found_code):
         return []
