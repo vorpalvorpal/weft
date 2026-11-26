@@ -165,15 +165,14 @@ str_value <- function(t, i) {
   k <- t$kids[[i]]
   if (tk[i] == "expr" && length(k) == 1L) i <- k
   if (tk[i] != "STR_CONST") return(NA_character_)
-  v <- tryCatch(eval(parse(text = node_text(t, i), keep.source = FALSE)[[1L]]), error = function(e) NA_character_)
-  if (is.character(v) && length(v) == 1L) v else NA_character_
+  str_token_value(node_text(t, i)) %||% NA_character_
 }
 
 # a numeric constant node: its value (NA when it is not one)
 num_value <- function(t, i) {
   k <- t$kids[[i]]
   if (t$pd$token[i] != "expr" || length(k) != 1L || t$pd$token[k] != "NUM_CONST") return(NA_real_)
-  v <- tryCatch(eval(parse(text = t$pd$text[k], keep.source = FALSE)[[1L]]), error = function(e) NA)
+  v <- token_value(t$pd$text[k])
   if (is.numeric(v) && length(v) == 1L && is.finite(v)) as.numeric(v) else NA_real_
 }
 

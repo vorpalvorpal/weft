@@ -22,7 +22,7 @@ claim_calls <- function(code, engine = "r") {
   if (engine %in% c("python", "julia")) return(guest_claim_calls(code, engine))
   if (!length(code) || !any(grepl("claim", code, fixed = TRUE))) return(none)
   code <- paste(code, collapse = "\n")
-  pd <- tryCatch(utils::getParseData(parse(text = code, keep.source = TRUE)), error = function(e) NULL)
+  pd <- parse_data(code)
   if (is.null(pd)) {
     # unparsable code: take the text from each `claim(` to the end of its line
     ls <- strsplit(code, "\n", fixed = TRUE)[[1L]]
@@ -33,10 +33,8 @@ claim_calls <- function(code, engine = "r") {
   }
   sfc <- pd[pd$token == "SYMBOL_FUNCTION_CALL" & pd$text == "claim", , drop = FALSE]
   if (!nrow(sfc)) return(none)
-  keep <- vapply(seq_len(nrow(sfc)), function(i) {
-    sib <- pd[pd$parent == sfc$parent[i] & pd$token == "SYMBOL_PACKAGE", , drop = FALSE]
-    !nrow(sib) || all(sib$text == "weft")
-  }, NA)
+  ix <- pd_index(pd)
+  keep <- vapply(sfc$parent, function(p) claim_pkg_ok(ix, p), NA)
   sfc <- sfc[keep, , drop = FALSE]
   if (!nrow(sfc)) return(none)
   call_id <- pd$parent[match(sfc$parent, pd$id)]
@@ -45,6 +43,12 @@ claim_calls <- function(code, engine = "r") {
     tryCatch(paste(utils::getParseText(pd, id), collapse = "\n"), error = function(e) "claim(...)")
   }, "")
   data.frame(line = as.integer(call$line1), text = gate_ws(txt), stringsAsFactors = FALSE)
+}
+
+# Is the `claim` named in node `fexpr` (the expression naming the function) weft's: bare, or `weft::claim`?
+claim_pkg_ok <- function(ix, fexpr) {
+  pkg <- ix$pd$text[pd_kids(ix, fexpr)][ix$pd$token[pd_kids(ix, fexpr)] == "SYMBOL_PACKAGE"]
+  !length(pkg) || all(pkg == "weft")
 }
 
 guest_claim_calls <- function(code, engine) {
@@ -146,25 +150,23 @@ working_constructs <- function(src) {
 claim_decisions <- function(code) {
   none <- data.frame(line = integer(), decision = character(), stringsAsFactors = FALSE)
   if (!length(code) || !any(grepl("decision", code, fixed = TRUE))) return(none)
-  code <- paste(code, collapse = "\n")
-  pd <- tryCatch(utils::getParseData(parse(text = code, keep.source = TRUE)), error = function(e) NULL)
+  pd <- parse_data(code)
   if (is.null(pd)) return(none)
+  ix <- pd_index(pd)
   sfc <- pd[pd$token == "SYMBOL_FUNCTION_CALL" & pd$text == "claim", , drop = FALSE]
   line <- integer()
   dec <- character()
   for (i in seq_len(nrow(sfc))) {
-    sib <- pd[pd$parent == sfc$parent[i] & pd$token == "SYMBOL_PACKAGE", , drop = FALSE]
-    if (nrow(sib) && !all(sib$text == "weft")) next
+    if (!claim_pkg_ok(ix, sfc$parent[i])) next
     call_id <- pd$parent[match(sfc$parent[i], pd$id)]
-    kids <- pd[pd$parent == call_id, , drop = FALSE]
-    kids <- kids[order(kids$line1, kids$col1), , drop = FALSE]
+    kids <- pd_kid_rows(ix, call_id)
     sub <- which(kids$token == "SYMBOL_SUB" & kids$text == "decision")
     if (!length(sub)) next
     val <- kids[sub[1L] + 2L, , drop = FALSE]
-    if (!nrow(val) || val$token != "expr") next
-    leaf <- pd[pd$parent == val$id, , drop = FALSE]
+    if (!nrow(val) || is.na(val$token) || val$token != "expr") next
+    leaf <- pd_kid_rows(ix, val$id)
     if (nrow(leaf) != 1L || !leaf$token %in% c("STR_CONST", "NUM_CONST")) next
-    v <- tryCatch(eval(parse(text = leaf$text, keep.source = FALSE)[[1L]]), error = function(e) NULL)
+    v <- token_value(leaf$text)
     d <- tryCatch(claim_decision(v), error = function(e) NULL)
     if (is.null(d)) next
     line <- c(line, as.integer(pd$line1[match(call_id, pd$id)]))
