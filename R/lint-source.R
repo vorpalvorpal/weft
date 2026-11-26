@@ -441,17 +441,20 @@ source_pieces <- function(lines, ls, chunks, chs, front_ff) {
     }
     # a weft() string in a computed caption: `!expr`, or a header option such as `fig.cap = weft(...)`
     # (F4, F5); read as the weft() strings of chunk code are
+    # a block-quoted chunk's code is read de-quoted, its columns shifted back by the prefix (K20, C9)
+    dlines <- dequote_chunks(lines)
+    lsc <- ls + (nchar(lines) - nchar(dlines))
     add_lits <- function(code, first) {
-      add_weft(chunk_literals(code, first, ls, "weft"))
+      add_weft(chunk_literals(code, first, lsc, "weft"))
     }
     for (o in ch$optblk) {
       if (!(o$name %in% CAPTION_OPTIONS) || !identical(o$form, "expr")) next
-      ec <- expr_option_code(lines, o)
+      ec <- expr_option_code(dlines, o)
       if (!is.null(ec)) add_lits(ec$code, ec$first)
     }
     for (nm in names(ch$hdr$opts)) {
       if (!(nm %in% CAPTION_OPTIONS) || !is.null(ch$hdr$opts[[nm]]$literal)) next
-      code <- header_option_code(lines[ch$open], nm, ch$hdr$opts[[nm]]$text)
+      code <- header_option_code(dlines[ch$open], nm, ch$hdr$opts[[nm]]$text)
       if (!is.null(code)) add_lits(code, ch$open)
     }
     # header literals
