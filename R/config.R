@@ -3,6 +3,9 @@
 
 `%||%` <- function(x, y) if (is.null(x)) y else x
 
+# One character string that is not NA.
+is_string <- function(x) is.character(x) && length(x) == 1L && !is.na(x)
+
 # ---- errors -------------------------------------------------------------
 
 weft_abort <- function(message, class, ...) {
@@ -176,16 +179,30 @@ project_units <- function(root) {
   invisible()
 }
 
-read_config_ <- function(dir, front, doc, explicit = TRUE) {
-  # a read that fails leaves no `units:` table from an earlier one in use
-  weft_env$units <- NULL
-  weft_env$units_default <- NULL
-  front <- front %||% list()
+# The front matter's `weft:` key is a mapping of settings (a list with every setting named).
+check_front_mapping <- function(front) {
   if (!is.list(front) || (length(front) && (is.null(names(front)) ||
                                             any(!nzchar(names(front)))))) {
     weft_abort("The `weft:` front-matter key must be a mapping of settings.",
                "weft_config_error")
   }
+}
+
+# The defaults, then the project's settings, then the document's; the formatters checked. Each caller
+# validates the result in its own way (read_config_() and lint_config()).
+merged_settings <- function(proj, front) {
+  cfg <- merge_config(default_config(), proj)
+  cfg <- merge_config(cfg, front)
+  cfg$formatters <- check_formatters(cfg$formatters)
+  cfg
+}
+
+read_config_ <- function(dir, front, doc, explicit = TRUE) {
+  # a read that fails leaves no `units:` table from an earlier one in use
+  weft_env$units <- NULL
+  weft_env$units_default <- NULL
+  front <- front %||% list()
+  check_front_mapping(front)
   # `dict_local` is read from the front matter by read_dict_local() (4.3, 9.1.2)
   front$dict_local <- NULL
   warn_unknown(front, "a document's `weft:` front matter")
@@ -234,9 +251,7 @@ read_config_ <- function(dir, front, doc, explicit = TRUE) {
   front_units <- front$units
   proj$units <- NULL
   front$units <- NULL
-  cfg <- merge_config(default_config(), proj)
-  cfg <- merge_config(cfg, front)
-  cfg$formatters <- check_formatters(cfg$formatters)
+  cfg <- merged_settings(proj, front)
   cfg <- validate_config(cfg)
   if ("unit_form" %in% names(front)) {
     cfg$unit_form_set <- "the document's `weft:` front matter"
@@ -330,26 +345,42 @@ merge_config <- function(base, over) {
   base
 }
 
+# The refusal of a setting: "The setting `nm` must be <what>[ (rule <rule>)]."
+config_bad <- function(nm, what, rule = NULL) {
+  weft_abort(sprintf("The setting `%s` must be %s%s.", nm, what,
+                     if (is.null(rule)) "" else paste0(" (rule ", rule, ")")),
+             "weft_config_error")
+}
+
+# The checks of one setting of `cfg`; each refuses with config_bad().
+config_str <- function(cfg, nm) {
+  if (!is_string(cfg[[nm]])) config_bad(nm, "a single string")
+}
+config_lgl <- function(cfg, nm) {
+  v <- cfg[[nm]]
+  if (!is.logical(v) || length(v) != 1L || is.na(v)) config_bad(nm, "TRUE or FALSE")
+}
+config_whole <- function(cfg, nm) {
+  v <- cfg[[nm]]
+  if (!is.numeric(v) || length(v) != 1L || !is.finite(v) || v < 0 ||
+      v != round(v)) {
+    config_bad(nm, "a whole number, not negative")
+  }
+}
+config_prop <- function(cfg, nm, open = TRUE) {
+  v <- cfg[[nm]]
+  if (!is.numeric(v) || length(v) != 1L || !is.finite(v) || v < 0 ||
+      (open && v >= 1) || v > 1) config_bad(nm, "a proportion between 0 and 1")
+}
+
+# One string that is one of `set`.
+one_of <- function(v, set) is_string(v) && v %in% set
+
 validate_config <- function(cfg) {
-  bad <- function(nm, what) {
-    weft_abort(sprintf("The setting `%s` must be %s.", nm, what),
-               "weft_config_error")
-  }
-  str <- function(nm) {
-    v <- cfg[[nm]]
-    if (!is.character(v) || length(v) != 1L || is.na(v)) bad(nm, "a single string")
-  }
-  lgl <- function(nm) {
-    v <- cfg[[nm]]
-    if (!is.logical(v) || length(v) != 1L || is.na(v)) bad(nm, "TRUE or FALSE")
-  }
-  whole <- function(nm) {
-    v <- cfg[[nm]]
-    if (!is.numeric(v) || length(v) != 1L || !is.finite(v) || v < 0 ||
-        v != round(v)) {
-      bad(nm, "a whole number, not negative")
-    }
-  }
+  bad <- config_bad
+  str <- function(nm) config_str(cfg, nm)
+  lgl <- function(nm) config_lgl(cfg, nm)
+  whole <- function(nm) config_whole(cfg, nm)
   whole("digits"); whole("count_threshold"); whole("word_limit")
   whole("thousands_from")
   str("decimal_mark"); str("big_mark"); str("minus"); str("governor_class")
@@ -357,31 +388,26 @@ validate_config <- function(cfg) {
   lgl("bare_missing")
   str("date_format")
   uf <- cfg$unit_form
-  if (!is.character(uf) || length(uf) != 1L || is.na(uf) || !uf %in% c("auto", "symbol", "name")) {
+  if (!one_of(uf, c("auto", "symbol", "name"))) {
     weft_abort(sprintf(paste0("The setting `unit_form` must be one of auto, symbol or name; got %s ",
                               "(rule 9.1.6)."),
-                       if (is.character(uf) && length(uf) == 1L && !is.na(uf)) paste0("`", uf, "`") else "something else"),
+                       if (is_string(uf)) paste0("`", uf, "`") else "something else"),
                "weft_config_error")
   }
   ud <- cfg$unit_defaults
-  if (!is.character(ud) || length(ud) != 1L || is.na(ud) || !ud %in% c("weft", "si")) {
+  if (!one_of(ud, c("weft", "si"))) {
     weft_abort(sprintf("`unit_defaults` must be `weft` or `si`; got `%s` (rule 9.1.6).",
                        paste(as.character(unlist(ud)), collapse = ", ")),
                "weft_config_error")
   }
   nf <- cfg$names_from
-  if (!is.null(nf) && !(is.character(nf) && length(nf) == 1L && !is.na(nf) && nf %in% c("r", "python", "julia"))) {
+  if (!is.null(nf) && !one_of(nf, c("r", "python", "julia"))) {
     weft_abort("The setting `names_from` must be r, python or julia.", "weft_config_error")
   }
   decisions_route(cfg$decisions)
   validate_lint_config(cfg)
   validate_verify_config(cfg)
-  prop <- function(nm, open = TRUE) {
-    v <- cfg[[nm]]
-    if (!is.numeric(v) || length(v) != 1L || !is.finite(v) || v < 0 ||
-        (open && v >= 1) || v > 1) bad(nm, "a proportion between 0 and 1")
-  }
-  prop("ci_level"); prop("about_tolerance", open = FALSE)
+  config_prop(cfg, "ci_level"); config_prop(cfg, "about_tolerance", open = FALSE)
   lgl("ci_short")
   pd <- cfg$p_digits
   if (!is.null(pd) && (!is.numeric(pd) || length(pd) != 1L || !is.finite(pd) ||
@@ -389,17 +415,15 @@ validate_config <- function(cfg) {
     weft_abort("The setting `p_digits` must be a whole number from 1 to 6, or null.",
                "weft_config_error")
   }
-  if (!is.character(cfg$p_label) || length(cfg$p_label) != 1L || is.na(cfg$p_label)) {
-    weft_abort("The setting `p_label` must be a single string.", "weft_config_error")
-  }
+  str("p_label")
   for (nm in c("output_refs", "output_missing", "output_markup")) {
     v <- cfg[[nm]]
-    if (!is.character(v) || length(v) != 1L || is.na(v) || !v %in% c("fail", "warn", "off")) {
+    if (!one_of(v, c("fail", "warn", "off"))) {
       weft_abort(sprintf("The setting `%s` must be fail, warn or off.", nm), "weft_config_error")
     }
   }
   cc <- cfg$chunk_claims
-  if (!is.character(cc) || length(cc) != 1L || is.na(cc) || !cc %in% c("stop", "collect")) {
+  if (!one_of(cc, c("stop", "collect"))) {
     weft_abort("The setting `chunk_claims` must be stop or collect.", "weft_config_error")
   }
   cfg$bibliography <- as.character(unlist(cfg$bibliography))
@@ -484,7 +508,7 @@ check_options <- function(raw, nm, stage) {
   m1 <- function() weft_abort(sprintf(paste0(
     "The `options` of the formatter `%s` must be a list of option names or a mapping ",
     "from option name to type (rule 1.4.22)."), nm), "weft_config_error")
-  is_str <- function(v) is.character(v) && length(v) == 1L && !is.na(v)
+  is_str <- function(v) is_string(v)
   if (is.list(raw) && !is.null(names(raw))) {
     onames <- names(raw)
     if (any(!nzchar(onames))) m1()
@@ -568,11 +592,7 @@ is_set_up <- function(root) file.exists(file.path(root, "_weft.yml"))
 # Checks the keys of design-3 L8. `raw` (optional) is the same settings read
 # with sequences kept as lists, so that `[true]` is not taken for TRUE.
 validate_lint_config <- function(cfg, raw = NULL) {
-  bad <- function(nm, what, rule = NULL) {
-    weft_abort(sprintf("The setting `%s` must be %s%s.", nm, what,
-                       if (is.null(rule)) "" else paste0(" (rule ", rule, ")")),
-               "weft_config_error")
-  }
+  bad <- config_bad
   words <- function(v) {
     if (is.null(v) || (is.list(v) && !length(v))) return(character())
     if (is.list(v) && !is.null(names(v))) return(NULL)
@@ -609,7 +629,7 @@ validate_lint_config <- function(cfg, raw = NULL) {
     bad("claim_words", cw_msg, "5.5.4")
   }
   cq <- cfg$claim_quantifiers
-  if (!is.character(cq) || length(cq) != 1L || is.na(cq) || !cq %in% c("number", "any", "none") ||
+  if (!one_of(cq, c("number", "any", "none")) ||
       is.list(raw[["claim_quantifiers"]])) {
     bad("claim_quantifiers", "one of `number`, `any` or `none`", "5.5.5")
   }
@@ -643,7 +663,7 @@ check_anchor_calls <- function(v) {
   }
   if (is.null(v) || (is.list(v) && !length(v))) return(list())
   if (!is.list(v) || !is.null(names(v))) bad("it is not a list of entries")
-  str1 <- function(x) is.character(x) && length(x) == 1L && !is.na(x) && nzchar(x)
+  str1 <- function(x) is_string(x) && nzchar(x)
   lapply(seq_along(v), function(i) {
     e <- v[[i]]
     if (!is.list(e) || is.null(names(e))) bad(sprintf("entry %d is not a mapping", i))
@@ -653,7 +673,7 @@ check_anchor_calls <- function(v) {
       bad(sprintf("entry %d has no `arg` name or position", i))
     }
     pre <- e$prefix %||% ""
-    if (!(is.character(pre) && length(pre) == 1L && !is.na(pre))) bad(sprintf("entry %d has a `prefix` that is not a string", i))
+    if (!(is_string(pre))) bad(sprintf("entry %d has a `prefix` that is not a string", i))
     list(fun = e$fun, arg = a, prefix = pre)
   })
 }
@@ -683,9 +703,7 @@ VERIFY_PARTS <- c("lints", "decisions", "render", "ledger")
 
 # `strict`, `verify_skip` and `weft_version`.
 validate_verify_config <- function(cfg) {
-  bad <- function(nm, what) {
-    weft_abort(sprintf("The setting `%s` must be %s.", nm, what), "weft_config_error")
-  }
+  bad <- config_bad
   words <- function(nm) {
     v <- cfg[[nm]]
     if (is.null(v) || (is.list(v) && !length(v))) return(character())

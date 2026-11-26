@@ -8,7 +8,7 @@ DECISIONS_FORMS <- paste0(
 # What the setting `decisions` asks for, as list(kind = "github" | "glob" |
 # "function", ...), or a weft_config_error (rule 9.1.8).
 decisions_route <- function(resolver) {
-  is_one <- is.character(resolver) && length(resolver) == 1L && !is.na(resolver)
+  is_one <- is_string(resolver)
   if (is_one) {
     if (identical(resolver, "github")) return(list(kind = "github", owner = NULL, repo = NULL))
     m <- regmatches(resolver, regexec("^github:([A-Za-z0-9-]+)/([A-Za-z0-9._-]+)$", resolver))[[1L]]
@@ -69,9 +69,19 @@ github_fetch <- function(url, token) {
   }, error = function(e) list(status = NA_integer_, error = conditionMessage(e)))
 }
 
+# The entries of a dictionary that have a `decision`: file, line, key and decision.
+dict_decision_rows <- function(dict) {
+  e <- attr(dict, "entries")
+  has <- !is.na(e$decision)
+  data.frame(file = rep(as.character(attr(dict, "file")), sum(has)), line = as.integer(e$line[has]),
+             key = e$key[has], decision = e$decision[has], stringsAsFactors = FALSE)
+}
+
 #' Check the `decision:` pointers of a dictionary
 #'
-#' Internal: `verify()` will call it. One row for every entry that has a
+#' Internal, and called only by the tests: `verify()` has its own part
+#' (`verify_decisions()`), which also takes the pointers of the documents and
+#' reports a bad setting as a part error. One row for every entry that has a
 #' `decision`.
 #'
 #' @param dict A `weft_dict`.
@@ -84,12 +94,9 @@ github_fetch <- function(url, token) {
 #'   `FALSE`, or `NA` for could not check) and `detail`.
 #' @noRd
 check_decisions <- function(dict, resolver = NULL, root = NULL, fetch = github_fetch) {
-  e <- attr(dict, "entries")
-  has <- !is.na(e$decision)
-  out <- data.frame(file = rep(as.character(attr(dict, "file")), sum(has)),
-                    line = as.integer(e$line[has]), key = e$key[has],
-                    decision = e$decision[has], resolved = rep(NA, sum(has)),
-                    detail = rep("", sum(has)), stringsAsFactors = FALSE)
+  out <- dict_decision_rows(dict)
+  out$resolved <- rep(NA, nrow(out))
+  out$detail <- rep("", nrow(out))
   if (is.null(root)) root <- find_project_root(attr(dict, "file"))
   if (is.null(resolver)) {
     f <- file.path(root, "_weft.yml")

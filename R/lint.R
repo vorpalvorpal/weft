@@ -275,7 +275,6 @@ print.weft_findings <- function(x, max = 200, ...) {
 # read as YAML only (no units are installed). In a walk the file is read once per
 # settings root (walk_memo()); it is checked, and merged with `front`, every time.
 lint_config <- function(root, front = list()) {
-  cfg <- default_config()
   file <- file.path(root, "_weft.yml")
   proj <- list()
   raw <- NULL
@@ -291,12 +290,8 @@ lint_config <- function(root, front = list()) {
     proj[[nm]] <- NULL
     w[[nm]] <- NULL
   }
-  if (length(w) && (is.null(names(w)) || any(!nzchar(names(w))))) {
-    weft_abort("The `weft:` front-matter key must be a mapping of settings.", "weft_config_error")
-  }
-  cfg <- merge_config(cfg, proj)
-  cfg <- merge_config(cfg, w)
-  cfg$formatters <- check_formatters(cfg$formatters)
+  check_front_mapping(w)
+  cfg <- merged_settings(proj, w)
   validate_lint_config(cfg, raw)
   cfg
 }

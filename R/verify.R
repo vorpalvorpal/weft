@@ -226,12 +226,7 @@ verify_config <- function(root, has_file) {
   # cache folder (review 4, #3), and verify() has no use for units
   cfg <- lint_config(root, front)
   validate_verify_config(cfg)
-  for (nm in c("draft", "ledger")) {
-    v <- cfg[[nm]]
-    if (!is.logical(v) || length(v) != 1L || is.na(v)) {
-      weft_abort(sprintf("The setting `%s` must be TRUE or FALSE.", nm), "weft_config_error")
-    }
-  }
+  for (nm in c("draft", "ledger")) config_lgl(cfg, nm)
   decisions_route(cfg$decisions)
   cfg
 }
@@ -437,10 +432,7 @@ verify_decisions <- function(root, cfg, doc_pointers = verify_document_pointers(
       return(list(table = verify_empty_decisions(), error = conditionMessage(dict),
                   detail = "dict.yml does not read"))
     }
-    e <- attr(dict, "entries")
-    has <- !is.na(e$decision)
-    tb <- data.frame(file = rep(as.character(attr(dict, "file")), sum(has)), line = as.integer(e$line[has]),
-                     key = e$key[has], decision = e$decision[has], stringsAsFactors = FALSE)
+    tb <- dict_decision_rows(dict)
   }
   tb <- rbind(tb, doc_pointers[, c("file", "line", "key", "decision")])
   tb$resolved <- rep(NA, nrow(tb))
