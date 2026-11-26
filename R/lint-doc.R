@@ -844,25 +844,33 @@ lint_config_place <- function(ctx) {
   bind_findings(out)
 }
 
-# Files that other documents include or take as a child, as project-relative paths.
+# Files that other documents include or take as a child, as project-relative paths. Each document is read
+# as a main document for its includes, which are followed as Quarto expands them (include_walk(): any
+# depth, every path against that document's folder, a leading `/` against the Quarto project root); a
+# child is relative to the file that names it.
 project_included <- function(ctx) {
   cache <- lint_cache(ctx)
   if (!is.null(cache$included)) return(cache$included)
+  root <- norm_path(ctx$root)
   inc <- character()
+  read <- function(p) {
+    txt <- tryCatch(read_source_text_or_null(p), error = function(e) NULL)
+    if (is.null(txt)) NULL else split_source_lines(txt)
+  }
   for (f in ctx$files) {
-    txt <- tryCatch(read_source_text_or_null(ctx$path(f)), error = function(e) NULL)
-    if (is.null(txt) || !nzchar(txt)) next
+    lines <- read(ctx$path(f))
+    if (!length(lines)) next
+    walked <- tryCatch(include_walk(ctx$path(f), lines = lines, read = read)$files, error = function(e) list())
+    for (w in walked) {
+      rel <- rel_to(w$path, root)
+      if (!identical(rel, w$path) && !identical(rel, f)) inc <- c(inc, rel)
+    }
+    txt <- paste(lines, collapse = "\n")
     dir <- dl_dir(f)
-    paths <- character()
-    m <- gregexpr("\\{\\{<[ \t]*include[ \t]+([^ \t>]+)[ \t]*>\\}\\}", txt, perl = TRUE)
-    paths <- c(paths, regmatches(txt, m)[[1L]])
-    paths <- sub("^\\{\\{<[ \t]*include[ \t]+([^ \t>]+)[ \t]*>\\}\\}$", "\\1", paths, perl = TRUE)
     ch <- regmatches(txt, gregexpr("child[ \t]*=[ \t]*(?:c\\([^)]*\\)|\"[^\"]*\"|'[^']*')", txt, perl = TRUE))[[1L]]
     ch2 <- regmatches(txt, gregexpr("#\\|[ \t]*child[ \t]*:[^\n]*", txt, perl = TRUE))[[1L]]
     q <- regmatches(c(ch, ch2), gregexpr("[^\"'\\s,()=:|#\\[\\]]+\\.(?:qmd|Rmd|rmd|md)", c(ch, ch2), perl = TRUE))
-    paths <- c(paths, unlist(q))
-    paths <- gsub("^[\"']|[\"']$", "", paths)
-    for (p in paths) {
+    for (p in gsub("^[\"']|[\"']$", "", unlist(q))) {
       rel <- if (startsWith(p, "/")) dl_join("", substring(p, 2L)) else dl_join(dir, p)
       if (!is.na(rel) && !identical(rel, f)) inc <- c(inc, rel)
     }

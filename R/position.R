@@ -16,8 +16,13 @@ read_view_lines <- function(path) read_source_lines(path)
 
 # Under Quarto knitr reads `<name>.rmarkdown`, a copy of `<name>.qmd` with
 # every `{{< include >}}` expanded. Re-expand the source to map a line of the
-# copy back to the file and line that wrote it (2.7.4).
-expand_includes <- function(path, base, seen = character(), nested = FALSE) {
+# copy back to the file and line that wrote it (2.7.4). The includes are
+# Quarto's (include_targets(), rules I1 to I6): every path against the main
+# document's folder `base`. A file is expanded wherever it is included, as
+# Quarto does, but not inside itself (a cycle ends); an include whose file is
+# missing stays a line of its own.
+expand_includes <- function(path, base, seen = character(), nested = FALSE,
+                            root = include_root(base)) {
   lines <- read_view_lines(path)
   rel <- function(p) {
     p <- normalizePath(p, winslash = "/", mustWork = FALSE)
@@ -25,23 +30,14 @@ expand_includes <- function(path, base, seen = character(), nested = FALSE) {
     if (startsWith(p, paste0(b, "/"))) substring(p, nchar(b) + 2L) else basename(p)
   }
   me <- rel(path)
-  # the path may be quoted; Quarto resolves it against the main document's
-  # directory (`base`), and weft falls back to the including file's
-  rx <- paste0("^\\s*\\{\\{<\\s*include\\s+(?:\"([^\"]+)\"|'([^']+)'|([^ >\"']+))\\s*>\\}\\}\\s*$")
-  resolve_inc <- function(p) {
-    cand <- c(file.path(base, p), file.path(dirname(path), p))
-    hit <- cand[file.exists(cand)]
-    if (length(hit)) hit[1L] else NA_character_
-  }
+  here <- norm_path(path)
+  tg <- include_targets(lines, norm_path(base), root, in_included = nested)
   files <- character()
   nums <- integer()
   for (k in seq_along(lines)) {
-    m <- regmatches(lines[k], regexec(rx, lines[k], perl = TRUE))[[1]]
-    inc <- if (length(m) == 4L) resolve_inc(m[m != ""][-1L][1L]) else NA_character_
-    if (!is.na(inc) && file.exists(inc) &&
-        !(normalizePath(inc, winslash = "/") %in% seen)) {
-      sub <- expand_includes(inc, base, c(seen, normalizePath(path, winslash = "/")),
-                             nested = TRUE)
+    inc <- tg$path[match(k, tg$line)]
+    if (!is.na(inc) && utils::file_test("-f", inc) && !(inc %in% c(seen, here))) {
+      sub <- expand_includes(inc, base, c(seen, here), nested = TRUE, root = root)
       # Quarto splices the file's lines, then a blank line (which is the include
       # line); an include inside an included file leaves two
       pad <- if (nested) 2L else 1L

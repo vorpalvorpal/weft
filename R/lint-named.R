@@ -76,9 +76,23 @@ values_file_attr <- function(attrs) {
 }
 
 # What a text publishes or runs, for the search of N144: the code of its executed chunks, the keys of its
-# hand-written blocks and of the values files they read, and the same of the files it includes (at most 8
-# deep).
-named_sources <- function(lines, chunks, dir, root, depth = 0L) {
+# hand-written blocks and of the values files they read, and the same of the files it includes, as Quarto
+# expands them (include_walk(): any depth, every path against the document's folder). `path` is the
+# document's. A values file is read relative to the folder of the file that names it (`dir`).
+named_sources <- function(lines, chunks, path, root) {
+  out <- named_sources_one(lines, chunks, dirname(path), root)
+  read <- function(p) tryCatch(read_source_lines(p), weft_encoding_error = function(e) NULL)
+  for (f in include_walk(path, lines = lines, read = read)$files) {
+    if (!length(f$lines)) next
+    ich <- chunk_table(f$lines, chunk_code_regions(f$lines))
+    sub <- named_sources_one(f$lines, ich, dirname(f$path), root)
+    out$code <- c(out$code, sub$code)
+    out$keys <- c(out$keys, sub$keys)
+  }
+  out
+}
+
+named_sources_one <- function(lines, chunks, dir, root) {
   out <- list(code = character(), keys = character())
   if (nrow(chunks)) {
     run <- chunks$eval %in% TRUE
@@ -95,19 +109,6 @@ named_sources <- function(lines, chunks, dir, root, depth = 0L) {
       out$keys <- c(out$keys, values_keys(paste(b$body, collapse = "\n")))
     }
   }
-  if (depth < 8L) {
-    inc <- regmatches(lines, regexec("\\{\\{<[ \t]*include[ \t]+([^ \t>]+)[ \t]*>\\}\\}", lines))
-    for (m in inc[lengths(inc) > 0L]) {
-      p <- if (startsWith(m[2L], "/")) file.path(root, substring(m[2L], 2L)) else file.path(dir, m[2L])
-      if (!utils::file_test("-f", p)) next
-      il <- tryCatch(read_source_lines(p), weft_encoding_error = function(e) NULL)
-      if (is.null(il)) next
-      ich <- chunk_table(il, chunk_code_regions(il))
-      sub <- named_sources(il, ich, dirname(p), root, depth + 1L)
-      out$code <- c(out$code, sub$code)
-      out$keys <- c(out$keys, sub$keys)
-    }
-  }
   out
 }
 
@@ -121,7 +122,7 @@ lint_named_unpublished <- function(src, ctx) {
   first <- !duplicated(use$name)
   nm <- use$name[first]
   row <- use$row[first]
-  found <- named_sources(src$lines, src$chunks, dirname(src$path), ctx$root)
+  found <- named_sources(src$lines, src$chunks, src$path, ctx$root)
   code <- paste(found$code, collapse = "\n")
   mentioned <- vapply(nm, function(x) {
     x %in% found$keys || (grepl(x, code, fixed = TRUE) &&

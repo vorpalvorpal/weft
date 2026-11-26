@@ -425,36 +425,25 @@ values_text_names <- function(txt) {
   list(code = code, gov = gov)
 }
 
-# What a document names (N45): `path` and, recursively, the files its
-# `{{< include >}}` shortcodes name, relative to the file that names them (at
-# most 8 deep). A file that cannot be read names nothing. Returns the names (no
-# repeats, no reserved word, nothing that is not a NAME) and `named`: whether any
-# code span of rule 1 names one, that is, whether the document holds a named value.
+# What a document names (N45): `path` and every file its `{{< include >}}`
+# shortcodes reach, as Quarto expands them (include_walk(): any depth, every
+# path against the document's folder). A file that cannot be read, or is not
+# there, names nothing. Returns the names (no repeats, no reserved word, nothing
+# that is not a NAME) and `named`: whether any code span of rule 1 names one,
+# that is, whether the document holds a named value.
 values_source_scan <- function(path) {
-  seen <- character()
-  walk <- function(p, depth) {
-    none <- list(code = character(), gov = character())
-    p <- normalizePath(p, winslash = "/", mustWork = FALSE)
-    if (p %in% seen || !file.exists(p) || dir.exists(p)) return(none)
-    seen <<- c(seen, p)
+  read <- function(p) {
     txt <- read_source_text_or_null(p)
-    if (is.null(txt)) return(none)
-    out <- values_text_names(txt)
-    if (depth < 8L && grepl("{{<", txt, fixed = TRUE)) {
-      m <- regmatches(txt, gregexpr("\\{\\{<\\s*include\\s+[^>\\s]+\\s*>\\}\\}", txt, perl = TRUE))[[1L]]
-      for (inc in sub("^\\{\\{<\\s*include\\s+([^>\\s]+)\\s*>\\}\\}$", "\\1", m, perl = TRUE)) {
-        inc <- gsub("^[\"']|[\"']$", "", inc)
-        inner <- walk(file.path(dirname(p), inc), depth + 1L)
-        out$code <- c(out$code, inner$code)
-        out$gov <- c(out$gov, inner$gov)
-      }
-    }
-    out
+    if (is.null(txt)) NULL else split_source_lines(txt)
   }
-  found <- walk(path, 0L)
-  code <- unique(found$code)
+  if (!utils::file_test("-f", path)) return(list(names = character(), named = FALSE))
+  main <- read(path)
+  texts <- c(list(main), lapply(include_walk(path, lines = main %||% character(), read = read)$files,
+                                `[[`, "lines"))
+  found <- lapply(texts, function(ln) values_text_names(paste(ln, collapse = "\n")))
+  code <- unique(unlist(lapply(found, `[[`, "code")))
   code <- code[values_name_ok(code)]
-  nm <- unique(c(code, found$gov))
+  nm <- unique(c(code, unlist(lapply(found, `[[`, "gov"))))
   list(names = nm[values_name_ok(nm)], named = length(code) > 0L)
 }
 
@@ -479,16 +468,8 @@ values_scan_lists <- function(path, cfg) {
     out$front <- extra$expr[named & extra$context == "front-matter"]
     out$cap <- extra$expr[named & extra$context == "caption" & extra$resolver == "filter"]
   }
-  seen <- character()
-  walk <- function(p, depth) {
-    p <- normalizePath(p, winslash = "/", mustWork = FALSE)
-    if (p %in% seen || !file.exists(p) || dir.exists(p)) return(invisible())
-    seen <<- c(seen, p)
-    ln <- if (identical(p, normalizePath(path, winslash = "/", mustWork = FALSE))) lines else
-      tryCatch(read_source_lines(p), error = function(e) NULL)
-    if (is.null(ln)) return(invisible())
-    txt <- paste(ln, collapse = "\n")
-    out$auto <<- c(out$auto, values_text_names(txt)$code)
+  one <- function(ln) {
+    out$auto <<- c(out$auto, values_text_names(paste(ln, collapse = "\n"))$code)
     cr <- tryCatch(chunk_code_regions(ln), error = function(e) NULL)
     if (length(cr$chs)) {
       tb <- chunk_table(ln, cr)
@@ -498,14 +479,9 @@ values_scan_lists <- function(path, cfg) {
         out$auto <<- c(out$auto, values_text_names(paste(c(opt, code), collapse = "\n"))$gov)
       }
     }
-    if (depth < 8L && grepl("{{<", txt, fixed = TRUE)) {
-      m <- regmatches(txt, gregexpr("\\{\\{<\\s*include\\s+[^>\\s]+\\s*>\\}\\}", txt, perl = TRUE))[[1L]]
-      for (inc in sub("^\\{\\{<\\s*include\\s+([^>\\s]+)\\s*>\\}\\}$", "\\1", m, perl = TRUE)) {
-        walk(file.path(dirname(p), gsub("^[\"']|[\"']$", "", inc)), depth + 1L)
-      }
-    }
   }
-  walk(path, 0L)
+  one(lines)
+  for (f in include_walk(path, lines = lines)$files) if (length(f$lines)) one(f$lines)
   ok <- function(x) { x <- unique(x); x[values_name_ok(x)] }
   lapply(out, ok)
 }

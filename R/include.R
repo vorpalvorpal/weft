@@ -1,0 +1,198 @@
+# Quarto's `{{< include >}}`, read the way Quarto 1.11.9 expands it (the include rules I1 to I6, from
+# quarto.js: isBlockShortcode, parseShortcodeCapture, breakQuartoMd, processMarkdownIncludes,
+# standaloneInclude and resolvePath). The one R reader of includes: the knit's line map (2.7.4), the
+# names a source names (N45) and the hooks' lists (TR1, TR4), the named-unpublished lint (N144), the
+# engine lint (5.8.9) and a report's reads (4.6.5) all take their includes from here. The Lua filter
+# (weftlib/lines.lua) and the Python package (weft._source_names) are its twins.
+#
+#   I1  a line is an include only when the whole line is the shortcode: optional white space, `{{< `,
+#       the name, the parameters, ` >}}`, optional white space; exactly one space inside each bracket;
+#       the escaped `{{</* include x */>}}` is not one
+#   I2  the name is `include`, lowercase, in the main document; any case in an included file
+#   I3  the path is the first positional parameter: "...", '...' or a run with no white space or quote
+#   I4  every path, at any depth, is resolved against the MAIN document's folder; a leading `/` against
+#       the Quarto project root (the folder of `_quarto.yml`), else the main document's folder
+#   I5  fences, executable cells and HTML comments do not hide an include; in the main document a cell
+#       whose text holds ```` ```{shortcodes=false} ```` does (Quarto checks no cell in an included file)
+#   I6  no depth limit; a file already reached is not read again, so a cycle ends
+
+INCLUDE_LINE_RX <- "^\\s*\\{\\{< (?!/\\*)(.+?)(?<!\\*/) >\\}\\}\\s*$"
+
+# The shortcode on a line that is one (I1): its name and its positional parameters, or NULL. A capture
+# Quarto cannot parse (no name, an unclosed quote) is NULL: Quarto stops the render there.
+block_shortcode <- function(line) {
+  m <- regmatches(line, regexec(INCLUDE_LINE_RX, line, perl = TRUE))[[1L]]
+  if (length(m) != 2L) return(NULL)
+  cap <- m[2L]
+  name <- regmatches(cap, regexpr("^/?[A-Za-z0-9_]+", cap))
+  if (!length(name)) return(NULL)
+  rest <- trimws(substring(cap, nchar(name) + 1L))
+  params <- character()
+  take <- function(rx) {
+    hit <- regmatches(rest, regexpr(rx, rest, perl = TRUE))
+    if (length(hit)) {
+      rest <<- trimws(substring(rest, nchar(hit) + 1L))
+      hit
+    } else NULL
+  }
+  while (nzchar(rest)) {
+    # a named parameter (key="v", key='v', key=v) is not a positional one
+    if (!is.null(take("^[A-Za-z0-9_-]+=\"[^\"]*\"")) || !is.null(take("^[A-Za-z0-9_-]+='[^']*'")) ||
+        !is.null(take("^[A-Za-z0-9_-]+=[^\"'\\s]+"))) next
+    p <- take("^[^\"'\\s]+")
+    if (is.null(p)) {
+      p <- take("^\"[^\"]*\"|^'[^']*'")
+      if (is.null(p)) return(NULL)
+      p <- substr(p, 2L, nchar(p) - 1L)
+    }
+    params <- c(params, p)
+  }
+  list(name = name, params = params)
+}
+
+# The lines of the main document that sit in a cell Quarto does not expand includes in (I5): the cells
+# are breakQuartoMd's (front matter, a block shortcode line, an executable cell ```` ```{lang} ````, and
+# the markdown between), and a cell whose text holds ```` ```{shortcodes=false} ```` is skipped.
+include_skipped_lines <- function(lines) {
+  n <- length(lines)
+  skip <- logical(n)
+  if (!n || !any(grepl("shortcodes", lines, fixed = TRUE))) return(skip)
+  cell_rx <- "^\\s*(```+)\\s*\\{([=A-Za-z][=A-Za-z0-9._]*)( *[ ,].*)?\\}\\s*$"
+  end_rx <- "^\\s*(```+)\\s*$"
+  buf <- integer()
+  flush <- function(force = FALSE) {
+    if (length(buf) || force) {
+      txt <- paste(lines[buf], collapse = "\n")
+      if (grepl("\\s*```\\s*\\{\\s*shortcodes\\s*=\\s*false\\s*\\}", txt, perl = TRUE)) skip[buf] <<- TRUE
+    }
+    buf <<- integer()
+  }
+  blank <- function(k) k >= 1L && k <= n && !nzchar(trimws(lines[k]))
+  yaml_delim <- function(k, skip_hr) {
+    if (!grepl("^---\\s*$", lines[k], perl = TRUE)) return(FALSE)
+    !(skip_hr && k > 1L && blank(k - 1L) && k < n && blank(k + 1L))
+  }
+  ticks <- function(x) regmatches(x, regexec(end_rx, x, perl = TRUE))[[1L]][2L]
+  in_yaml <- FALSE
+  in_cell <- FALSE
+  in_code <- 0L
+  for (k in seq_len(n)) {
+    line <- lines[k]
+    plain <- !in_cell && in_code == 0L && !in_yaml
+    if (in_code == 0L && !in_cell && yaml_delim(k, !in_yaml)) {
+      if (in_yaml) {
+        buf <- c(buf, k)
+        flush()
+        in_yaml <- FALSE
+      } else {
+        flush()
+        buf <- k
+        in_yaml <- TRUE
+      }
+    } else if (plain && !is.null(tryCatch(block_shortcode(line), error = function(e) NULL))) {
+      flush()
+      buf <- k
+      flush()
+    } else if (plain && grepl(cell_rx, line, perl = TRUE)) {
+      flush()
+      in_cell <- TRUE
+      in_code <- nchar(sub(cell_rx, "\\1", line, perl = TRUE))
+      buf <- k
+    } else if (in_code > 0L && grepl(end_rx, line, perl = TRUE) && nchar(ticks(line)) == in_code) {
+      buf <- c(buf, k)
+      if (in_cell) {
+        in_cell <- FALSE
+        flush(TRUE)
+      }
+      in_code <- 0L
+    } else if (in_code == 0L && startsWith(line, "```")) {
+      first <- strsplit(line, " ", fixed = TRUE)[[1L]][1L]
+      in_code <- lengths(regmatches(first, gregexpr("`", first, fixed = TRUE)))
+      buf <- c(buf, k)
+    } else {
+      buf <- c(buf, k)
+    }
+  }
+  flush()
+  skip
+}
+
+# The Quarto project root a leading `/` resolves against (I4): the folder of `_quarto.yml` above the main
+# document's folder, else that folder.
+include_root <- function(main_dir) {
+  main_dir <- norm_path(main_dir)
+  find_quarto_root(main_dir) %||% main_dir
+}
+
+# The includes of one file's lines (I1 to I5): a data frame of each include's line and the path it
+# resolves to (absolute, normalised; the file may not exist). `main_dir` is the MAIN document's folder,
+# `root` the project root (include_root()), `in_included` whether these lines are an included file's.
+include_targets <- function(lines, main_dir, root = include_root(main_dir), in_included = FALSE) {
+  none <- data.frame(line = integer(), path = character(), stringsAsFactors = FALSE)
+  cand <- which(grepl("{{< ", lines, fixed = TRUE))
+  if (!length(cand)) return(none)
+  if (!in_included) {
+    skip <- include_skipped_lines(lines)
+    cand <- cand[!skip[cand]]
+  }
+  at <- integer()
+  path <- character()
+  for (k in cand) {
+    sc <- tryCatch(block_shortcode(lines[k]), error = function(e) NULL)
+    if (is.null(sc) || !length(sc$params)) next
+    ok <- if (in_included) identical(tolower(sc$name), "include") else identical(sc$name, "include")
+    if (!ok) next
+    p <- sc$params[1L]
+    p <- if (startsWith(p, "/")) paste0(sub("/+$", "", root), p) else
+      if (grepl("^[A-Za-z]:[/\\\\]", p)) p else file.path(main_dir, p)
+    at <- c(at, k)
+    path <- c(path, norm_path(include_tidy(p)))
+  }
+  if (!length(at)) return(none)
+  data.frame(line = at, path = path, stringsAsFactors = FALSE)
+}
+
+# A path with `.` and `..` taken out, as Node's resolve() does, before any folder of it need exist.
+include_tidy <- function(p) {
+  p <- gsub("\\\\", "/", p)
+  lead <- regmatches(p, regexpr("^(/|[A-Za-z]:/)", p))
+  parts <- strsplit(substring(p, nchar(lead) + 1L), "/", fixed = TRUE)[[1L]]
+  out <- character()
+  for (q in parts) {
+    if (!nzchar(q) || q == ".") next
+    if (q == "..") out <- out[-length(out)] else out <- c(out, q)
+  }
+  paste0(lead, paste(out, collapse = "/"))
+}
+
+# Every file a document includes, at any depth (I6), each read once: `files`, a list of `path` (absolute)
+# and `lines`, in the order Quarto expands them, and `missing`, the paths an include names that are not
+# a file. `lines` are the main document's own, when the caller has read them; `read(path)` gives a
+# file's lines, or NULL for one that cannot be read (it then includes nothing). The main document is
+# not in `files`. What a site does with a missing file is its own (I6).
+include_walk <- function(path, lines = NULL, root = NULL,
+                         read = function(p) tryCatch(read_source_lines(p), error = function(e) NULL)) {
+  main <- norm_path(path)
+  main_dir <- dirname(main)
+  if (is.null(root)) root <- include_root(main_dir)
+  seen <- main
+  files <- list()
+  missing <- character()
+  walk <- function(ln, in_included) {
+    tg <- include_targets(ln, main_dir, root, in_included)
+    for (p in tg$path) {
+      if (p %in% seen) next
+      if (!utils::file_test("-f", p)) {
+        missing <<- c(missing, p)
+        next
+      }
+      seen <<- c(seen, p)
+      il <- read(p)
+      files[[length(files) + 1L]] <<- list(path = p, lines = il %||% character())
+      if (length(il)) walk(il, TRUE)
+    }
+  }
+  if (is.null(lines)) lines <- read(main)
+  if (length(lines)) walk(lines, FALSE)
+  list(files = files, missing = unique(missing))
+}

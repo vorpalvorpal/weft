@@ -777,9 +777,10 @@ report_files <- function(t) {
   NULL
 }
 
-# The knitr child files and Quarto includes a document names, as written. The
-# attribute `unresolved` is TRUE when a `child` option is not a string the scan
-# can work out (a computed path), as that is a file it cannot follow.
+# The knitr child files a document names, as written. The attribute
+# `unresolved` is TRUE when a `child` option is not a string the scan can work
+# out (a computed path), as that is a file it cannot follow. A Quarto include
+# is found by include_targets().
 document_children <- function(lines) {
   out <- character()
   unresolved <- FALSE
@@ -804,8 +805,6 @@ document_children <- function(lines) {
       }
     }
   }
-  inc <- regmatches(lines, regexec("\\{\\{<\\s*include\\s+(\"[^\"]+\"|'[^']+'|[^ >]+)\\s*>\\}\\}", lines))
-  for (h in inc) if (length(h) == 2L) out <- c(out, gsub("^[\"']|[\"']$", "", h[2L]))
   out <- unique(out[nzchar(out)])
   attr(out, "unresolved") <- unresolved
   out
@@ -825,13 +824,17 @@ BINARY_EXT <- c("png", "jpg", "jpeg", "gif", "bmp", "tif", "tiff", "webp", "ico"
 # What the R code of one document reads: the code of every chunk that is not
 # `eval: false`, inline R in prose and front matter, and the code of
 # constructs (P10), and the same for each knitr child and Quarto include it
-# names, to any depth. A file that is not an R Markdown document is read as
-# one too; an `.R` file is code.
+# names, to any depth. A knitr child is resolved against the file that names
+# it; a Quarto include as Quarto resolves it (include_targets(): against the
+# report's own folder, a leading `/` against the project root). A file that is
+# not an R Markdown document is read as one too; an `.R` file is code.
 report_reads <- function(path, envir, keys) {
   w <- reads_walker(envir, keys)
   seen <- character()
   todo <- path
-  top <- path
+  top <- norm_path(path)
+  main_dir <- dirname(top)
+  root <- include_root(main_dir)
   while (length(todo)) {
     f <- todo[[1L]]
     todo <- todo[-1L]
@@ -864,9 +867,17 @@ report_reads <- function(path, envir, keys) {
         } else if (is_abs_path(k)) k else file.path(base, k)
         if (file.exists(c1) && !dir.exists(c1)) c1 else if (file.exists(k) && !dir.exists(k)) k else NA_character_
       }, "")
-      # a child or include that is not a file the scan can find: any key may be read there
+      # a child that is not a file the scan can find: any key may be read there
       if (anyNA(cand)) w$set_all()
       todo <- c(todo, cand[!is.na(cand)])
+    }
+    inc <- tryCatch(include_targets(lines, main_dir, root, in_included = !identical(key, top))$path,
+                    error = function(e) character())
+    if (length(inc)) {
+      found <- utils::file_test("-f", inc)
+      # an include that is not a file the scan can find: any key may be read there
+      if (!all(found)) w$set_all()
+      todo <- c(todo, inc[found])
     }
   }
   w$result()
