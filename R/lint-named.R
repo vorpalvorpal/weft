@@ -82,14 +82,14 @@ attr_value <- function(attrs, key) {
 # What a text publishes or runs, for the search of N144: the code of its executed chunks, the keys of its
 # hand-written blocks and of the values files they read, and the same of the files it includes, as Quarto
 # expands them (include_walk(): any depth, every path against the document's folder). `path` is the
-# document's. A values file is read relative to the folder of the file that names it (`dir`).
+# document's. A values file is read relative to the main document's folder (`dir`), also when an included file names it (I4).
 named_sources <- function(lines, chunks, path, root) {
   out <- named_sources_one(lines, chunks, dirname(path), root)
   read <- function(p) tryCatch(read_source_lines(p), weft_encoding_error = function(e) NULL)
   for (f in include_walk(path, lines = lines, read = read)$files) {
     if (!length(f$lines)) next
     ich <- chunk_table(f$lines, chunk_code_regions(f$lines))
-    sub <- named_sources_one(f$lines, ich, dirname(f$path), root)
+    sub <- named_sources_one(f$lines, ich, dirname(path), root)
     out$code <- c(out$code, sub$code)
     out$keys <- c(out$keys, sub$keys)
   }
