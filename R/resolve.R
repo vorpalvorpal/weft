@@ -410,7 +410,8 @@ resolve_rows <- function(s, x, block, ctx) {
     R$context[front] <- "front-matter"
   }
   R$chunk <- rep(if (is_str) as.character(ctx$chunk %||% NA_character_) else NA_character_, nr)
-  R$option <- rep(if (is_str) as.character(ctx$option %||% NA_character_) else NA_character_, nr)
+  option <- if (is_str) as.character(ctx$option %||% NA_character_) else NA_character_
+  R$option <- rep(option, nr)
   draft <- isTRUE(cfg$draft)
   # text knitted by a child has no file: its lines are relative to the text,
   # and the chunk that knitted it says where (2.7.3)
@@ -439,6 +440,7 @@ resolve_rows <- function(s, x, block, ctx) {
   rc$nlpos <- which(strsplit(text, "")[[1L]] == "\n")   # the positions of the newlines in `text`
   rc$first_ink <- regexpr("[^ \t\r\n]", text)           # the first non-blank character of `text`
   rc$chunk_label <- chunk_label  # the chunk a failure is reported in
+  rc$option <- option       # the option a string is the value of, which a failure names (NA for prose)
   rc$owned <- owned_classes(cfg)  # the classes weft owns (the rest pass through)
   # What the ledger records of each row (design-2d D8), filled as the rows are rendered:
   rc$L_raw <- rep(NA_real_, nr)        # the raw number
@@ -586,7 +588,7 @@ construct_fail <- function(rc, k, msg) {
   fail_note(rc, k, "construct error")
   add_failure(rc$s, "construct error", file = R$file[k], line = R$line[k],
               expr = source_label(rc$text, R$start[k], R$end[k]), detail = msg, chunk = rc$chunk_label,
-              option = rc$ctx$option)
+              option = rc$option)
   resolve_marker(rc, "construct error", R$line[k])
 }
 
@@ -599,7 +601,7 @@ zero_note <- function(rc, k, label) {
     } else {
       add_warning(rc$s, "printed as zero", file = rc$R$file[k], line = rc$R$line[k], expr = label,
                   detail = msg, chunk = rc$chunk_label,
-                  option = if (rc$is_str) rc$ctx$option else NA_character_)
+                  option = rc$option)
     }
     invisible(NULL)
   }
@@ -611,7 +613,7 @@ unit_note <- function(rc, msg, file, line, expr) {
     weft_warn(msg, class = c("weft_unit_warning", "weft_warning"))
   } else {
     add_warning(rc$s, "unit warning", file = file, line = line, expr = expr, detail = msg,
-                chunk = rc$chunk_label, option = if (rc$is_str) rc$ctx$option else NA_character_)
+                chunk = rc$chunk_label, option = rc$option)
   }
   invisible(NULL)
 }
@@ -655,7 +657,7 @@ record_fail <- function(rc, k, kind, label, detail, hint = NA_character_) {
   fail_note(rc, k, kind)
   add_failure(rc$s, kind, file = R$file[k], line = R$line[k], expr = label,
               detail = detail, hint = hint, chunk = rc$chunk_label,
-              option = if (rc$is_str) rc$ctx$option else NA_character_)
+              option = rc$option)
   resolve_marker(rc, kind, R$line[k])
 }
 
@@ -700,7 +702,7 @@ eval_expr <- function(rc, k, expr, label, envir = rc$env0, stock = FALSE,
   on.exit(weft_env$guest_last <- NULL, add = TRUE)
   ev <- run_inline(s, file, line, label, expr, function() {
     if (stock) stock_bare_text(expr, envir) else guest_eval(expr, envir)
-  }, chunk = chunk_label, option = if (rc$is_str) rc$ctx$option else NA_character_,
+  }, chunk = chunk_label, option = rc$option,
   live = !rc$strict, where = function() ledger_where(s, F, file, vl, chunk_label))
   # the kind a governor's one guest read had, before its R form (G13)
   ev$guest <- weft_env$guest_last
@@ -1426,7 +1428,7 @@ render_if <- function(rc, k) {
         s, "failed claim", file = R$file[k], line = R$line[k], expr = label,
         detail = sprintf("%s was FALSE", parts$texts[i]),
         hint = "optional text is written [phrase | ]{if=\"…\"}",
-        chunk = rc$chunk_label, option = if (rc$is_str) rc$ctx$option else NA_character_))
+        chunk = rc$chunk_label, option = rc$option))
       claim_failed <- TRUE
     }
     i <- 1L
@@ -1514,7 +1516,7 @@ render_cite <- function(rc, k) {
       add_failure(s, "unknown citation key", file = R$file[k], line = R$line[k],
                   expr = paste0("cite=", attr_shown(value)),
                   detail = sprintf("the key `%s` is not in the bibliography (rule 1.8.5)%s", u, gone),
-                  chunk = rc$chunk_label, option = if (rc$is_str) rc$ctx$option else NA_character_)
+                  chunk = rc$chunk_label, option = rc$option)
     }
     fail_note(rc, k, "value error")
     out <- paste0(out, resolve_marker(rc, "unknown key", R$line[k]))
