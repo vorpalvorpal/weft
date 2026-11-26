@@ -515,10 +515,12 @@ Status (26 Nov, overnight build):
   `dev/decisions.md`, "Simplify pass"). Four bugs fixed test-first; one
   include reader following Quarto (R, Lua, Python); `resolve_markup()`
   and `apply_formatters()` split into top-level steps over an explicit
-  context (no `<<-` left in resolve.R or format.R; about 95 remain
-  elsewhere, mostly short local accumulators). Each batch checked by
-  filtered tests and golden comparisons; a final regression-test round
-  and the whole suite close it.
+  context (no `<<-` left in resolve.R or format.R; the five elsewhere
+  whose closure sat far from the variable became explicit state; 88
+  remain, all short local accumulators). Each batch checked by filtered
+  tests and golden comparisons. Whole suite at the end (26 Nov): 7,450
+  tests, 69,990 expectations, 0 failures after restoring two `\u`
+  escapes in resolve.R (the ASCII check).
 
 ## Goal noted: weft everywhere (14 Nov, from Robin; superseded 25 Nov)
 

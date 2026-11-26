@@ -884,7 +884,7 @@ render_arm <- function(rc, k, i, hash, record = NULL) {
                     end = vapply(items, function(it) it$end, 0L))
   tmpl <- arm_template_range(rc$S, r$a, r$b, idf)
   if (!is.null(record) && length(attr(record, "unit_suffix"))) {
-    after <- regmatches(tmpl, regexec("([^]*)", tmpl))[[1L]]
+    after <- regmatches(tmpl, regexec("\ue001([^\ue001\ue002]*)", tmpl))[[1L]]
     if (length(after) == 2L) typed_after(rc, record, after[2L], R$file[k], R$line[k], source_label(rc$text, R$start[k], R$end[k]))
   }
   fill_template(tmpl, hash, as.list(outs), vapply(items, governed, NA, R = R))
@@ -1427,7 +1427,7 @@ render_if <- function(rc, k) {
       guard_ids <- c(guard_ids, add_failure(
         s, "failed claim", file = R$file[k], line = R$line[k], expr = label,
         detail = sprintf("%s was FALSE", parts$texts[i]),
-        hint = "optional text is written [phrase | ]{if=\"…\"}",
+        hint = "optional text is written [phrase | ]{if=\"\u2026\"}",
         chunk = rc$chunk_label, option = rc$option))
       claim_failed <- TRUE
     }
