@@ -15,3 +15,6 @@ line-in-body-not-front-matter	digits: 2	---\ntitle: t\n---\n\nweft:\n  chunk_cla
 yml-two-folders-up	chunk_claims: collect		collect
 capital-collect	chunk_claims: Collect		stop	yes
 crlf-line-ends	digits: 2\r\nchunk_claims: collect\r\n		collect
+front-second-block-only	digits: 2	---\ntitle: t\n---\n\nText.\n\n---\nweft:\n  chunk_claims: collect\n---\n	collect
+front-both-blocks-later-wins	digits: 2	---\ntitle: t\nweft:\n  chunk_claims: stop\n---\n\nText.\n\n---\nweft:\n  chunk_claims: collect\n---\n	collect
+front-later-weft-replaces-whole	digits: 2	---\ntitle: t\nweft:\n  chunk_claims: collect\n---\n\nText.\n\n---\nweft:\n  digits: 3\n---\n	stop

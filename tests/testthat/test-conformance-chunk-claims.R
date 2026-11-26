@@ -11,7 +11,9 @@
 #             reports a problem (E33, what = "stop or collect") and uses the default (GN5), and the two
 #             guest readers return stop (GN4)
 # The case yml-two-folders-up puts _weft.yml two folders above the document; every other case has the
-# document and the file in one folder.
+# document and the file in one folder. The front-second-block-only, front-both-blocks-later-wins and
+# front-later-weft-replaces-whole cases hold two metadata blocks: the front matter is every block, the
+# later block wins per top-level key and replaces the whole `weft:` value (2.1.6, F1-F3).
 # The readers: R's read_config() (and read_front_matter()), weftlib/config.lua's config.load() driven
 # through `pandoc lua`, Python's weft._config.chunk_claims(source, folder), and Julia's
 # Weft.chunk_claims_setting(source, folder). Each has its own test_that, with its own skip.
@@ -55,10 +57,10 @@ tcc_projects <- function(env = parent.frame()) {
   d
 }
 
-test_that("GN1: the table has the sixteen cases, in the five columns, with a want of stop or collect", {
+test_that("GN1: the table has the nineteen cases, in the five columns, with a want of stop or collect", {
   d <- tcc_table()
   expect_identical(names(d), c("case", "weft_yml", "front", "want", "problem"))
-  expect_identical(nrow(d), 16L)
+  expect_identical(nrow(d), 19L)
   expect_false(anyDuplicated(d$case) > 0)
   expect_true(all(d$want %in% c("stop", "collect")))
   expect_true(all(d$problem %in% c("", "yes")))
