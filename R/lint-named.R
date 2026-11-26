@@ -69,14 +69,16 @@ path_inside <- function(p, root) {
 values_file_attr <- function(attrs) attr_value(attrs, "file")
 
 # `key=value` in an attribute string, the value quoted either way or bare, as c(match, value) with the
-# value decoded (1.2.3: `\"`, `\'` and `\|` lose their backslash); or character() when there is no such key.
+# value decoded as the scanner does (1.2.3; a key is a whole attribute name); or character() when there is no such key.
 attr_value <- function(attrs, key) {
-  m <- regmatches(attrs, regexec(paste0(key, "[ \t]*=[ \t]*(?:\"((?:[^\"\\\\]|\\\\.)*)\"|'((?:[^'\\\\]|\\\\.)*)'|",
+  m <- regmatches(attrs, regexec(paste0("(?<![A-Za-z0-9_.-])", key, "[ \t]*=[ \t]*(?:\"((?:[^\"\\\\]|\\\\.)*)\"|'((?:[^'\\\\]|\\\\.)*)'|",
                                         "((?:[^\\s}\"'\\\\]|\\\\\\|)+))"), attrs, perl = TRUE))[[1L]]
   if (!length(m)) return(character())
+  quoted <- nzchar(m[2L]) || nzchar(m[3L])
   v <- m[2:4][nzchar(m[2:4])][1L]
   if (is.na(v)) v <- ""
-  c(m[1L], gsub("\\\\([\"'|])", "\\1", v))
+  v <- if (quoted) read_quoted_value(v)$value else gsub("\\\\\\|", "|", v)
+  c(m[1L], v)
 }
 
 # What a text publishes or runs, for the search of N144: the code of its executed chunks, the keys of its
