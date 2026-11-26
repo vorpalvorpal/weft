@@ -196,8 +196,10 @@ yaml_text <- function(x) {
 
 # ---- chunks ---------------------------------------------------------------------
 
-chunk_table <- function(lines, chs) {
+# One row per chunk of the code regions `cr` (chunk_code_regions()) of `lines`.
+chunk_table <- function(lines, cr) {
   n <- length(lines)
+  chs <- cr$chs
   cols <- function(f, type) vapply(chs, f, type)
   eval_of <- function(ch) {
     v <- NULL
@@ -223,14 +225,7 @@ chunk_table <- function(lines, chs) {
     o
   }
   # the code of a block-quoted chunk is read without its `>` prefix, as the scanner reads it (K20)
-  dlines <- dequote_chunks(lines)
-  code_of <- function(ch) {
-    from <- ch$oi$code_first
-    to <- min(ch$close, n + 1L) - 1L
-    if (!ch$closed) to <- n
-    if (to >= from) dlines[from:to] else character()
-  }
-  codes <- lapply(chs, code_of)
+  codes <- lapply(cr$body, function(rg) rg$code)
   data.frame(
     open = cols(function(ch) as.integer(ch$open), 0L),
     close = cols(function(ch) as.integer(min(ch$close, n)), 0L),
@@ -249,73 +244,12 @@ chunk_table <- function(lines, chs) {
 
 # ---- string constants in chunk code -----------------------------------------------
 
-# The string literals of R code that are inside calls to `fns` (all of them,
-# less those that are names), or inside the argument `weft()` takes as `x`. A
-# data frame: file offset of the contents' first character, the contents as typed,
-# the token text, the file line of the string and the call.
-chunk_literals <- function(code, first_line, ls, which = c("weft", "phrase")) {
-  which <- match.arg(which)
-  out <- data.frame(start = numeric(), raw = character(), token = character(),
-                    line = integer(), stringsAsFactors = FALSE)
-  if (which == "weft") {
-    # the one reader of the scanner and the lints (C9)
-    lit <- weft_literals(code)
-    if (!nrow(lit)) return(out)
-    line <- first_line + lit$line - 1L
-    return(data.frame(start = ls[line] + lit$col - 1 + lit$open, raw = lit$raw, token = lit$text,
-                      line = as.integer(line), stringsAsFactors = FALSE))
-  }
-  fns <- c("lookup", "brk")
-  if (!length(code) || !any(vapply(fns, function(f) any(grepl(f, code, fixed = TRUE)), NA))) return(out)
-  p <- tryCatch(parse(text = paste(code, collapse = "\n"), keep.source = TRUE), error = function(e) NULL)
-  if (is.null(p)) return(out)
-  pd <- utils::getParseData(p)
-  if (is.null(pd)) return(out)
-  par <- stats::setNames(pd$parent, pd$id)
-  root_ids <- integer()
-  fn <- pd[pd$token == "SYMBOL_FUNCTION_CALL" & pd$text %in% fns, , drop = FALSE]
-  for (id in fn$id) {
-    fexpr <- pd$parent[pd$id == id]
-    call_id <- pd$parent[pd$id == fexpr]
-    if (!length(call_id) || call_id == 0L) next
-    root_ids <- c(root_ids, call_id)
-  }
-  if (!length(root_ids)) return(out)
-  sc <- pd[pd$token == "STR_CONST", , drop = FALSE]
-  if (!nrow(sc)) return(out)
-  inside <- vapply(sc$id, function(i) {
-    cur <- par[[as.character(i)]]
-    while (!is.na(cur) && cur != 0L) {
-      if (cur %in% root_ids) return(TRUE)
-      cur <- par[[as.character(cur)]]
-    }
-    FALSE
-  }, NA)
-  sc <- sc[inside, , drop = FALSE]
-  if (!nrow(sc)) return(out)
-  # a string that is a name (`"a" = ...`) is not one of the phrases
-  nxt <- vapply(seq_len(nrow(sc)), function(k) {
-    sib <- pd[pd$parent == sc$parent[k] & (pd$line1 > sc$line2[k] | (pd$line1 == sc$line2[k] & pd$col1 > sc$col2[k])), , drop = FALSE]
-    if (!nrow(sib)) return(FALSE)
-    sib <- sib[order(sib$line1, sib$col1), , drop = FALSE]
-    sib$token[1L] %in% c("EQ_SUB", "EQ_ASSIGN")
-  }, NA)
-  sc <- sc[!nxt, , drop = FALSE]
-  sc <- sc[grepl("^[\"'].*[\"']$", sc$text) & !grepl("^\\[[0-9]+ chars", sc$text), , drop = FALSE]
-  sc <- sc[order(sc$line1, sc$col1), , drop = FALSE]
-  if (!nrow(sc)) return(out)
-  line <- first_line + sc$line1 - 1L
-  cc <- sc$col1   # getParseData() counts characters in a UTF-8 session
-  data.frame(start = ls[line] + cc, raw = substr(sc$text, 2L, nchar(sc$text) - 1L),
-             token = sc$text, line = as.integer(line), stringsAsFactors = FALSE)
-}
-
-# Rows for the strings given to lookup() and brk() (context "phrase").
-phrase_rows <- function(lit, chunk_label, file, config) {
+# Rows for the strings given to lookup() and brk() (context "phrase"): `lit` as chunk_literals() gives, `ls`
+# the document's line starts.
+phrase_rows <- function(lit, chunk_label, file, config, ls) {
   parts <- list()
   for (k in seq_len(nrow(lit))) {
-    val <- tryCatch(eval(parse(text = lit$token[k], keep.source = FALSE)[[1L]]), error = function(e) NULL)
-    if (!is.character(val) || length(val) != 1L || is.na(val)) next
+    val <- lit$value[k]
     r <- scan_rows(val, file = file, first_line = lit$line[k], config = config)
     if (!nrow(r)) next
     off <- lit_offsets(lit$raw[k], lit$start[k])
@@ -323,6 +257,9 @@ phrase_rows <- function(lit, chunk_label, file, config) {
     r$fstart <- map_offsets(r$start, off)
     r$fend <- map_offsets(r$end, off)
     r$fblock <- map_offsets(r$block_start, off)
+    # a row's line is the source line of its first character, as for a weft() string (K1, K10)
+    at <- !is.na(r$fstart)
+    r$line[at] <- findInterval(r$fstart[at], ls)
     r$context <- "phrase"
     r$chunk <- chunk_label
     r$option <- NA_character_
@@ -335,8 +272,7 @@ phrase_rows <- function(lit, chunk_label, file, config) {
 
 # Returns a data frame: kind (front, caption, weft, phrase), name, start, end
 # (file offsets of the characters that are prose), form ("scalar"/"block").
-source_pieces <- function(lines, ls, chunks, chs, front_ff) {
-  n <- length(lines)
+source_pieces <- function(lines, ls, chunks, cr, front_ff) {
   le <- ls + nchar(lines) - 1
   P <- list()
   gid <- 0L
@@ -373,90 +309,63 @@ source_pieces <- function(lines, ls, chunks, chs, front_ff) {
     }
     c(s, e)
   }
+  # where the text of each of the lines `r` starts: the line's start, or after a `#|` prefix
+  line_start <- function(r) ls[r]
+  after_bar <- function(r) ls[r] + attr(regexpr("^[ \t]*#\\|", lines[r]), "match.length")
+  # a block value: its lines `first` to `last`, the text of each from `from`
+  add_block <- function(kind, name, first, last, from) {
+    if (first <= last) {
+      r <- first:last
+      add(kind, name, from(r), le[r])
+    }
+  }
+  # a scalar value: on line `l` from column `col`, without its quotes, then the lines to `last` that
+  # continue it, the text of each from `from`, in its group
+  add_scalar <- function(kind, name, l, col, last, from) {
+    v <- value_range(l, col)
+    g0 <- gid + 1L
+    add(kind, name, v[1L], v[2L])
+    if (last > l) {
+      r <- (l + 1L):last
+      add(kind, name, from(r), le[r], grp = g0)
+    }
+  }
   # front matter
   ff <- front_ff
   for (i in seq_len(nrow(ff))) {
     if (!(ff$field[i] %in% FM_FIELDS)) next
     if (ff$form[i] == "block") {
-      if (ff$first[i] <= ff$last[i]) {
-        r <- ff$first[i]:ff$last[i]
-        add("front", ff$field[i], ls[r], le[r])
-      }
+      add_block("front", ff$field[i], ff$first[i], ff$last[i], line_start)
     } else {
       k <- ff$key[i]
-      col <- regexpr(":", lines[k], fixed = TRUE) + 1L
-      v <- value_range(k, col)
-      g0 <- gid + 1L
-      add("front", ff$field[i], v[1L], v[2L])
-      if (ff$last[i] > k) {
-        r <- (k + 1L):ff$last[i]
-        add("front", ff$field[i], ls[r], le[r], grp = g0)
-      }
+      add_scalar("front", ff$field[i], k, regexpr(":", lines[k], fixed = TRUE) + 1L, ff$last[i], line_start)
     }
   }
   # captions, in executed R chunks
-  for (ch in chs) {
+  for (i in seq_along(cr$chs)) {
+    ch <- cr$chs[[i]]
     if (!identical(tolower(ch$engine), "r")) next
-    after_bar <- function(l) {
-      m <- regexpr("^[ \t]*#\\|", lines[l])
-      ls[l] + attr(m, "match.length")
-    }
     for (o in ch$optblk) {
       if (!(o$name %in% setdiff(CAPTION_OPTIONS, "tab.cap")) || o$form == "expr") next
       if (o$form == "block") {
-        if (o$first <= o$last) {
-          r <- o$first:o$last
-          add("caption", o$name, vapply(r, after_bar, 1), le[r])
-        }
+        add_block("caption", o$name, o$first, o$last, after_bar)
       } else if (o$form == "list") {
         for (it in o$items) {
           if (it$form == "block") {
-            if (it$first <= it$last) {
-              r <- it$first:it$last
-              add("caption", o$name, vapply(r, after_bar, 1), le[r])
-            }
+            add_block("caption", o$name, it$first, it$last, after_bar)
           } else {
-            l <- it$start
-            m <- regexpr("^[ \t]*#\\|[ ]?[ \t]*-", lines[l])
-            v <- value_range(l, attr(m, "match.length") + 1L)
-            g0 <- gid + 1L
-            add("caption", o$name, v[1L], v[2L])
-            if (it$last > l) {
-              r <- (l + 1L):it$last
-              add("caption", o$name, vapply(r, after_bar, 1), le[r], grp = g0)
-            }
+            col <- attr(regexpr(OPT_ITEM_RE, lines[it$start]), "match.length") + 1L
+            add_scalar("caption", o$name, it$start, col, it$last, after_bar)
           }
         }
       } else {
-        l <- o$key
-        m <- regexpr("^[ \t]*#\\|[ ]?[A-Za-z0-9_.-]+[ \t]*:", lines[l])
-        v <- value_range(l, attr(m, "match.length") + 1L)
-        g0 <- gid + 1L
-        add("caption", o$name, v[1L], v[2L])
-        if (o$last > l) {
-          r <- (l + 1L):o$last
-          add("caption", o$name, vapply(r, after_bar, 1), le[r], grp = g0)
-        }
+        col <- attr(regexpr(OPT_KEY_RE, lines[o$key]), "match.length") + 1L
+        add_scalar("caption", o$name, o$key, col, o$last, after_bar)
       }
     }
     # a weft() string in a computed caption: `!expr`, or a header option such as `fig.cap = weft(...)`
-    # (F4, F5); read as the weft() strings of chunk code are
-    # a block-quoted chunk's code is read de-quoted, its columns shifted back by the prefix (K20, C9)
-    dlines <- dequote_chunks(lines)
-    lsc <- ls + (nchar(lines) - nchar(dlines))
-    add_lits <- function(code, first) {
-      add_weft(chunk_literals(code, first, lsc, "weft"))
-    }
-    for (o in ch$optblk) {
-      if (!(o$name %in% CAPTION_OPTIONS) || !identical(o$form, "expr")) next
-      ec <- expr_option_code(dlines, o)
-      if (!is.null(ec)) add_lits(ec$code, ec$first)
-    }
-    for (nm in names(ch$hdr$opts)) {
-      if (!(nm %in% CAPTION_OPTIONS) || !is.null(ch$hdr$opts[[nm]]$literal)) next
-      code <- header_option_code(dlines[ch$open], nm, ch$hdr$opts[[nm]]$text)
-      if (!is.null(code)) add_lits(code, ch$open)
-    }
+    # (F4, F5); read as the weft() strings of chunk code are, from the document's code regions (A5)
+    for (rg in chunk_caption_regions(cr, i)) add_weft(chunk_literals(rg, "weft"))
     # header literals
     for (nm in names(ch$hdr$opts)) {
       if (!(nm %in% setdiff(CAPTION_OPTIONS, "tab.cap"))) next
@@ -468,9 +377,8 @@ source_pieces <- function(lines, ls, chunks, chs, front_ff) {
         if (!isTRUE(okc)) next
       }
       qs <- "\"(?:[^\"\\\\]|\\\\.)*\"|'(?:[^'\\\\]|\\\\.)*'"
-      nmp <- paste0("(?<![A-Za-z0-9_.])", gsub(".", "\\.", nm, fixed = TRUE), "[ \t]*=[ \t]*")
       hl <- sub("[ \t\r]+$", "", lines[ch$open])
-      mm <- regexpr(paste0(nmp, "c[ \t]*\\("), hl, perl = TRUE)
+      mm <- regexpr(paste0(header_opt_re(nm), "c[ \t]*\\("), hl, perl = TRUE)
       if (mm > 0L) {
         st <- mm + attr(mm, "match.length")
         rest <- substring(hl, st)
@@ -486,26 +394,18 @@ source_pieces <- function(lines, ls, chunks, chs, front_ff) {
         }
         next
       }
-      mm <- regexpr(paste0(nmp, "(?:\"((?:[^\"\\\\]|\\\\.)*)\"|'((?:[^'\\\\]|\\\\.)*)')"), hl, perl = TRUE)
-      if (mm > 0L) {
-        cs <- attr(mm, "capture.start")
-        cl <- attr(mm, "capture.length")
-        g <- if (cs[1L] > 0L) 1L else 2L
-        add("caption", nm, ls[ch$open] + cs[g] - 1, ls[ch$open] + cs[g] + cl[g] - 2)
-      }
+      h <- header_literal_at(hl, nm)
+      if (!is.null(h)) add("caption", nm, ls[ch$open] + h$start - 1, ls[ch$open] + h$start + nchar(h$raw) - 2)
     }
   }
-  # strings (the code of a block-quoted chunk has lost its prefix: its columns shift by that, K20)
-  if (nrow(chunks)) {
-    lsc <- ls + (nchar(lines) - nchar(dequote_chunks(lines)))
-    for (k in seq_len(nrow(chunks))) {
-      if (!identical(tolower(chunks$engine[k]), "r") || isFALSE(chunks$eval[k])) next
-      code <- chunks$code[[k]]
-      if (!length(code)) next
-      add_weft(chunk_literals(code, chunks$code_line[k], lsc, "weft"))
-      lit <- chunk_literals(code, chunks$code_line[k], lsc, "phrase")
-      if (nrow(lit)) add("phrase", NA_character_, lit$start, lit$start + nchar(lit$raw) - 1, by_row = TRUE)
-    }
+  # strings: the literals the scan read, from the same code regions (E3)
+  for (k in seq_len(nrow(chunks))) {
+    if (!identical(tolower(chunks$engine[k]), "r") || isFALSE(chunks$eval[k])) next
+    rg <- cr$body[[k]]
+    if (!length(rg$code)) next
+    add_weft(chunk_literals(rg, "weft"))
+    lit <- chunk_literals(rg, "phrase")
+    if (nrow(lit)) add("phrase", NA_character_, lit$start, lit$start + nchar(lit$raw) - 1, by_row = TRUE)
   }
   if (!length(P)) {
     return(data.frame(kind = character(), name = character(), start = numeric(), end = numeric(),
@@ -1018,8 +918,9 @@ read_source <- function(path, root, cfg, bytes = NULL) {
   fb <- fence_blocks(lines, inmeta)
   infence <- logical(nl)
   for (b in seq_len(nrow(fb))) infence[fb$open[b]:fb$close[b]] <- TRUE
-  chs <- labelled_chunks(dequote_chunks(lines))
-  chunks <- chunk_table(lines, chs)
+  # the R code of the document, each region parsed once for the scan, the phrases and the pieces (A5, E3)
+  cr <- chunk_code_regions(lines)
+  chunks <- chunk_table(lines, cr)
   ff <- front_fields(lines)
   # metadata
   meta <- lapply(seq_len(nrow(mb)), function(b) {
@@ -1039,7 +940,7 @@ read_source <- function(path, root, cfg, bytes = NULL) {
     }
   }
   # rows
-  rows <- scan_document(lines, file = rel, config = cfg, project = project_type(path))
+  rows <- scan_document(lines, file = rel, config = cfg, project = project_type(path), cr = cr)
   if (nrow(rows)) {
     ci <- findInterval(rows$line, chunks$open)
     inchunk <- ci > 0L & rows$line <= chunks$close[pmax(ci, 1L)]
@@ -1056,11 +957,10 @@ read_source <- function(path, root, cfg, bytes = NULL) {
     }
   }
   phr <- list()
-  lsc <- ls + (nchar(lines) - nchar(dequote_chunks(lines)))
   for (k in seq_len(nrow(chunks))) {
     if (!identical(tolower(chunks$engine[k]), "r") || isFALSE(chunks$eval[k])) next
-    lit <- chunk_literals(chunks$code[[k]], chunks$code_line[k], lsc, "phrase")
-    if (nrow(lit)) phr[[length(phr) + 1L]] <- phrase_rows(lit, chunks$label[k], rel, cfg)
+    lit <- chunk_literals(cr$body[[k]], "phrase")
+    if (nrow(lit)) phr[[length(phr) + 1L]] <- phrase_rows(lit, chunks$label[k], rel, cfg, ls)
   }
   if (length(phr)) {
     rows <- bind_scan_rows(c(list(rows), phr))
@@ -1077,9 +977,13 @@ read_source <- function(path, root, cfg, bytes = NULL) {
       rows$fblock[bad] <- NA_real_
     }
   }
-  pieces <- source_pieces(lines, ls, chunks, chs, ff)
-  source_assemble(rel, path, ext, cfg, text, lines, ls, inmeta, infence, pieces, rows, chunks, ff, meta,
-                  front, lang)
+  pieces <- source_pieces(lines, ls, chunks, cr, ff)
+  # the regions are kept for the lints without their parses: a source is cached as it is
+  for (rg in c(cr$body, cr$caption)) rm(list = names(rg$memo), envir = rg$memo)
+  src <- source_assemble(rel, path, ext, cfg, text, lines, ls, inmeta, infence, pieces, rows, chunks, ff, meta,
+                         front, lang)
+  src$code_regions <- cr
+  src
 }
 
 # The rest of reading a source, shared by documents and scripts (D1): the regions, the prose mask and the
@@ -1231,7 +1135,7 @@ script_scan <- function(path, rel, cfg, bytes = NULL) {
   ls <- line_starts(lines)
   lit <- weft_literals(lines, pd)
   if (!nrow(lit)) return(none("skip"))
-  rows <- scan_weft_code(lines, 1L, NA_character_, rel, cfg, NULL, ls, lit = lit)
+  rows <- scan_weft_code(lines, 1L, NA_character_, rel, cfg, ls, lit = lit)
   if (is.null(rows)) {
     rows <- scan_rows("", file = rel, first_line = 1L, config = cfg)
     rows$fstart <- rows$fend <- rows$fblock <- numeric()

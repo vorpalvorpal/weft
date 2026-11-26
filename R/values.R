@@ -489,9 +489,9 @@ values_scan_lists <- function(path, cfg) {
     if (is.null(ln)) return(invisible())
     txt <- paste(ln, collapse = "\n")
     out$auto <<- c(out$auto, values_text_names(txt)$code)
-    chs <- tryCatch(labelled_chunks(dequote_chunks(ln)), error = function(e) list())
-    if (length(chs)) {
-      tb <- chunk_table(ln, chs)
+    cr <- tryCatch(chunk_code_regions(ln), error = function(e) NULL)
+    if (length(cr$chs)) {
+      tb <- chunk_table(ln, cr)
       for (i in seq_len(nrow(tb))) {
         opt <- if (tb$code_line[i] > tb$open[i]) ln[tb$open[i]:(tb$code_line[i] - 1L)] else ln[tb$open[i]]
         code <- if (tolower(tb$engine[i]) %in% c("python", "julia")) tb$code[[i]] else character()

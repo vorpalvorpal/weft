@@ -384,6 +384,10 @@ parse_header <- function(header) {
   list(label = label, opts = opts)
 }
 
+# The prefix of a `#|` line up to the dash of a list item, and up to the colon of a key (S5).
+OPT_ITEM_RE <- "^[ \t]*#\\|[ ]?[ \t]*-"
+OPT_KEY_RE <- "^[ \t]*#\\|[ ]?[A-Za-z0-9_.-]+[ \t]*:"
+
 # The `#|` option lines at the top of a chunk: their line numbers and text
 # with the prefix taken off.
 chunk_option_lines <- function(lines, open, close) {
@@ -526,12 +530,16 @@ labelled_chunks <- function(lines) {
   chunks
 }
 
-# One chunk's caption rows, with their static errors.
-scan_chunk_captions <- function(lines, ch, label, hdr, optblk, optinfo, doc_exec, file,
-                                config, dq = NULL, filter_doc = FALSE, named_filter = FALSE) {
+# One chunk's caption rows, with their static errors. `lines` are the dequoted lines of `cr`
+# (chunk_code_regions()); `code_keys`, the key lines of the `!expr` caption options that are R code (C10).
+scan_chunk_captions <- function(lines, ch, doc_exec, file, config, cr, code_keys = integer(),
+                                filter_doc = FALSE, named_filter = FALSE) {
+  label <- ch$label
+  hdr <- ch$hdr
+  optblk <- ch$optblk
+  dq <- cr$dq
   rows <- list()
   rem <- integer(length(lines))   # characters taken off the front of a line
-  ls <- line_starts(lines)
   keep <- rep(FALSE, length(lines))
   txt <- lines
   regions <- list()   # option, first, last, kind of region
@@ -544,12 +552,12 @@ scan_chunk_captions <- function(lines, ch, label, hdr, optblk, optinfo, doc_exec
   for (o in optblk) {
     if (!(o$name %in% CAPTION_OPTIONS)) next
     # R code that calls weft() is read as code, not as markup (C10)
-    if (identical(o$form, "expr") && caption_is_code(o, lines)) next
+    if (identical(o$form, "expr") && o$key %in% code_keys) next
     if (o$form == "list") {
       for (it in o$items) {
         add_region(o$name, it$first, it$last, it$form, item = TRUE)
         if (it$form == "scalar") {
-          new <- sub("^[ \t]*#\\|[ ]?[ \t]*-", "", txt[it$first])
+          new <- sub(OPT_ITEM_RE, "", txt[it$first])
           rem[it$first] <- rem[it$first] + nchar(txt[it$first]) - nchar(new)
           txt[it$first] <- new
         }
@@ -558,7 +566,7 @@ scan_chunk_captions <- function(lines, ch, label, hdr, optblk, optinfo, doc_exec
       add_region(o$name, o$first, o$last, o$form)
       if (o$form != "block") {
         # the key is not part of the value
-        new <- sub("^[ \t]*#\\|[ ]?[A-Za-z0-9_.-]+[ \t]*:", "", txt[o$first])
+        new <- sub(OPT_KEY_RE, "", txt[o$first])
         rem[o$first] <- rem[o$first] + nchar(txt[o$first]) - nchar(new)
         txt[o$first] <- new
       }
@@ -574,7 +582,7 @@ scan_chunk_captions <- function(lines, ch, label, hdr, optblk, optinfo, doc_exec
     if (nrow(r)) {
       # file offsets: the text scanned is the lines less what `rem` took off
       tstart <- c(1, cumsum(nchar(lines) - rem + 1))
-      shift <- cumsum(rem + (if (is.null(dq)) 0L else dq))
+      shift <- cumsum(rem + dq)
       at <- function(p) {
         L <- findInterval(p, tstart[seq_along(lines)])
         L[L < 1L] <- 1L
@@ -604,16 +612,9 @@ scan_chunk_captions <- function(lines, ch, label, hdr, optblk, optinfo, doc_exec
                    named_filter = named_filter)
     if (!nrow(r)) next
     off <- rep(NA_real_, nchar(v))
-    pat <- paste0("(?<![A-Za-z0-9_.])", gsub(".", "\\.", nm, fixed = TRUE),
-                  "[ \t]*=[ \t]*(?:\"((?:[^\"\\\\]|\\\\.)*)\"|'((?:[^'\\\\]|\\\\.)*)')")
-    mm <- regexpr(pat, lines[ch$open], perl = TRUE)
-    if (mm > 0L) {
-      cs <- attr(mm, "capture.start")
-      cl <- attr(mm, "capture.length")
-      g <- if (cs[1L] > 0L) 1L else 2L
-      raw <- substr(lines[ch$open], cs[g], cs[g] + cl[g] - 1L)
-      f0 <- ls[ch$open] + cs[g] - 1 + (if (is.null(dq)) 0 else dq[ch$open])
-      o <- lit_offsets(raw, f0)
+    h <- header_literal_at(lines[ch$open], nm)
+    if (!is.null(h)) {
+      o <- lit_offsets(h$raw, cr$ls[ch$open] + h$start - 1)
       if (length(o) == nchar(v)) off <- o
     }
     r$fstart <- map_offsets(r$start, off)
@@ -682,47 +683,92 @@ scan_chunk_captions <- function(lines, ch, label, hdr, optblk, optinfo, doc_exec
   rows
 }
 
+# ---- parse data --------------------------------------------------------------
+
+# The parse data of R code (lines, or one string), or NULL when it does not parse.
+parse_data <- function(code) {
+  p <- tryCatch(parse(text = paste(code, collapse = "\n"), keep.source = TRUE), error = function(e) NULL)
+  if (is.null(p)) NULL else utils::getParseData(p)
+}
+
+# Parse data with its lookups built once (E4): `pos[id]`, the row of node `id`, and `kids[[id]]`, the rows of
+# its children in source order.
+pd_index <- function(pd) {
+  n <- if (nrow(pd)) max(pd$id) else 0L
+  pos <- integer(n)
+  pos[pd$id] <- seq_len(nrow(pd))
+  o <- order(pd$line1, pd$col1)
+  g <- split(o, pd$parent[o])
+  p <- as.integer(names(g))
+  keep <- p >= 1L & p <= n
+  kids <- vector("list", n)
+  kids[p[keep]] <- g[keep]
+  list(pd = pd, pos = pos, kids = kids)
+}
+
+# The rows of the children of node `id`, in source order.
+pd_kids <- function(ix, id) {
+  if (id < 1L || id > length(ix$kids)) return(integer())
+  ix$kids[[id]] %||% integer()
+}
+
+# The children of node `id`, in source order.
+pd_kid_rows <- function(ix, id) ix$pd[pd_kids(ix, id), , drop = FALSE]
+
+# The parent of node `id`: integer() when `id` is not a node.
+pd_parent <- function(ix, id) {
+  r <- if (id >= 1L && id <= length(ix$pos)) ix$pos[id] else 0L
+  if (r == 0L) integer() else ix$pd$parent[r]
+}
+
+# The value of a constant token as written (`"a"`, `1L`, `r"(x)"`), or NULL when it does not evaluate.
+token_value <- function(tok) {
+  tryCatch(eval(parse(text = tok, keep.source = FALSE)[[1L]]), error = function(e) NULL)
+}
+
+# The value of a string token when it is one string, else NULL.
+str_token_value <- function(tok) {
+  v <- token_value(tok)
+  if (is.character(v) && length(v) == 1L && !is.na(v)) v else NULL
+}
+
 # ---- weft() strings ----------------------------------------------------------
 
-# The calls to `weft()` in parse data, as `weft(...)` or `weft::weft(...)` (ST1), and `x %>% weft` with no
-# parentheses (K3): the id of each call's expression (of the symbol's, for the last). The function position
-# is exactly the symbol `weft` or `weft::weft` (K2): `obj$weft()` is not one.
-weft_calls <- function(pd) {
-  fn <- pd[pd$token == "SYMBOL_FUNCTION_CALL" & pd$text == "weft", , drop = FALSE]
+# The calls to `weft()` in indexed parse data `ix`, as `weft(...)` or `weft::weft(...)` (ST1), and `x %>% weft`
+# with no parentheses (K3): the id of each call's expression (of the symbol's, for the last). The function
+# position is exactly the symbol `weft` or `weft::weft` (K2): `obj$weft()` is not one.
+weft_calls <- function(ix) {
+  pd <- ix$pd
   out <- integer()
-  for (id in fn$id) {
-    fexpr <- pd$parent[pd$id == id]            # the expr that names the function
-    sib <- pd[pd$parent == fexpr, , drop = FALSE]
+  for (id in pd$id[pd$token == "SYMBOL_FUNCTION_CALL" & pd$text == "weft"]) {
+    fexpr <- pd_parent(ix, id)                 # the expr that names the function
+    sib <- pd_kid_rows(ix, fexpr)
     if (nrow(sib) == 3L) {
-      sib <- sib[order(sib$line1, sib$col1), , drop = FALSE]
       ok <- sib$token[1L] == "SYMBOL_PACKAGE" && sib$token[2L] %in% c("NS_GET", "NS_GET_INT") &&
         identical(sib$text[1L], "weft")
       if (!ok) next
     } else if (nrow(sib) != 1L) next
-    call_id <- pd$parent[pd$id == fexpr]       # the call
-    if (!length(call_id) || call_id == 0L || !any(pd$parent == call_id & pd$token == "'('")) next
-    kids <- pd[pd$parent == call_id, , drop = FALSE]
-    kids <- kids[order(kids$line1, kids$col1), , drop = FALSE]
-    if (kids$id[1L] != fexpr) next
+    call_id <- pd_parent(ix, fexpr)            # the call
+    if (!length(call_id) || call_id == 0L) next
+    kids <- pd_kid_rows(ix, call_id)
+    if (!any(kids$token == "'('") || kids$id[1L] != fexpr) next
     out <- c(out, call_id)
   }
   # `x %>% weft`: the symbol is the right-hand side of a magrittr pipe
-  sym <- pd[pd$token == "SYMBOL" & pd$text == "weft", , drop = FALSE]
-  for (id in sym$id) {
-    e <- pd$parent[pd$id == id]
-    if (!length(e) || e == 0L || sum(pd$parent == e) != 1L) next
-    if (!is.na(weft_pipe_lhs(pd, e, "%>%"))) out <- c(out, e)
+  for (id in pd$id[pd$token == "SYMBOL" & pd$text == "weft"]) {
+    e <- pd_parent(ix, id)
+    if (!length(e) || e == 0L || length(pd_kids(ix, e)) != 1L) next
+    if (!is.na(weft_pipe_lhs(ix, e, "%>%"))) out <- c(out, e)
   }
   out
 }
 
 # The left-hand side of the pipe whose right-hand side is expression `id`, for the operators `ops`; NA
 # when `id` is not one.
-weft_pipe_lhs <- function(pd, id, ops = c("|>", "%>%")) {
-  pe <- pd$parent[pd$id == id]
+weft_pipe_lhs <- function(ix, id, ops = c("|>", "%>%")) {
+  pe <- pd_parent(ix, id)
   if (!length(pe) || pe == 0L) return(NA_integer_)
-  sib <- pd[pd$parent == pe, , drop = FALSE]
-  sib <- sib[order(sib$line1, sib$col1), , drop = FALSE]
+  sib <- pd_kid_rows(ix, pe)
   at <- match(id, sib$id)
   if (!is.na(at) && at == 3L && nrow(sib) == 3L && sib$token[2L] %in% c("PIPE", "SPECIAL") &&
       sib$text[2L] %in% ops && sib$token[1L] == "expr") return(sib$id[1L])
@@ -732,19 +778,13 @@ weft_pipe_lhs <- function(pd, id, ops = c("|>", "%>%")) {
 # The expression a call passes as `x` (ST2, C6): the argument named `x`, else the first given without a
 # name. On the right of a pipe the left-hand side is `x` unless an argument is named `x`; the placeholder
 # (`_` of `|>`, `.` of `%>%`) as an argument puts it where it stands (K3). NA when there is none.
-weft_call_arg <- function(pd, call_id) {
-  kids <- pd[pd$parent == call_id, , drop = FALSE]
-  kids <- kids[order(kids$line1, kids$col1), , drop = FALSE]
+weft_call_arg <- function(ix, call_id) {
+  kids <- pd_kid_rows(ix, call_id)
   op <- which(kids$token == "'('")[1L]
-  lhs <- weft_pipe_lhs(pd, call_id)
+  lhs <- weft_pipe_lhs(ix, call_id)
   if (is.na(op)) return(lhs)                   # `x %>% weft`
   pipe_op <- ""
-  if (!is.na(lhs)) {
-    pe <- pd$parent[pd$id == call_id]
-    sib <- pd[pd$parent == pe, , drop = FALSE]
-    sib <- sib[order(sib$line1, sib$col1), , drop = FALSE]
-    pipe_op <- sib$text[2L]
-  }
+  if (!is.na(lhs)) pipe_op <- pd_kid_rows(ix, pd_parent(ix, call_id))$text[2L]
   after <- kids[seq_len(nrow(kids)) > op, , drop = FALSE]
   args <- list()
   name <- NA_character_
@@ -753,7 +793,7 @@ weft_call_arg <- function(pd, call_id) {
     if (tk == "SYMBOL_SUB") {
       name <- after$text[k]
     } else if (tk == "expr") {
-      ch <- pd[pd$parent == after$id[k], , drop = FALSE]
+      ch <- pd_kid_rows(ix, after$id[k])
       mark <- nrow(ch) == 1L && ((pipe_op == "|>" && ch$token == "PLACEHOLDER") ||
                                    (pipe_op == "%>%" && ch$token == "SYMBOL" && ch$text == "."))
       args[[length(args) + 1L]] <- list(name = name, id = after$id[k], mark = mark)
@@ -774,26 +814,19 @@ weft_call_arg <- function(pd, call_id) {
 
 # ---- (the strings given to weft()) ----
 
-scan_chunk_strings <- function(lines, ch, first, label, file, config, dq = NULL, ls = line_starts(lines)) {
-  if (!identical(tolower(ch$engine), "r") || first >= ch$close) return(NULL)
-  scan_weft_code(lines[first:(ch$close - 1L)], first, label, file, config, dq, ls)
-}
-
 # The `STR_CONST` tokens a `weft()` call reads (C7): the argument is one string literal, or a `c()` (or
 # `base::c()`) whose literal arguments are each read. The ids of the tokens.
-weft_arg_literals <- function(pd, argid) {
+weft_arg_literals <- function(ix, argid) {
   one <- function(id) {
-    k <- pd[pd$parent == id, , drop = FALSE]
+    k <- pd_kid_rows(ix, id)
     if (nrow(k) == 1L && k$token == "STR_CONST") k$id else integer()
   }
   top <- one(argid)
   if (length(top)) return(top)
-  kids <- pd[pd$parent == argid, , drop = FALSE]
-  kids <- kids[order(kids$line1, kids$col1), , drop = FALSE]
+  kids <- pd_kid_rows(ix, argid)
   op <- which(kids$token == "'('")
   if (!length(op) || op[1L] < 2L || kids$token[1L] != "expr") return(integer())
-  fk <- pd[pd$parent == kids$id[1L], , drop = FALSE]
-  fk <- fk[order(fk$line1, fk$col1), , drop = FALSE]
+  fk <- pd_kid_rows(ix, kids$id[1L])
   is_c <- (nrow(fk) == 1L && fk$token == "SYMBOL_FUNCTION_CALL" && fk$text == "c") ||
     (nrow(fk) == 3L && identical(fk$token, c("SYMBOL_PACKAGE", "NS_GET", "SYMBOL_FUNCTION_CALL")) &&
        fk$text[1L] == "base" && fk$text[3L] == "c")
@@ -801,6 +834,34 @@ weft_arg_literals <- function(pd, argid) {
   out <- integer()
   for (id in kids$id[seq_len(nrow(kids)) > op[1L] & kids$token == "expr"]) out <- c(out, one(id))
   out
+}
+
+# The string constants of indexed parse data `ix` that are (`inside = TRUE`) or are not (`FALSE`) within the
+# nodes `root_ids`, less a string used as a name (`"a" = 1`), a raw string and one R shortens to
+# `[N chars ...]`: their ids, in source order. The phrase strings (inside lookup() and brk() calls) and the
+# strings not given to weft() (5.12.3) are both read this way.
+pd_strings <- function(ix, root_ids, inside = TRUE) {
+  pd <- ix$pd
+  sc <- which(pd$token == "STR_CONST")
+  under <- vapply(sc, function(r) {
+    cur <- pd$parent[r]
+    while (length(cur) && cur > 0L) {
+      if (cur %in% root_ids) return(TRUE)
+      cur <- pd_parent(ix, cur)
+    }
+    FALSE
+  }, NA)
+  sc <- sc[under == inside]
+  # a string that is a name (`"a" = ...`): the next of its siblings is `=`
+  named <- vapply(sc, function(r) {
+    sib <- pd_kid_rows(ix, pd$parent[r])
+    sib <- sib[sib$line1 > pd$line2[r] | (sib$line1 == pd$line2[r] & sib$col1 > pd$col2[r]), , drop = FALSE]
+    nrow(sib) > 0L && sib$token[1L] %in% c("EQ_SUB", "EQ_ASSIGN")
+  }, NA)
+  sc <- sc[!named]
+  sc <- sc[grepl("^[\"'].*[\"']$", pd$text[sc]) & !grepl("^\\[[0-9]+ chars", pd$text[sc])]
+  sc <- sc[order(pd$line1[sc], pd$col1[sc])]
+  pd$id[sc]
 }
 
 # Where a parser column falls in a line: R counts a tab as reaching the next multiple of 8.
@@ -826,66 +887,68 @@ str_token_shape <- function(tok) {
   list(open = 1L, close = 1L, raw = FALSE)
 }
 
-# The literal strings given to weft() in parse data `pd` (C5 to C8): one row each, in order: `line` and
-# `col` (of the token's first character, within the code, a tab one character), `text` (the whole token),
-# `value`, `raw` (the contents as typed), `open` (the characters before them). The one reader the scanner
-# and the lints share (C9).
+# Literal strings of R code, one row each, in order: `line` and `col` (of the token's first character,
+# within the code, a tab one character), `text` (the whole token), `value`, `raw` (the contents as typed),
+# `open` (the characters before them).
 empty_literals <- function() {
   data.frame(line = integer(), col = integer(), text = character(), value = character(),
              raw = character(), open = integer(), stringsAsFactors = FALSE)
 }
 
-weft_literals_pd <- function(pd, code) {
-  none <- empty_literals()
-  ids <- integer()
-  for (call_id in weft_calls(pd)) {
-    argid <- weft_call_arg(pd, call_id)
-    if (!is.na(argid)) ids <- c(ids, weft_arg_literals(pd, argid))
-  }
-  ids <- unique(ids)
-  if (!length(ids)) return(none)
-  rows <- lapply(ids, function(id) {
-    d <- pd[pd$id == id, , drop = FALSE]
+# The rows of the string tokens `ids` of indexed parse data `ix` of the lines `code`: a token whose value
+# is not one string is left out. The one way a string token is placed (C9, K10).
+str_token_rows <- function(ix, ids, code) {
+  pd <- ix$pd
+  rows <- lapply(unique(ids), function(id) {
+    d <- pd[ix$pos[id], , drop = FALSE]
     tok <- paste(utils::getParseText(pd, id), collapse = "\n")
-    val <- tryCatch(eval(parse(text = tok, keep.source = FALSE)[[1L]]), error = function(e) NULL)
-    if (!is.character(val) || length(val) != 1L || is.na(val)) return(NULL)
+    val <- str_token_value(tok)
+    if (is.null(val)) return(NULL)
     sh <- str_token_shape(tok)
     data.frame(line = d$line1, col = parse_char_col(code[d$line1], d$col1), text = tok, value = val,
                raw = substr(tok, sh$open + 1L, nchar(tok) - sh$close), open = sh$open,
                stringsAsFactors = FALSE)
   })
   out <- do.call(rbind, rows)
-  if (is.null(out)) return(none)
+  if (is.null(out)) return(empty_literals())
   out <- out[order(out$line, out$col), , drop = FALSE]
   rownames(out) <- NULL
   out
 }
 
+# The literal strings given to weft() (C5 to C8) in indexed parse data `ix` of `code`: the one reader the
+# scanner and the lints share (C9).
+weft_literals_pd <- function(ix, code) {
+  ids <- integer()
+  for (call_id in weft_calls(ix)) {
+    argid <- weft_call_arg(ix, call_id)
+    if (!is.na(argid)) ids <- c(ids, weft_arg_literals(ix, argid))
+  }
+  str_token_rows(ix, ids, code)
+}
+
 weft_literals <- function(code, pd = NULL) {
   if (is.null(pd)) {
     if (!length(code) || !any(grepl("weft", code, fixed = TRUE))) return(empty_literals())
-    p <- tryCatch(parse(text = paste(code, collapse = "\n"), keep.source = TRUE), error = function(e) NULL)
-    pd <- if (is.null(p)) NULL else utils::getParseData(p)
+    pd <- parse_data(code)
   }
   if (is.null(pd)) return(empty_literals())
-  weft_literals_pd(pd, code)
+  weft_literals_pd(pd_index(pd), code)
 }
 
 # The scanner's rows for the literal strings given to weft() in `code`, whose first line is line `first` of
-# the document (`ls`, the line starts of the document, `dq` what dequoting took off each line). `option`
-# names the chunk option the code is the value of (C10), NA for a chunk's code. `lit` is the literals
-# when the caller has them.
-scan_weft_code <- function(code, first, label, file, config, dq = NULL, ls = NULL, option = NA_character_,
-                           lit = NULL) {
+# the document and whose lines start at the file offsets `ls` (a column of the code plus its line's start is
+# a file offset). `option` names the chunk option the code is the value of (C10), NA for a chunk's code.
+# `lit` is the literals when the caller has them.
+scan_weft_code <- function(code, first, label, file, config, ls, option = NA_character_, lit = NULL) {
   if (is.null(lit)) lit <- weft_literals(code)
   if (!nrow(lit)) return(NULL)
   rows <- list()
   for (q in seq_len(nrow(lit))) {
     val <- lit$value[q]
-    line <- first + lit$line[q] - 1L
-    r <- scan_rows(val, file = file, first_line = line, config = config)
+    r <- scan_rows(val, file = file, first_line = first + lit$line[q] - 1L, config = config)
     if (!nrow(r)) next
-    tokstart <- ls[line] + lit$col[q] - 1 + (if (is.null(dq)) 0 else dq[line])
+    tokstart <- ls[lit$line[q]] + lit$col[q] - 1
     off <- rep(NA_real_, nchar(val))
     o <- if (lit$open[q] > 1L) tokstart + lit$open[q] + seq_len(nchar(val)) - 1 else
       lit_offsets(lit$raw[q], tokstart + 1)
@@ -893,16 +956,12 @@ scan_weft_code <- function(code, first, label, file, config, dq = NULL, ls = NUL
     r$fstart <- map_offsets(r$start, off)
     r$fend <- map_offsets(r$end, off)
     r$fblock <- map_offsets(r$block_start, off)
-    # a row's line is the source line of its first character, not a count of the newlines the value holds
-    # (an escaped `\n` is not a source line) (K1)
-    rawpos <- if (lit$open[q] > 1L) seq_len(nchar(val)) else lit_offsets(lit$raw[q], 1)
-    if (length(rawpos) == nchar(val)) {
-      nl <- c(0L, cumsum(strsplit(lit$raw[q], "")[[1L]] == "\n"))
-      r$line <- as.integer(line + ifelse(is.na(r$start), 0L, nl[rawpos[pmax(r$start, 1L)]]))
-    }
     # a character that cannot be placed takes the place of the literal's first character (C11)
     r$fstart[is.na(r$fstart)] <- tokstart
     r$fend[is.na(r$fend)] <- r$fstart[is.na(r$fend)]
+    # a row's line is the source line of its first character, read from its mapped offset, not a count of
+    # the newlines the value holds (an escaped `\n` is not a source line) (K1)
+    r$line <- as.integer(first + findInterval(r$fstart, ls) - 1L)
     rows[[length(rows) + 1L]] <- r
   }
   if (!length(rows)) return(NULL)
@@ -913,42 +972,119 @@ scan_weft_code <- function(code, first, label, file, config, dq = NULL, ls = NUL
   rows
 }
 
-# C10: the R code of a caption option. In a `#|` block, a `!expr` value (the code after the tag, and
-# the lines that follow it); in an rmarkdown header, an option whose value is not a string. Each is
-# given to scan_weft_code() on lines that keep the code where it is in the document, so positions
-# are the document's.
-caption_code_rows <- function(lines, ch, label, hdr, optblk, file, config, dq, filter_doc = FALSE,
-                              ls = line_starts(lines)) {
-  parts <- list()
-  scan <- function(code, first, option) {
-    r <- scan_weft_code(code, first, label, file, config, dq, ls, option)
-    if (!is.null(r)) parts[[length(parts) + 1L]] <<- r
+# ---- the R code of a document (A5) --------------------------------------------
+
+# Every region of R code in a document's lines, from one reading of its chunks. `body` has one region per
+# chunk (whatever its engine): the code after the `#|` block. `caption` has the code of the computed
+# captions (C10, F4, F5): the `!expr` value of a `#|` caption option (`kind` "expr") and a header caption
+# option whose value is not a string ("header"). The code of a block-quoted chunk is read without its `>`
+# prefix (K20). A region has its `code` lines, `first` (the document line of the first), `ls` (the file
+# offset each code line starts at, the prefix taken off included, so that a column of the code plus it is a
+# file offset), `chunk` (the index of its chunk), `option` and `key` (the line of a `!expr` option's key),
+# and a memo, so that its code is parsed once (E3). Also: the dequoted `lines`, what dequoting took off each
+# line (`dq`), the line starts `ls` and the labelled chunks `chs`.
+chunk_code_regions <- function(lines) {
+  dl <- dequote_chunks(lines)
+  dq <- nchar(lines) - nchar(dl)
+  cls <- line_starts(lines) + dq
+  chs <- labelled_chunks(dl)
+  n <- length(lines)
+  region <- function(kind, i, first, code, option = NA_character_, key = NA_integer_) {
+    list(kind = kind, chunk = i, option = option, key = key, first = first, code = code,
+         ls = cls[first + seq_along(code) - 1L], memo = new.env(parent = emptyenv()))
   }
-  for (o in optblk) {
-    if (!(o$name %in% CAPTION_OPTIONS) || !identical(o$form, "expr") || !caption_is_code(o, lines)) next
-    ec <- expr_option_code(lines, o)
-    if (is.null(ec)) next
-    scan(ec$code, o$first, o$name)
+  body <- list()
+  caps <- list()
+  for (i in seq_along(chs)) {
+    ch <- chs[[i]]
+    first <- ch$oi$code_first
+    last <- min(ch$close, n + 1L) - 1L
+    body[[i]] <- region("body", i, first, if (last >= first) dl[first:last] else character())
+    for (o in ch$optblk) {
+      if (!(o$name %in% CAPTION_OPTIONS) || !identical(o$form, "expr")) next
+      ec <- expr_option_code(dl, o)
+      if (!is.null(ec)) caps[[length(caps) + 1L]] <- region("expr", i, ec$first, ec$code, o$name, o$key)
+    }
+    for (nm in names(ch$hdr$opts)) {
+      if (!(nm %in% CAPTION_OPTIONS) || !is.null(ch$hdr$opts[[nm]]$literal)) next
+      code <- header_option_code(dl[ch$open], nm, ch$hdr$opts[[nm]]$text)
+      if (!is.null(code)) caps[[length(caps) + 1L]] <- region("header", i, ch$open, code, nm)
+    }
   }
-  for (nm in names(hdr$opts)) {
-    if (!(nm %in% CAPTION_OPTIONS) || !is.null(hdr$opts[[nm]]$literal)) next
-    code <- header_option_code(lines[ch$open], nm, hdr$opts[[nm]]$text)
-    if (!is.null(code)) scan(code, ch$open, nm)
-  }
-  if (!length(parts)) return(NULL)
-  bind_scan_rows(parts)
+  list(lines = dl, dq = dq, ls = cls, chs = chs, body = body, caption = caps)
 }
 
-# Does the `!expr` value of option `o` call weft()? Then it is R code to be read for the strings it
-# holds, and not scanned as markup (C10). Any other `!expr` stays as it was: an expression that holds a
-# string with a construct is the error of 1.10.3 and 1.10.4.
-caption_is_code <- function(o, lines) {
-  ec <- expr_option_code(lines, o)
-  if (is.null(ec)) return(FALSE)
-  ex <- tryCatch(parse(text = paste(ec$code, collapse = "\n"), keep.source = TRUE), error = function(e) NULL)
-  if (is.null(ex)) return(FALSE)
-  pd <- utils::getParseData(ex)
-  !is.null(pd) && length(weft_calls(pd)) > 0L
+# The caption code regions of chunk `i`.
+chunk_caption_regions <- function(cr, i) Filter(function(rg) rg$chunk == i, cr$caption)
+
+# A region's parse data, indexed: parsed on first use and kept (E3). NULL when the code does not parse.
+region_ix <- function(rg) {
+  m <- rg$memo
+  if (!exists("ix", envir = m, inherits = FALSE)) {
+    pd <- parse_data(rg$code)
+    m$ix <- if (is.null(pd)) NULL else pd_index(pd)
+  }
+  m$ix
+}
+
+# Does a region's code call weft()? Then a `!expr` caption is R code to be read for the strings it holds,
+# and not scanned as markup (C10). Any other `!expr` stays as it was: an expression that holds a string with
+# a construct is the error of 1.10.3 and 1.10.4.
+region_calls_weft <- function(rg) {
+  if (!any(grepl("weft", rg$code, fixed = TRUE))) return(FALSE)
+  ix <- region_ix(rg)
+  !is.null(ix) && length(weft_calls(ix)) > 0L
+}
+
+# The literal strings of a region's code (rows as empty_literals()), read once each: `weft`, those given to
+# weft() (C9); `phrase`, those inside lookup() and brk() calls; `other`, those outside the argument weft()
+# reads (5.12.3). The last two leave out names, as pd_strings() does.
+region_literals <- function(rg, which = c("weft", "phrase", "other")) {
+  which <- match.arg(which)
+  m <- rg$memo
+  key <- paste0("lit_", which)
+  if (!is.null(m[[key]])) return(m[[key]])
+  code <- rg$code
+  gate <- switch(which,
+                 weft = any(grepl("weft", code, fixed = TRUE)),
+                 phrase = any(grepl("lookup", code, fixed = TRUE) | grepl("brk", code, fixed = TRUE)),
+                 other = any(grepl("[\"']", code)))
+  ix <- if (length(code) && gate) region_ix(rg)
+  out <- if (is.null(ix)) empty_literals() else switch(which,
+    weft = weft_literals_pd(ix, code),
+    phrase = str_token_rows(ix, pd_strings(ix, phrase_calls(ix), inside = TRUE), code),
+    other = str_token_rows(ix, pd_strings(ix, weft_args(ix), inside = FALSE), code))
+  m[[key]] <- out
+  out
+}
+
+# The calls to lookup() and brk() in indexed parse data: the id of each call's expression.
+phrase_calls <- function(ix) {
+  pd <- ix$pd
+  out <- integer()
+  for (id in pd$id[pd$token == "SYMBOL_FUNCTION_CALL" & pd$text %in% c("lookup", "brk")]) {
+    call_id <- pd_parent(ix, pd_parent(ix, id))
+    if (length(call_id) && call_id != 0L) out <- c(out, call_id)
+  }
+  out
+}
+
+# The expressions the weft() calls in indexed parse data read as `x`.
+weft_args <- function(ix) {
+  out <- integer()
+  for (call_id in weft_calls(ix)) {
+    ex <- weft_call_arg(ix, call_id)
+    if (!is.na(ex)) out <- c(out, ex)
+  }
+  out
+}
+
+# A region's literal strings placed in the document: `start` (the file offset of the contents' first
+# character), `raw` (the contents as typed), `token`, `value` and `line` (the document line of the string).
+chunk_literals <- function(rg, which = c("weft", "phrase", "other")) {
+  lit <- region_literals(rg, which)
+  data.frame(start = rg$ls[lit$line] + lit$col - 1 + lit$open, raw = lit$raw, token = lit$text,
+             value = lit$value, line = as.integer(rg$first + lit$line - 1L), stringsAsFactors = FALSE)
 }
 
 # The R code of a `!expr` option of a `#|` block (one line, continuation lines, or a block scalar
@@ -967,12 +1103,28 @@ expr_option_code <- function(lines, o) {
   list(code = code, first = o$first)
 }
 
+# The start of option `nm` in a chunk header line, up to its value: `nm = `.
+header_opt_re <- function(nm) paste0("(?<![A-Za-z0-9_.])", gsub(".", "\\.", nm, fixed = TRUE), "[ \t]*=[ \t]*")
+
+# Where the literal string given to header option `nm` sits in chunk header line `hl` (S5): `start`, the
+# column of its contents' first character, and `raw`, the contents as typed; NULL when there is none. The
+# scanner and the lint mask place a header caption with this.
+header_literal_at <- function(hl, nm) {
+  pat <- paste0(header_opt_re(nm), "(?:\"((?:[^\"\\\\]|\\\\.)*)\"|'((?:[^'\\\\]|\\\\.)*)')")
+  mm <- regexpr(pat, hl, perl = TRUE)
+  if (mm < 0L) return(NULL)
+  cs <- attr(mm, "capture.start")
+  cl <- attr(mm, "capture.length")
+  g <- if (cs[1L] > 0L) 1L else 2L
+  list(start = cs[g], raw = substr(hl, cs[g], cs[g] + cl[g] - 1L))
+}
+
 # The R code of the header option `nm` of a chunk header line (an rmarkdown `fig.cap = weft(...)`), padded
 # so that it keeps its columns, or NULL. `text` is the option's deparsed value. Trailing white space after
 # the closing brace is not part of the header (F12).
 header_option_code <- function(hl, nm, text) {
   hl <- sub("[ \t\r]+$", "", hl)
-  st <- regexpr(paste0("(?<![A-Za-z0-9_.])", gsub(".", "\\.", nm, fixed = TRUE), "[ \t]*=[ \t]*"), hl, perl = TRUE)
+  st <- regexpr(header_opt_re(nm), hl, perl = TRUE)
   if (st < 0L) return(NULL)
   from <- st + attr(st, "match.length")
   ends <- c(gregexpr(",", hl, fixed = TRUE)[[1L]], nchar(hl))
@@ -1013,25 +1165,29 @@ bind_scan_rows <- function(parts) {
 }
 
 # The rows of the places beside prose in a document's lines: front matter,
-# captions and weft() strings.
+# captions and weft() strings. `cr` is the document's code regions (chunk_code_regions()) when the
+# caller has them.
 scan_extra_rows <- function(lines, file = NA_character_, config = NULL, project = "", filter_doc = FALSE,
-                            named_filter = NULL) {
+                            named_filter = NULL, cr = NULL) {
   if (is.null(named_filter)) named_filter <- document_names_from(lines, file, config) %in% c("python", "julia")
   fm <- scan_front_matter_rows(lines, file, config, project, filter_doc, named_filter)
   caps <- list()
   strs <- list()
   doc_exec <- doc_execute(lines)
-  orig <- lines
-  lines <- dequote_chunks(lines)
-  dq <- nchar(orig) - nchar(lines)
-  lso <- line_starts(orig)   # file offsets are the original lines', the prefix of a quoted chunk included
-  for (ch in labelled_chunks(lines)) {
-    caps[[length(caps) + 1L]] <- scan_chunk_captions(lines, ch, ch$label, ch$hdr, ch$optblk,
-                                                    ch$oi, doc_exec, file, config, dq, filter_doc, named_filter)
-    strs[[length(strs) + 1L]] <- scan_chunk_strings(lines, ch, ch$oi$code_first, ch$label,
-                                                   file, config, dq, lso)
-    strs[[length(strs) + 1L]] <- caption_code_rows(lines, ch, ch$label, ch$hdr, ch$optblk, file, config, dq,
-                                                   ls = lso)
+  if (is.null(cr)) cr <- chunk_code_regions(lines)
+  scan <- function(rg, label) {
+    scan_weft_code(rg$code, rg$first, label, file, config, rg$ls, rg$option, lit = region_literals(rg, "weft"))
+  }
+  for (i in seq_along(cr$chs)) {
+    ch <- cr$chs[[i]]
+    capr <- chunk_caption_regions(cr, i)
+    code_keys <- vapply(Filter(function(rg) rg$kind == "expr" && region_calls_weft(rg), capr),
+                        function(rg) as.integer(rg$key), 0L)
+    caps[[length(caps) + 1L]] <- scan_chunk_captions(cr$lines, ch, doc_exec, file, config, cr, code_keys,
+                                                    filter_doc, named_filter)
+    body <- cr$body[[i]]
+    if (identical(tolower(ch$engine), "r") && length(body$code)) strs[[length(strs) + 1L]] <- scan(body, ch$label)
+    for (rg in capr) strs[[length(strs) + 1L]] <- scan(rg, ch$label)
   }
   parts <- c(list(fm), caps, strs)
   bind_scan_rows(parts)
@@ -1080,11 +1236,11 @@ filter_resolves <- function(lines, file = NA_character_) {
 # All the rows of a document, in textual order, each with its context. Prose
 # is judged as the knit judges it: an id a caption defines is known, and a
 # file with children is lenient about the ids it cannot see.
-scan_document <- function(lines, file = NA_character_, config = NULL, project = "") {
+scan_document <- function(lines, file = NA_character_, config = NULL, project = "", cr = NULL) {
   text <- paste(lines, collapse = "\n")
   fd <- filter_resolves(lines, file)
   nf <- document_names_from(lines, file, config) %in% c("python", "julia")
-  extra <- scan_extra_rows(lines, file, config, project, fd, nf)
+  extra <- scan_extra_rows(lines, file, config, project, fd, nf, cr)
   prose <- scan_text(blank_front_matter(text), file = file, config = config,
                      lenient = has_child_chunk(lines), known = caption_ids(extra), filter_doc = fd,
                      named_filter = nf)

@@ -102,7 +102,7 @@ named_sources <- function(lines, chunks, dir, root, depth = 0L) {
       if (!utils::file_test("-f", p)) next
       il <- tryCatch(read_source_lines(p), weft_encoding_error = function(e) NULL)
       if (is.null(il)) next
-      ich <- chunk_table(il, labelled_chunks(dequote_chunks(il)))
+      ich <- chunk_table(il, chunk_code_regions(il))
       sub <- named_sources(il, ich, dirname(p), root, depth + 1L)
       out$code <- c(out$code, sub$code)
       out$keys <- c(out$keys, sub$keys)
@@ -156,49 +156,6 @@ dl_names_from <- function(src) {
 
 # ---- string-markup (5.12.3) -------------------------------------------------------------------------
 
-# The string constants of R code that are not inside the `x` argument of a call to `weft()` (and not a name
-# such as `"a" = 1`): a data frame as chunk_literals() gives, with the string's own file offset in `quote`.
-chunk_other_strings <- function(code, first_line, ls) {
-  out <- data.frame(start = numeric(), raw = character(), token = character(),
-                    line = integer(), stringsAsFactors = FALSE)
-  if (!length(code) || !any(grepl("[\"']", code))) return(out)
-  p <- tryCatch(parse(text = paste(code, collapse = "\n"), keep.source = TRUE), error = function(e) NULL)
-  if (is.null(p)) return(out)
-  pd <- utils::getParseData(p)
-  if (is.null(pd)) return(out)
-  par <- stats::setNames(pd$parent, pd$id)
-  root_ids <- integer()
-  for (call_id in weft_calls(pd)) {
-    ex <- weft_call_arg(pd, call_id)
-    if (!is.na(ex)) root_ids <- c(root_ids, ex)
-  }
-  sc <- pd[pd$token == "STR_CONST", , drop = FALSE]
-  if (!nrow(sc)) return(out)
-  inside <- vapply(sc$id, function(i) {
-    cur <- par[[as.character(i)]]
-    while (!is.na(cur) && cur != 0L) {
-      if (cur %in% root_ids) return(TRUE)
-      cur <- par[[as.character(cur)]]
-    }
-    FALSE
-  }, NA)
-  sc <- sc[!inside, , drop = FALSE]
-  if (!nrow(sc)) return(out)
-  nxt <- vapply(seq_len(nrow(sc)), function(k) {
-    sib <- pd[pd$parent == sc$parent[k] & (pd$line1 > sc$line2[k] | (pd$line1 == sc$line2[k] & pd$col1 > sc$col2[k])), , drop = FALSE]
-    if (!nrow(sib)) return(FALSE)
-    sib <- sib[order(sib$line1, sib$col1), , drop = FALSE]
-    sib$token[1L] %in% c("EQ_SUB", "EQ_ASSIGN")
-  }, NA)
-  sc <- sc[!nxt, , drop = FALSE]
-  sc <- sc[grepl("^[\"'].*[\"']$", sc$text) & !grepl("^\\[[0-9]+ chars", sc$text), , drop = FALSE]
-  sc <- sc[order(sc$line1, sc$col1), , drop = FALSE]
-  if (!nrow(sc)) return(out)
-  line <- first_line + sc$line1 - 1L
-  data.frame(start = ls[line] + sc$col1, raw = substr(sc$text, 2L, nchar(sc$text) - 1L),
-             token = sc$text, line = as.integer(line), stringsAsFactors = FALSE)
-}
-
 # The first construct of `val`, read as prose, that is a named value or a span with an n, if, sign or list
 # key, and not inside a `.weft-literal`: its text as written, or NA.
 markup_construct <- function(val, config) {
@@ -220,17 +177,16 @@ markup_construct <- function(val, config) {
 lint_string_markup <- function(src, ctx) {
   ch <- src$chunks
   if (!nrow(ch) || !dl_knitr_doc(src) || dl_names_from(src) %in% c("python", "julia")) return(new_findings())
-  ls <- src$line_start + (nchar(src$lines) - nchar(dequote_chunks(src$lines)))
+  cr <- src$code_regions %||% chunk_code_regions(src$lines)
   out <- list()
   for (k in seq_len(nrow(ch))) {
     if (!identical(tolower(ch$engine[k]), "r") || !(ch$eval[k] %in% TRUE)) next
     code <- ch$code[[k]]
     if (!any(grepl("`{", code, fixed = TRUE) | grepl("[", code, fixed = TRUE))) next
-    lit <- chunk_other_strings(code, ch$code_line[k], ls)
+    # the string constants of the chunk's code not inside the argument weft() reads, nor names
+    lit <- chunk_literals(cr$body[[k]], "other")
     for (i in seq_len(nrow(lit))) {
-      val <- tryCatch(eval(parse(text = lit$token[i], keep.source = FALSE)[[1L]]), error = function(e) NULL)
-      if (!is.character(val) || length(val) != 1L || is.na(val)) next
-      con <- markup_construct(val, src$cfg)
+      con <- markup_construct(lit$value[i], src$cfg)
       if (is.na(con)) next
       out[[length(out) + 1L]] <- finding_at(
         src, lit$start[i] - 1, lit$start[i] + nchar(lit$raw[i]), "string-markup", con,

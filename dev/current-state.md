@@ -507,7 +507,7 @@ Status (26 Nov, overnight build):
 - **E5 done**: `vignettes/strings.Rmd` ("weft in strings"), the syntax
   reference and its `skills/weft` copy, README, spec §3.6; all 13
   vignettes build.
-- Known limitation (E4 review K10): see below.
+- E4 review K10 (phrase literals) fixed 2026-11-26 by the simplify pass: see below.
 - `weft_test_lib()` now passes the session's libraries to the install
   (it saw only the system library's units 0.8-5).
 
@@ -584,7 +584,8 @@ for named values in Jupyter and Julia documents. Done 2026-11-25: the `units`
 switch (the alias-policy tests remain). At the next release: bump the version and
 run `dev/make-skill-folder.R`.
 
-Known limitation, package E4 review K10 (2026-11-26): the phrase literals of
-`lookup()` and `brk()` in R chunks keep the old column handling (`chunk_literals(which =
-"phrase")`): they do not share the one `weft()` reader, so a phrase after a tab or an
-escaped newline may sit a column or a line off. Left out of the fix round on purpose.
+E4 review K10, fixed 2026-11-26 (simplify pass, batch 2): the phrase literals of `lookup()` and
+`brk()`, and the strings the `string-markup` lint reads, are placed by the same token reader as the
+`weft()` strings (`str_token_rows()`: a tab counts as one character), and a phrase row's line comes from its
+mapped offset, so an escaped newline no longer moves it a line down. Every R code region of a document
+(chunk bodies, `!expr` captions, header caption code) comes from one `chunk_code_regions()`, parsed once.
