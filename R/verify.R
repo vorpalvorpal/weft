@@ -393,7 +393,7 @@ verify_base_side <- function(gi, since_sha, files_rel) {
   ent <- git_entries_commit(gi$top, since_sha)
   s <- gate_side_entries(g, ent, gi$prefix)
   p <- list(prefix = gi$prefix, display = if (nzchar(gi$prefix)) gi$prefix else ".")
-  gate_sizes(g, list(list(new = s, parents = list())))
+  s <- gate_sizes(g, list(list(new = s, parents = list())))[[1L]]$new
   s <- gate_side_keys(g, s, gate_versions())
   r <- gate_side_results(g, s, p, gate_rule_ids())
   cache_prune(g$cache)

@@ -1242,14 +1242,18 @@ script_scan <- function(path, rel, cfg, bytes = NULL) {
 
 # A script is a second kind of source: its text, lines and line starts, the rows of its `weft()` literals, a
 # prose mask that is their pieces, and no chunks, metadata or blocks of its own. One that does not mention
-# `weft`, or does not parse, has `skip` set (the second also `noparse`) and no rows; one that is not text is
-# `invalid`.
+# `weft`, does not parse or is not text has no rows and a `status` of "skip", "noparse" or "invalid" (a source
+# read in full has none, or "ok"), with the `note` a run gives for it (NULL when it gives none).
 script_stub <- function(rel, path, cfg, status) {
+  note <- if (status == "noparse") sprintf("`%s` does not parse as R, so its weft() strings were not read.", rel)
   structure(list(file = rel, path = path, ext = sub("^.*\\.", "", basename(path)), script = TRUE, cfg = cfg,
                  text = "", lines = character(), line_start = numeric(), rows = NULL, chunks = NULL,
-                 invalid = status == "invalid", skip = status != "invalid", noparse = status == "noparse"),
+                 status = status, note = note, invalid = status == "invalid"),
             class = "weft_source")
 }
+
+# The status of a source: "ok" for a document or a script read in full (see `script_stub()`).
+source_status <- function(src) src[["status"]] %||% "ok"
 
 read_script_source <- function(path, root, cfg, bytes = NULL) {
   rel <- lint_rel_path(path, root)

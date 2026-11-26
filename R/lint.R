@@ -365,6 +365,7 @@ settings_root <- function(root, rel) {
 
 # The front matter of a file, read cheaply (for its `weft:` settings).
 doc_front <- function(path) {
+  if (is_script_path(path)) return(list())
   text <- read_source_text_or_null(path)
   if (is.null(text) || !nzchar(text)) return(list())
   lines <- strsplit(text, "\n", fixed = TRUE)[[1L]]
@@ -379,9 +380,9 @@ doc_front <- function(path) {
 }
 
 # Each file's source comes through here, so a cache can stand in (stage 4's
-# `weft_env$lint_reader`).
-lint_read <- function(path, root, cfg) {
-  (weft_env$lint_reader %||% read_source)(path, root, cfg)
+# `weft_env$lint_reader`). `bytes` are the file's bytes when the caller has read them already.
+lint_read <- function(path, root, cfg, bytes = NULL) {
+  (weft_env$lint_reader %||% read_source)(path, root, cfg, bytes)
 }
 
 # One document, read with its own settings.
@@ -393,9 +394,8 @@ lint_open <- function(root, rel) {
     bytes <- read_source_bytes(path)
     if (!bytes_mention_weft(bytes)) return(script_stub(rel, path, NULL, "skip"))
   }
-  cfg <- lint_config(settings_root(root, rel), if (is_script_path(rel)) list() else doc_front(path))
-  if (!is.null(bytes) && is.null(weft_env$lint_reader)) return(read_source(path, root, cfg, bytes))
-  lint_read(path, root, cfg)
+  cfg <- lint_config(settings_root(root, rel), doc_front(path))
+  lint_read(path, root, cfg, bytes)
 }
 
 new_lint_ctx <- function(root, files, md_files, report, tier, rules, reader) {
@@ -593,8 +593,9 @@ lint_run <- function(root, all_files, report, sel, tier, rules, reader, notes = 
   for (rel in scripts) {
     src <- ctx$source(rel)
     # a script that holds no weft() literal, or does not parse, is not counted among the files read (K8)
-    if (isTRUE(src$invalid) || !isTRUE(src$skip)) n_scripts <- n_scripts + 1L
-    if (isTRUE(src$invalid)) {
+    status <- source_status(src)
+    if (!status %in% c("skip", "noparse")) n_scripts <- n_scripts + 1L
+    if (status == "invalid") {
       if ("read" %in% sel$id) {
         parts[[length(parts) + 1L]] <- new_findings(
           file = rel, line = 1L, col = 1L, rule = "read", context = "weft", text = rel,
@@ -603,11 +604,8 @@ lint_run <- function(root, all_files, report, sel, tier, rules, reader, notes = 
       }
       next
     }
-    if (isTRUE(src$noparse)) {
-      ctx$note(sprintf("`%s` does not parse as R, so its weft() strings were not read.", rel))
-      next
-    }
-    if (isTRUE(src$skip)) next
+    if (status == "noparse") ctx$note(src$note)
+    if (status != "ok") next
     for (i in seq_len(nrow(ssel))) {
       fn <- lint_rule_fun(ssel$id[i])
       if (is.null(fn)) next

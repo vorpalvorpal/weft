@@ -57,7 +57,7 @@ gate <- function(message = NULL, path = ".") {
          new = gate_side_entries(g, new_ent, p, deeper),
          parents = lapply(base_ent, function(e) gate_side_entries(g, e, p, deeper)))
   })
-  gate_sizes(g, pj)
+  pj <- gate_sizes(g, pj)
   ids <- gate_rule_ids()
   vers <- gate_versions()
   for (i in seq_along(pj)) {
@@ -125,33 +125,39 @@ gate_side_entries <- function(g, ent, prefix, deeper = character()) {
   list(entries = e, prefix = prefix)
 }
 
-# content files over 5 MB become placeholders, with a note (G6)
+# A path `rel` of a project, as a path from the repository's top (`prefix` is the project's folder, or "").
+gate_top_path <- function(prefix, rel) if (nzchar(prefix)) paste0(prefix, "/", rel) else rel
+
+# content files over 5 MB become placeholders, with a note (G6). Returns `pj` with `big` (a logical per
+# listing entry) on the entries of each side.
 gate_sizes <- function(g, pj) {
   sides <- unlist(lapply(pj, function(p) c(list(p$new), p$parents)), recursive = FALSE)
   blobs <- unlist(lapply(sides, function(s) s$entries$blob[s$entries$content]))
   sz <- git_sizes(g$top, blobs)
   g$sizes <- sz
   big <- character()
-  for (p in pj) {
-    for (s in c(list(p$new), p$parents)) {
-      e <- s$entries
-      b <- e$content & !is.na(sz[e$blob]) & sz[e$blob] > GATE_MAX_BYTES
-      if (any(b)) big <- c(big, if (nzchar(s$prefix)) paste0(s$prefix, "/", e$rel[b]) else e$rel[b])
-    }
+  mark <- function(s) {
+    e <- s$entries
+    b <- e$content & !is.na(sz[e$blob]) & sz[e$blob] > GATE_MAX_BYTES
+    if (any(b)) big <<- c(big, gate_top_path(s$prefix, e$rel[b]))
+    s$entries$big <- b
+    s
+  }
+  for (i in seq_along(pj)) {
+    pj[[i]]$new <- mark(pj[[i]]$new)
+    pj[[i]]$parents <- lapply(pj[[i]]$parents, mark)
   }
   big <- unique(big)
   if (length(big)) {
     g$notes <- c(g$notes, sprintf("%s is over 5 MB and is read as an empty file", big))
   }
-  invisible()
+  pj
 }
 
 # The cache keys of a side (G14), all known from the listing.
 gate_side_keys <- function(g, s, vers) {
   e <- s$entries
-  sz <- g$sizes[e$blob]
-  big <- e$content & !is.na(sz) & sz > GATE_MAX_BYTES
-  e$ok <- e$content & !big
+  e$ok <- e$content & !e$big
   e$doc <- e$ok & is_doc_path(e$rel)
   # the whole listing goes in: the `_weft.yml` blobs that carry `scripts_skip` are not documents
   e$doc <- e$doc & gate_script_read(g, e, e$doc)
@@ -241,7 +247,7 @@ bind_plain <- function(parts, empty) {
 # its key is known, and each source read is kept in `captured` for the construct count.
 gate_reader <- function(g, s, captured) {
   keys <- stats::setNames(s$docs$src_key, s$docs$rel)
-  function(path, root, cfg) {
+  function(path, root, cfg, bytes = NULL) {
     rel <- lint_rel_path(path, root)
     key <- unname(keys[rel])
     src <- NULL
@@ -254,7 +260,7 @@ gate_reader <- function(g, s, captured) {
       }
     }
     if (is.null(src)) {
-      src <- read_source(path, root, cfg)
+      src <- read_source(path, root, cfg, bytes)
       if (!is.na(key)) {
         g$cache$mem[[key]] <- src
         cache_put(g$cache, "src", key, src)
@@ -410,7 +416,7 @@ count_keys <- function(k) {
 
 gate_judge_project <- function(g, p, new_res, base_res) {
   prefix <- p$prefix
-  top_path <- function(rel) if (nzchar(prefix)) paste0(prefix, "/", rel) else rel
+  top_path <- function(rel) gate_top_path(prefix, rel)
   out <- list(errors = empty_plain_findings(), excess = NULL, added = empty_plain_findings(),
               removed = NULL, n = 0L, changed = character())
   # changed documents (G8); against every parent under a merge
@@ -692,7 +698,7 @@ gate_judge_checks <- function(g, p, new_res, base_res) {
   if (!length(keys)) return(gate_checks_empty())
   rows <- list()
   new_rels <- p$new$docs$rel
-  top_path <- function(rel) if (nzchar(p$prefix)) paste0(p$prefix, "/", rel) else rel
+  top_path <- function(rel) gate_top_path(p$prefix, rel)
   for (k in keys) {
     counts <- vapply(cts, function(ct) as.integer(ct[[k]]), 1L)
     have <- if (k %in% names(cn)) cn[[k]] else 0L

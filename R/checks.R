@@ -741,16 +741,14 @@ checks <- function(path = ".", files = NULL, repeats = 3L) {
   n_docs <- 0L
   for (rel in report) {
     src <- lint_open(root, rel)
+    status <- source_status(src)
     if (isTRUE(src$invalid)) {
       notes <- c(notes, sprintf("%s is not valid UTF-8, so its checks were not read (rule 5.1.3).", rel))
       next
     }
-    if (isTRUE(src$noparse)) {
-      notes <- c(notes, sprintf("`%s` does not parse as R, so its weft() strings were not read.", rel))
-      next
-    }
+    if (status == "noparse") notes <- c(notes, src$note)
     # a script that holds no weft() literal has no checks to read (C15)
-    if (isTRUE(src$skip)) next
+    if (status != "ok") next
     n_docs <- n_docs + 1L
     r <- checks_read(src)
     if (nrow(r)) {

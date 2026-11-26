@@ -1415,7 +1415,7 @@ changes_tier2 <- function(root, commit, files = NULL) {
   for (file in unique(f$file)) {
     d <- f[f$file == file, , drop = FALSE]
     cw <- d$rule == "claim-word"
-    cap <- tryCatch(lint_config(root, if (is_script_path(file)) list() else doc_front(file.path(root, file)))$claim_cap,
+    cap <- tryCatch(lint_config(root, doc_front(file.path(root, file)))$claim_cap,
                     error = function(e) 20L)
     if (is.null(cap) || !is.numeric(cap)) cap <- 20L
     if (sum(cw) > cap) {
