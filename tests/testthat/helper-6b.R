@@ -4,8 +4,10 @@
 # INTERFACE FIXED HERE (the note leaves these internal names open):
 #   weft:::values_source_names(path)
 #       N45: the names a source file names. `path` is the path of a document;
-#       the function reads it (and the files its {{< include >}} shortcodes
-#       name, relative to it, recursively). It returns a character vector of
+#       the function reads it (and, recursively, the files its {{< include >}}
+#       shortcodes name, as Quarto expands them: every path at any depth is
+#       relative to the document's own folder, a leading / to the Quarto
+#       project root). It returns a character vector of
 #       unique NAMEs, in no fixed order (tests sort it). Reserved words of N6
 #       are never in it.
 #   Everything else is reached through weft:::values_block() (E2: weft_put() is gone)

@@ -351,12 +351,15 @@ test_that("N45: only a code span whose backtick, name, backtick, brace touch cou
   expect_false(any(c("aa", "bb", "ee") %in% got))
 })
 
-test_that("N45: names in a file the source includes are taken, relative to the source, recursively", {
+test_that("N45: names in a file the source includes are taken, recursively, every path against the source's folder", {
+  # Quarto resolves a nested include against the MAIN document's folder, not the including file's
+  # (include rule I4): sub/one.Rmd's `two.Rmd` is the root's two.Rmd, and sub/two.Rmd is never read
   dir <- withr::local_tempdir()
   dir.create(file.path(dir, "sub"))
   p <- b6_write_doc(c("A `top`{.num}.", "{{< include sub/one.Rmd >}}"), dir = dir,
                     extra = list("sub/one.Rmd" = c("A `mid`{.num}.", "{{< include two.Rmd >}}"),
-                                 "sub/two.Rmd" = "A `deep`{.num}."))
+                                 "two.Rmd" = "A `deep`{.num}.",
+                                 "sub/two.Rmd" = "A `decoy`{.num}."))
   got <- sort(weft:::values_source_names(p))
   expect_identical(got, c("deep", "mid", "top"))
 })
