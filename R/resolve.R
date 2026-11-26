@@ -595,123 +595,6 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
     fill_template(tmpl, hash, as.list(outs), vapply(items, governed, NA, R = R))
   }
 
-  # ---- resolve_markup(): named values (E2 BN1 to BN7) ------------------------------------
-
-  # Left as written for the filter (BN5): its id, if any, is the filter's (BN10).
-  named_leave <- function(rc, k, nm, join = FALSE) {
-    R <- rc$R
-    s <- rc$s
-    if (join) s$left <- union(s$left, nm)
-    if (!is.na(R$id[k]) && nzchar(R$id[k])) {
-      s$ids[[R$id[k]]] <- list(rec = NULL, raw = NA_real_, left = TRUE, name = nm, loc = id_loc(R, k))
-    }
-    substr(rc$text, R$start[k], R$end[k])
-  }
-
-  # `.val` prints from the value's record (BN4, D14): the elements as the filter prints them, joined as the
-  # collapse class says, or by ", ".
-  val_text <- function(rc, k, nm, v, cc, label) {
-    cfg <- rc$cfg
-    el <- named_val_elements(v, nm)
-    if (!is.null(el$fail)) return(list(stop = record_fail(rc, k, el$fail, label, el$detail)))
-    own <- setdiff(cc$own, ".val")
-    reg <- cfg$formatters
-    keep <- own[own %in% c(COLLAPSE_CLASSES, registered_classes(reg, "collapse"))]
-    txt <- if (length(keep)) {
-      tryCatch(paste(as.character(apply_formatters(el$text, keep, list(), cfg, join = ", ")), collapse = ""),
-               error = function(e) e)
-    } else paste(el$text, collapse = ", ")
-    if (inherits(txt, "error")) return(list(stop = fail_from_error(rc, k, txt, label)))
-    txt <- apply_text_classes(txt, own, cfg, keys = cc$keys)
-    list(text = txt)
-  }
-
-  # a named value inside a `.weft-literal` span is text, not a value (1.8.9)
-  in_literal <- function(R, k) {
-    p <- R$parent[k]
-    while (!is.na(p)) {
-      if (R$kind[p] == "literal") return(TRUE)
-      p <- R$parent[p]
-    }
-    FALSE
-  }
-
-  render_named <- function(rc, k) {
-    R <- rc$R
-    s <- rc$s
-    cfg <- rc$cfg
-    ctx <- rc$ctx
-    text <- rc$text
-    nm <- R$expr[k]
-    if (in_literal(R, k)) return(substr(text, R$start[k], R$end[k]))
-    label <- source_label(text, R$start[k], R$end[k])
-    in_weft <- rc$is_str && identical(ctx$context %||% "weft", "weft")
-    if (has_id_row(R, k)) {
-      prev <- s$ids[[R$id[k]]]
-      if (!is.null(prev) && !identical(prev$loc, id_loc(R, k))) {
-        return(construct_fail(rc, k, sprintf(
-          "The id `%s` is defined twice; an id is unique within a document (rule 1.7.5).", R$id[k])))
-      }
-    }
-    reads <- if (in_weft) !identical(ctx$read_names, FALSE) else identical(cfg$names_from %||% "r", "r")
-    if (!reads) return(named_leave(rc, k, nm))
-    # a row in front matter or an end metadata block is the filter's (BN6, D5, G2)
-    if (!in_weft && isTRUE(tryCatch(ledger_where(s, rc$F, R$file[k], R$line_view[k], rc$chunk_label)$front,
-                                    error = function(e) FALSE))) {
-      return(named_leave(rc, k, nm, join = TRUE))
-    }
-    env <- if (rc$is_str) (ctx$named_env %||% ctx$envir) else knitr::knit_global()
-    lk <- named_lookup(nm, env)
-    out <- NULL
-    if (identical(lk$kind, "error")) {
-      out <- record_fail(rc, k, "no value", label, sprintf("error evaluating %s: %s", label, conditionMessage(lk$error)))
-    } else if (in_weft && lk$kind %in% c("unbound", "function")) {
-      out <- if (lk$kind == "unbound") {
-        record_fail(rc, k, "no value", label, sprintf(
-          "`%s` is not bound where weft() was called, so it has no value (rule 1.12.12).", nm),
-          hint = sprintf("Bind it before the call, or read a Python value with py_value(\"%s\").", nm))
-      } else {
-        record_fail(rc, k, "no value", label, sprintf("`%s` is a function in R, not a value (rule 1.12.12).", nm))
-      }
-    }
-    if (!is.null(out)) {
-      if (has_id_row(R, k)) s$ids[[R$id[k]]] <- list(rec = NULL, raw = NA_real_, failed = TRUE, loc = id_loc(R, k))
-      return(out)
-    }
-    if (!in_weft) {
-      # a guest published it later than R's binding changed: the guest's value is the latest (BN7, BN5 c)
-      G <- s$guest_pub[[nm]]
-      if (!is.null(G) && identical(G$snap, named_snapshot(lk))) return(named_leave(rc, k, nm))
-      if (lk$kind != "value") return(named_leave(rc, k, nm, join = TRUE))
-    }
-    v <- lk$value
-    # a value the session held before the render, read above the code that sets it (BN11)
-    if (!in_weft && !is.null(s$held[[nm]]) && identical(v, s$held[[nm]]) && is.null(s$noted[[nm]]) &&
-        !named_assigned_above(s, nm)) {
-      s$noted[[nm]] <- list(file = R$file[k], line = R$line[k], expr = label, chunk = rc$chunk_label)
-    }
-    cc <- split_classes(R$classes[[k]], R$keys[[k]], c(rc$owned, ".val"), cfg$formatters)
-    msg <- lang_check(s$lang, "value", R$expr[k], cc$own, cc$keys)
-    if (!is.null(msg)) return(construct_fail(rc, k, msg))
-    rc$L_read[k] <- TRUE
-    if (".val" %in% cc$own) {
-      rc$L_raw[k] <- ledger_raw(v)
-      rc$L_unit[k] <- ledger_unit(v)
-      r <- val_text(rc, k, nm, v, cc, label)
-      if (!is.null(r$stop)) {
-        if (has_id_row(R, k)) s$ids[[R$id[k]]] <- list(rec = NULL, raw = NA_real_, failed = TRUE, loc = id_loc(R, k))
-        return(r$stop)
-      }
-      register_id(rc, k, v, cc)
-      return(finish_construct(rc, k, r$text, cc, FALSE, text_classes = FALSE))
-    }
-    res <- value_finish(rc, k, cc, label, v, FALSE)
-    if (has_id_row(R, k) && is.null(s$ids[[R$id[k]]])) {
-      s$ids[[R$id[k]]] <- list(rec = NULL, raw = NA_real_, failed = TRUE, loc = id_loc(R, k))
-    }
-    res
-  }
-
   # ---- resolve_markup(): the governed spans ----------------------------------------------
 
   render_n <- function(rc, k) {
@@ -1530,6 +1413,123 @@ value_finish <- function(rc, k, cc, label, v, claim_failed) {
   if (inherits(res, "error")) return(fail_from_error(rc, k, res, label))
   register_id(rc, k, v, cc)
   finish_construct(rc, k, res, cc, claim_failed, text_classes = FALSE)
+}
+
+# ---- resolve_markup(): named values (E2 BN1 to BN7) ------------------------------------
+
+# Left as written for the filter (BN5): its id, if any, is the filter's (BN10).
+named_leave <- function(rc, k, nm, join = FALSE) {
+  R <- rc$R
+  s <- rc$s
+  if (join) s$left <- union(s$left, nm)
+  if (!is.na(R$id[k]) && nzchar(R$id[k])) {
+    s$ids[[R$id[k]]] <- list(rec = NULL, raw = NA_real_, left = TRUE, name = nm, loc = id_loc(R, k))
+  }
+  substr(rc$text, R$start[k], R$end[k])
+}
+
+# `.val` prints from the value's record (BN4, D14): the elements as the filter prints them, joined as the
+# collapse class says, or by ", ".
+val_text <- function(rc, k, nm, v, cc, label) {
+  cfg <- rc$cfg
+  el <- named_val_elements(v, nm)
+  if (!is.null(el$fail)) return(list(stop = record_fail(rc, k, el$fail, label, el$detail)))
+  own <- setdiff(cc$own, ".val")
+  reg <- cfg$formatters
+  keep <- own[own %in% c(COLLAPSE_CLASSES, registered_classes(reg, "collapse"))]
+  txt <- if (length(keep)) {
+    tryCatch(paste(as.character(apply_formatters(el$text, keep, list(), cfg, join = ", ")), collapse = ""),
+             error = function(e) e)
+  } else paste(el$text, collapse = ", ")
+  if (inherits(txt, "error")) return(list(stop = fail_from_error(rc, k, txt, label)))
+  txt <- apply_text_classes(txt, own, cfg, keys = cc$keys)
+  list(text = txt)
+}
+
+# a named value inside a `.weft-literal` span is text, not a value (1.8.9)
+in_literal <- function(R, k) {
+  p <- R$parent[k]
+  while (!is.na(p)) {
+    if (R$kind[p] == "literal") return(TRUE)
+    p <- R$parent[p]
+  }
+  FALSE
+}
+
+render_named <- function(rc, k) {
+  R <- rc$R
+  s <- rc$s
+  cfg <- rc$cfg
+  ctx <- rc$ctx
+  text <- rc$text
+  nm <- R$expr[k]
+  if (in_literal(R, k)) return(substr(text, R$start[k], R$end[k]))
+  label <- source_label(text, R$start[k], R$end[k])
+  in_weft <- rc$is_str && identical(ctx$context %||% "weft", "weft")
+  if (has_id_row(R, k)) {
+    prev <- s$ids[[R$id[k]]]
+    if (!is.null(prev) && !identical(prev$loc, id_loc(R, k))) {
+      return(construct_fail(rc, k, sprintf(
+        "The id `%s` is defined twice; an id is unique within a document (rule 1.7.5).", R$id[k])))
+    }
+  }
+  reads <- if (in_weft) !identical(ctx$read_names, FALSE) else identical(cfg$names_from %||% "r", "r")
+  if (!reads) return(named_leave(rc, k, nm))
+  # a row in front matter or an end metadata block is the filter's (BN6, D5, G2)
+  if (!in_weft && isTRUE(tryCatch(ledger_where(s, rc$F, R$file[k], R$line_view[k], rc$chunk_label)$front,
+                                  error = function(e) FALSE))) {
+    return(named_leave(rc, k, nm, join = TRUE))
+  }
+  env <- if (rc$is_str) (ctx$named_env %||% ctx$envir) else knitr::knit_global()
+  lk <- named_lookup(nm, env)
+  out <- NULL
+  if (identical(lk$kind, "error")) {
+    out <- record_fail(rc, k, "no value", label, sprintf("error evaluating %s: %s", label, conditionMessage(lk$error)))
+  } else if (in_weft && lk$kind %in% c("unbound", "function")) {
+    out <- if (lk$kind == "unbound") {
+      record_fail(rc, k, "no value", label, sprintf(
+        "`%s` is not bound where weft() was called, so it has no value (rule 1.12.12).", nm),
+        hint = sprintf("Bind it before the call, or read a Python value with py_value(\"%s\").", nm))
+    } else {
+      record_fail(rc, k, "no value", label, sprintf("`%s` is a function in R, not a value (rule 1.12.12).", nm))
+    }
+  }
+  if (!is.null(out)) {
+    if (has_id_row(R, k)) s$ids[[R$id[k]]] <- list(rec = NULL, raw = NA_real_, failed = TRUE, loc = id_loc(R, k))
+    return(out)
+  }
+  if (!in_weft) {
+    # a guest published it later than R's binding changed: the guest's value is the latest (BN7, BN5 c)
+    G <- s$guest_pub[[nm]]
+    if (!is.null(G) && identical(G$snap, named_snapshot(lk))) return(named_leave(rc, k, nm))
+    if (lk$kind != "value") return(named_leave(rc, k, nm, join = TRUE))
+  }
+  v <- lk$value
+  # a value the session held before the render, read above the code that sets it (BN11)
+  if (!in_weft && !is.null(s$held[[nm]]) && identical(v, s$held[[nm]]) && is.null(s$noted[[nm]]) &&
+      !named_assigned_above(s, nm)) {
+    s$noted[[nm]] <- list(file = R$file[k], line = R$line[k], expr = label, chunk = rc$chunk_label)
+  }
+  cc <- split_classes(R$classes[[k]], R$keys[[k]], c(rc$owned, ".val"), cfg$formatters)
+  msg <- lang_check(s$lang, "value", R$expr[k], cc$own, cc$keys)
+  if (!is.null(msg)) return(construct_fail(rc, k, msg))
+  rc$L_read[k] <- TRUE
+  if (".val" %in% cc$own) {
+    rc$L_raw[k] <- ledger_raw(v)
+    rc$L_unit[k] <- ledger_unit(v)
+    r <- val_text(rc, k, nm, v, cc, label)
+    if (!is.null(r$stop)) {
+      if (has_id_row(R, k)) s$ids[[R$id[k]]] <- list(rec = NULL, raw = NA_real_, failed = TRUE, loc = id_loc(R, k))
+      return(r$stop)
+    }
+    register_id(rc, k, v, cc)
+    return(finish_construct(rc, k, r$text, cc, FALSE, text_classes = FALSE))
+  }
+  res <- value_finish(rc, k, cc, label, v, FALSE)
+  if (has_id_row(R, k) && is.null(s$ids[[R$id[k]]])) {
+    s$ids[[R$id[k]]] <- list(rec = NULL, raw = NA_real_, failed = TRUE, loc = id_loc(R, k))
+  }
+  res
 }
 
 # ---- resolve_markup(): ids and back-references (1.7) ----------------------------------
