@@ -155,36 +155,30 @@ julia_mark_knitr <- function() {
 # E31 when claims were collected in this knit (GN8b), else as itself. The claims
 # are drained first, so that the count includes this chunk's own.
 julia_wrap_engine <- function() {
-  cur <- knitr::knit_engines$get("julia")
-  if (!is.function(cur) || isTRUE(attr(cur, "weft"))) return(invisible())
-  new <- function(options) {
-    tryCatch(cur(options), error = function(e) {
-      s <- active_state()
-      if (is.null(s)) stop(e)
-      guest_drain_guard(julia_take_claims(s, options$label))
-      stop(wrap_collected_error(s, e))
-    })
-  }
-  attr(new, "weft") <- TRUE
-  knitr::knit_engines$set(julia = new)
-  invisible()
+  wrap_guest_engine("julia", function(s, options, e) guest_drain_guard(julia_take_claims(s, options$label)))
 }
 
 # Wrap knitr's Python engine once, as julia_wrap_engine() does: an error that
 # comes out of it (a chunk without `error: true`) goes on as E31 when claims
 # were collected in this knit before it (GN8a), else as itself.
-python_wrap_engine <- function() {
-  cur <- knitr::knit_engines$get("python")
+python_wrap_engine <- function() wrap_guest_engine("python")
+
+# Wrap knitr's engine for `engine` once (the wrapper is marked, and a marked engine is left alone): an error
+# out of a chunk goes on as wrap_collected_error() makes it. `before(s, options, e)` runs first, with the
+# knit's state, when there is one.
+wrap_guest_engine <- function(engine, before = NULL) {
+  cur <- knitr::knit_engines$get(engine)
   if (!is.function(cur) || isTRUE(attr(cur, "weft"))) return(invisible())
   new <- function(options) {
     tryCatch(cur(options), error = function(e) {
       s <- active_state()
       if (is.null(s)) stop(e)
+      if (!is.null(before)) before(s, options, e)
       stop(wrap_collected_error(s, e))
     })
   }
   attr(new, "weft") <- TRUE
-  knitr::knit_engines$set(python = new)
+  do.call(knitr::knit_engines$set, stats::setNames(list(new), engine))
   invisible()
 }
 
@@ -241,7 +235,7 @@ jl_fetch <- function(steps, read, prefixes) {
 # (`track`), so that it can be judged before the R form is (J11).
 jl_read <- function(steps, fn, track = FALSE) {
   ok <- length(steps) > 0L && all(vapply(steps, function(a) {
-    is.character(a) && length(a) == 1L && !is.na(a) && nzchar(a)
+    is_string(a) && nzchar(a)
   }, NA))
   if (!ok) weft_abort("jl_value() takes names as strings: jl_value(\"n\").", "weft_guest_arg_error")
   steps <- vapply(steps, function(a) a, "")
