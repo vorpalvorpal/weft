@@ -363,3 +363,83 @@ test_that("F6 (status): the route (a knitr: key) only in a second block is not a
   expect_identical(fr_status_doc(c("---", "title: \"t\"", "engine: knitr", "---", "", FR_BODY, "",
                                    fr_block(U4_OPTS_KNIT))), "missing")
 })
+
+# ---- F6 engine: the lints read `engine:` and `knitr:` from the first block only ---------------------
+#
+# Quarto selects the engine from the first metadata block alone (an `engine: markdown` in a later block
+# was ignored and knitr still ran), so the `engine` lint (5.8 rule 9), and the `tar-cache` and
+# `above-setup` lints where they read a `knitr:` key, take those keys from the first block only
+# (2.1.6 item 4). The first block may have blank lines above it (F2).
+
+fr_engine <- function(lines, env = parent.frame()) {
+  lint_fixture(list("a.qmd" = lines), rules = "engine", tier = 1:2, env = env)
+}
+# the tar-cache lint over one document doc.<ext>
+fr_tc <- function(lines, rule, ext, env = parent.frame()) lint_one(lines, rules = rule, ext = ext, env = env)
+# an R value: it needs knitr whatever the filter (a span such as [a]{if="x"} may be resolved by the filter)
+FR_RVAL <- "The depth is `r x`{.num} metres."
+# the engine lint's message for a document that is not marked at all (rule 9, case 4)
+FR_ENGINE_MSG4 <- "a.qmd holds weft constructs but is not marked `engine: knitr` and no document includes it (rule 5.8.9)."
+
+test_that("F6 engine control: engine: knitr in the first block is read (no finding); none at all is a finding", {
+  expect_identical(nrow(fr_engine(c("---", "title: T", "engine: knitr", "---", "", FR_RVAL))), 0L)
+  x <- fr_engine(c("---", "title: T", "---", "", FR_RVAL))
+  expect_identical(nrow(x), 1L)
+  expect_identical(x$message, FR_ENGINE_MSG4)
+})
+
+test_that("F6 engine: engine: knitr only in a second block is not read; the finding is the one for no engine", {
+  x <- fr_engine(c("---", "title: T", "---", "", FR_RVAL, "", fr_block("engine: knitr")))
+  expect_identical(nrow(x), 1L)
+  expect_identical(x$file, "a.qmd")
+  expect_identical(x$line, 1L)
+  expect_identical(x$message, FR_ENGINE_MSG4)
+  # a second block mid-document, after a blank line, likewise
+  x <- fr_engine(c("---", "title: T", "---", "", "Intro.", "", fr_block("engine: knitr"), "", FR_RVAL))
+  expect_identical(x$message, FR_ENGINE_MSG4)
+})
+
+test_that("F6 engine: a knitr: key only in a second block does not select knitr", {
+  x <- fr_engine(c("---", "title: T", "---", "", FR_RVAL, "", fr_block("knitr:", "  opts_chunk:", "    echo: false")))
+  expect_identical(nrow(x), 1L)
+  expect_identical(x$message, FR_ENGINE_MSG4)
+})
+
+test_that("F6 engine: engine: jupyter in a second block does not override the first block's engine: knitr", {
+  x <- fr_engine(c("---", "title: T", "engine: knitr", "---", "", FR_RVAL, "", fr_block("engine: jupyter")))
+  expect_identical(nrow(x), 0L)
+})
+
+test_that("F6 engine: a first block with blank lines above it is still the first block", {
+  expect_identical(nrow(fr_engine(c("", "", "---", "title: T", "engine: knitr", "---", "", FR_RVAL))), 0L)
+})
+
+test_that("F6 tar-cache: knitr: opts_chunk: cache: true only in a second block is not read", {
+  chunk <- c3_chunk("x <- tar_read(fit)")
+  kc <- c("knitr:", "  opts_chunk:", "    cache: true")
+  for (ext in c("qmd", "Rmd")) {
+    # control: in the first block it is read
+    x <- fr_tc(c("---", "title: T", kc, "---", "", c3_para("Intro."), chunk), "tar-cache", ext)
+    expect_identical(x$text, "fit", label = paste(ext, "control"))
+    # in a second block it is not
+    x <- fr_tc(c("---", "title: T", "---", "", c3_para("Intro."), "", fr_block(kc), "", chunk), "tar-cache", ext)
+    expect_identical(nrow(x), 0L, label = ext)
+    # but execute: (not an engine key) in a second block is read (F1)
+    x <- fr_tc(c("---", "title: T", "---", "", c3_para("Intro."), "", fr_block("execute:", "  cache: true"), "",
+                  chunk), "tar-cache", ext)
+    expect_identical(x$text, "fit", label = paste(ext, "execute: in block 2"))
+  }
+})
+
+test_that("F6 above-setup: the front-matter route (a knitr: key) only in a second block does not stop the rule", {
+  route <- c("knitr:", "  opts_knit:", "    weft: !expr weft::weft_setup()")
+  body <- c("", r"---(Para [a]{if="x"} here.)---", "", "```{r}", "weft::weft_setup()", "```")
+  for (ext in c("qmd", "Rmd")) {
+    # control: the route in the first block stops it
+    expect_identical(nrow(lint_one(c("---", "title: T", route, "---", body), rules = "above-setup", ext = ext)), 0L,
+                     label = paste(ext, "control"))
+    # in a second block (after the setup chunk) it does not: the construct on line 5 is a finding
+    x <- lint_one(c("---", "title: T", "---", body, "", fr_block(route)), rules = "above-setup", ext = ext)
+    expect_identical(lf_lines(x), 5L, label = ext)
+  }
+})
