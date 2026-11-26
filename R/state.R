@@ -9,6 +9,8 @@ new_state <- function(config = NULL) {
   s$config <- config %||% default_config()
   s$input_path <- NA_character_
   s$input_name <- NA_character_
+  # the input paths knit_input_path() has normalised, by the string knitr gives
+  s$input_paths <- new.env(parent = emptyenv())
   s$front <- list()
   s$lang <- ""
   s$parked <- list()

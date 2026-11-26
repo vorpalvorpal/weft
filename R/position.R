@@ -2,13 +2,20 @@
 # search that finds a block's first line, and the map back through Quarto's
 # includes. Only exported knitr functions are used.
 
-# The path of the file knitr is reading, or NULL (`knit(text = )`).
-knit_input_path <- function() {
+# The path of the file knitr is reading, or NULL (`knit(text = )`). The knit
+# state `s` keeps each absolute path it has normalised, keyed by the string
+# knitr gives, so a path once found costs no file-system call (a relative one
+# depends on the working directory, and is not kept).
+knit_input_path <- function(s = active_state()) {
   p <- tryCatch(suppressWarnings(knitr::current_input(dir = TRUE)),
                 error = function(e) NULL)
   if (is.null(p) || length(p) != 1L || is.na(p) || !nzchar(p)) return(NULL)
+  memo <- if (!is.null(s) && nchar(p, type = "bytes") < 9000L) s$input_paths
+  if (!is.null(memo) && !is.null(hit <- memo[[p]])) return(hit)
   if (!file.exists(p)) return(NULL)
-  normalizePath(p, winslash = "/")
+  out <- normalizePath(p, winslash = "/")
+  if (!is.null(memo) && grepl("^(/|[A-Za-z]:[/\\\\]|\\\\\\\\)", p)) assign(p, out, envir = memo)
+  out
 }
 
 # The lines of a file as knitr reads them: the one reader of source text, split.
@@ -283,7 +290,7 @@ reset_file_state <- function(F) {
 # knitted by a child has none.
 current_file_state <- function(s) {
   if (length(s$stack) && isTRUE(s$stack[[length(s$stack)]]$text)) return(NULL)
-  p <- knit_input_path()
+  p <- knit_input_path(s)
   if (is.null(p)) return(NULL)
   F <- s$files[[p]]
   if (is.null(F)) {
