@@ -54,7 +54,7 @@ verify <- function(files = NULL, since = NULL, static = FALSE, path = ".") {
                                 "A draft render fails nothing, so it can verify nothing."), clause))
   }
   if (tolower(Sys.getenv("WEFT_DRAFT")) %in% c("1", "true")) refuse("WEFT_DRAFT is set")
-  has_file <- file.exists(file.path(root, "_weft.yml"))
+  has_file <- is_set_up(root)
   cfg <- verify_config(root, has_file)
   if (isTRUE(cfg$draft)) {
     refuse(if (has_file) "draft is on in _weft.yml" else "draft is on in the document's weft: front matter")
@@ -68,15 +68,7 @@ verify <- function(files = NULL, since = NULL, static = FALSE, path = ".") {
   all_scripts <- scripts
   files_rel <- NULL
   if (!is.null(files)) {
-    absf <- ifelse(grepl("^(/|[A-Za-z]:)", files), files, file.path(root, files))
-    nf <- normalizePath(absf, winslash = "/", mustWork = FALSE)
-    prob <- !file.exists(absf) | dir.exists(absf) | !startsWith(nf, paste0(root, "/")) |
-      !grepl("\\.(qmd|Rmd|rmd|R|r)$", files)
-    if (any(prob)) {
-      verify_abort(paste0("`files` must name existing .qmd, .Rmd or .R files under the project root; not so: ",
-                          paste0("`", files[prob], "`", collapse = ", "), " (rule 5.1.1)."))
-    }
-    files_rel <- unique(rel_to(nf, root))
+    files_rel <- resolve_files(files, root, verify_abort, strict = TRUE)
     docs <- files_rel[!is_script_path(files_rel)]
     scripts <- intersect(scripts, files_rel)
   }
@@ -101,8 +93,7 @@ verify <- function(files = NULL, since = NULL, static = FALSE, path = ".") {
   gi <- verify_git(root)
   since_sha <- NA_character_
   full <- normalizePath(path, winslash = "/", mustWork = FALSE)
-  named <- if (!is.null(files_rel)) files_rel else if (!dir.exists(full)) rel_to(full, root) else character()
-  notes <- left_out_notes(root, named, c(all_docs, all_scripts))
+  notes <- named_notes(root, full, files_rel, c(all_docs, all_scripts))
   if (!is.null(since)) {
     if (is.null(gi)) verify_abort("`since` was given, but the project is not in a git work tree (rule 8.2.2).")
     if (grepl("^-", since)) verify_abort(sprintf("`since` must name a commit; `%s` does not (rule 8.2.2).", since))
@@ -339,7 +330,7 @@ verify_lints <- function(root, files_rel, cfg, gi, since_sha, have_base, docs) {
     constructs_removed(list(base$constructs), bind_plain(rows, construct_empty()))$rows
   }
   if (have_base && !is.null(gi)) {
-    if (file.exists(file.path(root, "_weft.yml")) && !verify_weft_at(gi, since_sha)) {
+    if (is_set_up(root) && !verify_weft_at(gi, since_sha)) {
       # the project did not exist at `since`: that commit is the baseline (design question 5)
       notes <- c(notes, sprintf(paste0("_weft.yml is not in %s: that commit is the baseline for this project, ",
                                        "so nothing counts as added (rule 8.2.2)"), substr(since_sha, 1L, 7L)))

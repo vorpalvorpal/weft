@@ -52,7 +52,7 @@ use_dictionary <- function(path = ".") {
   start <- normalizePath(path, mustWork = TRUE)
   root <- find_project_root(path)
   if (!identical(root, start)) {
-    marker <- if (file.exists(file.path(root, "_weft.yml"))) "_weft.yml" else "_quarto.yml"
+    marker <- if (is_set_up(root)) "_weft.yml" else "_quarto.yml"
     message(sprintf("weft: the project root is %s (it holds %s); writing there.", root, marker))
   }
   src <- function(f) {
@@ -246,7 +246,7 @@ dict_glossary <- function(dict = NULL, values = TRUE, sort = TRUE) {
   # outside a knit the configuration in force is the project's `_weft.yml`
   if (is.null(weft_env$config)) {
     root <- find_project_root(getwd())
-    if (file.exists(file.path(root, "_weft.yml"))) {
+    if (is_set_up(root)) {
       cfg <- tryCatch(read_config(root, explicit = FALSE), error = function(e) NULL)
       if (!is.null(cfg)) {
         weft_env$config <- cfg

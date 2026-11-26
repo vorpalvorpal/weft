@@ -44,7 +44,7 @@ defaults_config <- function() {
 project_config <- function() {
   if (isTRUE(weft_env$reading)) return(NULL)
   root <- find_project_root(getwd())
-  if (!file.exists(file.path(root, "_weft.yml"))) return(NULL)
+  if (!is_set_up(root)) return(NULL)
   string_config()
 }
 
@@ -106,7 +106,7 @@ default_config <- function() {
     anchor_calls = list(),
     strict = character(),
     verify_skip = character(),
-    scripts_skip = "tests",
+    scripts_skip = SCRIPTS_SKIP_DEFAULT,
     names_from = NULL,
     weft_version = NULL
   )
@@ -270,11 +270,14 @@ read_config_ <- function(dir, front, doc, explicit = TRUE) {
 # `config-place` lint and read_config() both read this list.
 project_only_settings <- function() c("draft", "decisions", "verify_skip", "scripts_skip")
 
+# The `scripts_skip` a settings file without one has (C2).
+SCRIPTS_SKIP_DEFAULT <- "tests"
+
 # The names and paths of `scripts_skip` (C2): a list of non-empty strings, or one string; NULL when it is
 # neither.
 scripts_skip_list <- function(v) {
   # a null value (an emptied or commented-out list) is the default; `[]` reads every script (K5)
-  if (is.null(v)) return("tests")
+  if (is.null(v)) return(SCRIPTS_SKIP_DEFAULT)
   if (is.list(v) && !length(v)) return(character())
   u <- if (is.list(v)) {
     if (!is.null(names(v)) || any(!vapply(v, function(e) is.character(e) && length(e) == 1L, NA))) return(NULL)

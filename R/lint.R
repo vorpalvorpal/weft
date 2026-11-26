@@ -359,12 +359,8 @@ lint_files_under <- function(root, ext = DOC_EXT_RE, underscore = FALSE) {
 # document's folder up to `root`, as in the gate (review 4, #7); `root` when
 # none lies below it.
 settings_root <- function(root, rel) {
-  d <- dirname(rel)
-  while (!identical(d, ".") && nzchar(d)) {
-    if (file.exists(file.path(root, d, "_weft.yml"))) return(file.path(root, d))
-    d <- dirname(d)
-  }
-  root
+  s <- script_settings_root(root, rel)
+  if (nzchar(s)) file.path(root, s) else root
 }
 
 # The front matter of a file, read cheaply (for its `weft:` settings).
@@ -511,18 +507,7 @@ lints <- function(path = ".", files = NULL, rules = NULL, tier = 1, reader = c("
   # read here, so a bad one stops the run whatever the project holds
   all_scripts <- project_script_paths(root)
   # files to report on
-  files_rel <- NULL
-  if (!is.null(files)) {
-    if (!is.character(files) || anyNA(files)) lint_abort("`files` must be paths to .qmd, .Rmd or .R files.")
-    absf <- ifelse(grepl("^(/|[A-Za-z]:)", files), files, file.path(root, files))
-    nf <- normalizePath(absf, winslash = "/", mustWork = FALSE)
-    prob <- !file.exists(absf) | !startsWith(nf, paste0(root, "/")) | !grepl("\\.(qmd|Rmd|rmd|R|r)$", files)
-    if (any(prob)) {
-      lint_abort(paste0("`files` must name existing .qmd, .Rmd or .R files under the project root; not so: ",
-                        paste0("`", files[prob], "`", collapse = ", "), " (rule 5.1.1)."))
-    }
-    files_rel <- rel_to(nf, root)
-  }
+  files_rel <- if (!is.null(files)) resolve_files(files, root, lint_abort)
   report <- lint_report_under(all_files, full, root)
   scripts <- lint_report_under(all_scripts, full, root)
   if (!is.null(files_rel)) {
@@ -537,8 +522,7 @@ lints <- function(path = ".", files = NULL, rules = NULL, tier = 1, reader = c("
     character()
   }
   # a file named in `files`, or as `path`, that is not read gets a note saying why (K6)
-  named <- if (!is.null(files_rel)) files_rel else if (!dir.exists(full)) rel_to(full, root) else character()
-  notes <- c(notes, left_out_notes(root, named, c(all_files, all_scripts)))
+  notes <- c(notes, named_notes(root, full, files_rel, c(all_files, all_scripts)))
   pre <- paste0(rel_to(full, root), "/")
   keep_project <- function(f) {
     f %in% report | (is.null(files_rel) & dir.exists(full) & (identical(full, root) | startsWith(f, pre)))
@@ -551,16 +535,20 @@ lints <- function(path = ".", files = NULL, rules = NULL, tier = 1, reader = c("
 # `scripts_skip` leaves out, or a file the document rules leave out (K6).
 left_out_notes <- function(root, named, read) {
   named <- setdiff(unique(named), read)
+  skip_of <- scripts_skip_getter(root)
   vapply(named, function(rel) {
     skip <- if (is_script_path(rel)) {
-      sr <- script_settings_root(root, rel)
-      inner <- if (nzchar(sr)) substring(rel, nchar(sr) + 2L) else rel
-      tryCatch(script_skipped(inner, lint_config(if (nzchar(sr)) file.path(root, sr) else root)$scripts_skip),
-               error = function(e) FALSE)
+      tryCatch(script_skipped_in(root, rel, skip_of), error = function(e) FALSE)
     } else FALSE
     if (skip) sprintf("`%s` is left out by `scripts_skip` (rule 5.1.9).", rel)
     else sprintf("`%s` is left out by the document rules (rule 5.1.8).", rel)
   }, "", USE.NAMES = FALSE)
+}
+
+# The notes for what the caller named (`files`, else a file given as `path`) that is not among `read`.
+named_notes <- function(root, full, files_rel, read) {
+  named <- if (!is.null(files_rel)) files_rel else if (!dir.exists(full)) rel_to(full, root) else character()
+  left_out_notes(root, named, read)
 }
 
 # The documents of `all_files` that `path` (a folder or a file, normalised, inside `root`) covers.

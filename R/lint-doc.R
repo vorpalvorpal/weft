@@ -813,7 +813,7 @@ lint_config_place <- function(ctx) {
       message = sprintf("The `weft:` key is in %s; project settings belong in _weft.yml (rule 5.8.8).", basename(f)),
       hint = "Move the settings to _weft.yml, or to a document's own front matter.")
   }
-  if (file.exists(file.path(root, "_weft.yml"))) {
+  if (is_set_up(root)) {
     for (f in ctx$report) {
       src <- lint_source_or_fault(ctx, f, "its project-only settings were not checked")
       if (is.null(src) || isTRUE(src$invalid)) next

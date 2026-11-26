@@ -173,7 +173,7 @@ read_dict <- function(path = "dict.yml") {
   root <- find_project_root(path)
   # a project with a configuration file owns the units; with none, they go with the working directory's
   # project, as the session's table does
-  ud_state$reg_root <- if (file.exists(file.path(root, "_weft.yml"))) ud_norm_root(root)
+  ud_state$reg_root <- if (is_set_up(root)) ud_norm_root(root)
                        else ud_norm_root(find_project_root(getwd()))
   on.exit(ud_state$reg_root <- NULL, add = TRUE)
   project_units(root)

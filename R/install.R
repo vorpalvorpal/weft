@@ -206,7 +206,7 @@ git_state <- function(root) {
 git_dir_of <- function(root, args) {
   r <- git_ok(root, args)
   p <- trimws(paste(raw_lines(r$out), collapse = ""))
-  if (!grepl("^(/|[A-Za-z]:)", p)) p <- file.path(root, p)
+  if (!is_abs_path(p)) p <- file.path(root, p)
   normalizePath(p, winslash = "/", mustWork = FALSE)
 }
 

@@ -195,24 +195,16 @@ gate_script_read <- function(g, e, docs = rep(TRUE, nrow(e))) {
       y <- if (length(b)) tryCatch(yaml_read_text(rawToChar(b)), error = function(err) NULL) else NULL
       v <- scripts_skip_list(if (is.list(y)) y$scripts_skip else NULL)
       key <- sub("/?_weft\\.yml$", "", e$rel[j])
-      skips[[if (nzchar(key)) key else "."]] <- v %||% "tests"
+      skips[[if (nzchar(key)) key else "."]] <- v %||% SCRIPTS_SKIP_DEFAULT
     }
   }
   has_yml <- names(skips)
   read <- logical(length(scr))
   for (k in seq_along(scr)) {
     rel <- e$rel[scr[k]]
-    d <- dirname(rel)
-    sr <- ""
-    while (!identical(d, ".") && nzchar(d)) {
-      if (d %in% has_yml) {
-        sr <- d
-        break
-      }
-      d <- dirname(d)
-    }
+    sr <- nearest_settings_dir(rel, function(d) d %in% has_yml)
     key <- if (nzchar(sr)) sr else "."
-    sk <- if (key %in% has_yml) skips[[key]] else "tests"
+    sk <- if (key %in% has_yml) skips[[key]] else SCRIPTS_SKIP_DEFAULT
     inner <- if (nzchar(sr)) substring(rel, nchar(sr) + 2L) else rel
     read[k] <- !script_skipped(inner, sk)
   }
@@ -294,7 +286,7 @@ gate_materialise <- function(g, e, root) {
 # be read.
 gate_fallback_constructs <- function(rels, root) {
   # the default `scripts_skip` stands in for the setting that did not read
-  rels <- rels[!(is_script_path(rels) & script_skipped(rels, "tests"))]
+  rels <- rels[!(is_script_path(rels) & script_skipped(rels, SCRIPTS_SKIP_DEFAULT))]
   rows <- lapply(rels, function(rel) {
     tryCatch({
       src <- read_source(file.path(root, rel), root, default_config())

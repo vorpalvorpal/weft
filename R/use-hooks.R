@@ -41,7 +41,7 @@
 #' @export
 use_hooks <- function(path = ".", remove = FALSE, overwrite = FALSE, rscript = NULL, lib = NULL) {
   root <- install_root(path, "use_hooks")
-  if (!file.exists(file.path(root, "_weft.yml"))) {
+  if (!is_set_up(root)) {
     tool_abort(sprintf(paste0("use_hooks() guards a weft project, a folder holding _weft.yml; %s has none. ",
                               "Run use_weft() first (rule 6.1.1)."), root))
   }

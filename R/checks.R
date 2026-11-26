@@ -732,29 +732,11 @@ checks <- function(path = ".", files = NULL, repeats = 3L) {
   full <- normalizePath(path, winslash = "/", mustWork = TRUE)
   root <- normalizePath(find_project_root(full), winslash = "/", mustWork = FALSE)
   all_files <- c(lint_files_under(root), project_script_paths(root))
-  files_rel <- NULL
-  if (!is.null(files)) {
-    if (!is.character(files) || anyNA(files)) lint_abort("`files` must be paths to .qmd, .Rmd or .R files.")
-    absf <- ifelse(grepl("^(/|[A-Za-z]:)", files), files, file.path(root, files))
-    nf <- normalizePath(absf, winslash = "/", mustWork = FALSE)
-    prob <- !file.exists(absf) | !startsWith(nf, paste0(root, "/")) | !grepl("\\.(qmd|Rmd|rmd|R|r)$", files)
-    if (any(prob)) {
-      lint_abort(paste0("`files` must name existing .qmd, .Rmd or .R files under the project root; not so: ",
-                        paste0("`", files[prob], "`", collapse = ", "), " (rule 5.1.1)."))
-    }
-    files_rel <- rel_to(nf, root)
-  }
-  report <- all_files
-  if (!dir.exists(full)) {
-    report <- intersect(report, rel_to(full, root))
-  } else if (!identical(full, root)) {
-    pre <- paste0(rel_to(full, root), "/")
-    report <- report[startsWith(report, pre)]
-  }
+  files_rel <- if (!is.null(files)) resolve_files(files, root, lint_abort)
+  report <- lint_report_under(all_files, full, root)
   if (!is.null(files_rel)) report <- intersect(report, files_rel)
   report <- sort(report, method = "radix")
-  named <- if (!is.null(files_rel)) files_rel else if (!dir.exists(full)) rel_to(full, root) else character()
-  notes <- left_out_notes(root, named, all_files)
+  notes <- named_notes(root, full, files_rel, all_files)
   parts <- list()
   n_docs <- 0L
   for (rel in report) {

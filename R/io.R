@@ -294,38 +294,69 @@ script_files_under <- function(root) {
 SCRIPT_EXT_RE <- "\\.[rR]$"
 
 project_script_paths <- function(root) {
+  skip_of <- scripts_skip_getter(root)
+  skip_of("")
+  f <- script_files_under(root)
+  if (!length(f)) return(character())
+  f <- enc2utf8(f)
+  keep <- vapply(f, function(rel) !script_skipped_in(root, rel, skip_of), NA, USE.NAMES = FALSE)
+  sort(f[keep], method = "radix")
+}
+
+# The `files` argument of `lints()`, `checks()` and `verify()`: paths to documents and scripts under `root`
+# (relative to it, or absolute), as normalised paths relative to `root`. `abort` is the caller's condition
+# raiser; `strict` also refuses a folder and drops repeats (`verify()`).
+resolve_files <- function(files, root, abort, strict = FALSE) {
+  if (!is.character(files) || anyNA(files)) abort("`files` must be paths to .qmd, .Rmd or .R files.")
+  absf <- ifelse(is_abs_path(files), files, file.path(root, files))
+  nf <- normalizePath(absf, winslash = "/", mustWork = FALSE)
+  prob <- !file.exists(absf) | !startsWith(nf, paste0(root, "/")) | !grepl("\\.(qmd|Rmd|rmd|R|r)$", files)
+  if (strict) prob <- prob | dir.exists(absf)
+  if (any(prob)) {
+    abort(paste0("`files` must name existing .qmd, .Rmd or .R files under the project root; not so: ",
+                 paste0("`", files[prob], "`", collapse = ", "), " (rule 5.1.1)."))
+  }
+  rel <- rel_to(nf, root)
+  if (strict) unique(rel) else rel
+}
+
+# The nearest folder above `rel` (a path from the root, "" for the root) for which `has_yml(folder)` holds.
+nearest_settings_dir <- function(rel, has_yml) {
+  d <- dirname(rel)
+  while (!identical(d, ".") && nzchar(d)) {
+    if (has_yml(d)) return(d)
+    d <- dirname(d)
+  }
+  ""
+}
+
+# The settings root of a script, as a path from `root` ("" for `root`).
+script_settings_root <- function(root, rel) {
+  nearest_settings_dir(rel, function(d) file.exists(file.path(root, d, "_weft.yml")))
+}
+
+# The `scripts_skip` of a settings root of `root` (a path from it, "" for `root`), normalised and read once.
+scripts_skip_getter <- function(root) {
   skips <- list()
-  skip_of <- function(sroot) {
+  function(sroot) {
     key <- if (nzchar(sroot)) sroot else "."
     if (is.null(skips[[key]])) {
       skips[[key]] <<- list(scripts_skip_list(lint_config(if (nzchar(sroot)) file.path(root, sroot) else root)$scripts_skip))
     }
     skips[[key]][[1L]]
   }
-  skip_of("")
-  f <- script_files_under(root)
-  if (!length(f)) return(character())
-  f <- enc2utf8(f)
-  keep <- vapply(f, function(rel) {
-    sroot <- script_settings_root(root, rel)
-    inner <- if (nzchar(sroot)) substring(rel, nchar(sroot) + 2L) else rel
-    !script_skipped(inner, skip_of(sroot))
-  }, NA, USE.NAMES = FALSE)
-  sort(f[keep], method = "radix")
 }
 
-# The settings root of a script, as a path from `root` ("" for `root`).
-script_settings_root <- function(root, rel) {
-  d <- dirname(rel)
-  while (!identical(d, ".") && nzchar(d)) {
-    if (file.exists(file.path(root, d, "_weft.yml"))) return(d)
-    d <- dirname(d)
-  }
-  ""
+# Whether the script `rel` is left out by the `scripts_skip` (`skip_of(settings root)`) of its own settings root.
+script_skipped_in <- function(root, rel, skip_of) {
+  sroot <- script_settings_root(root, rel)
+  inner <- if (nzchar(sroot)) substring(rel, nchar(sroot) + 2L) else rel
+  script_skipped(inner, skip_of(sroot))
 }
 
+# `skip` is a normalised list (see `scripts_skip_list()`), or NULL.
 script_skipped <- function(rel, skip) {
-  skip <- scripts_skip_list(skip) %||% character()
+  skip <- skip %||% character()
   if (!length(rel) || !length(skip)) return(rep(FALSE, length(rel)))
   skip <- sub("/+$", "", sub("^\\./", "", trimws(skip)))
   skip <- skip[nzchar(skip)]
