@@ -102,6 +102,7 @@ scan_lost <- function(path, e, what = "the end-of-document check is off for it")
 }
 
 new_file_state <- function(path, config) {
+  local_doc_memo()
   F <- new.env(parent = emptyenv())
   F$path <- path
   quarto <- grepl("\\.rmarkdown$", path)
@@ -130,6 +131,8 @@ new_file_state <- function(path, config) {
   extra <- tryCatch(scan_extra_rows(F$lines, file = NA_character_, config = config,
                                     project = project_type(path)),
                     error = function(e) scan_lost(path, e))
+  # kept for the values lists of this file (values_scan_lists(), E7)
+  F$extra <- extra
   lenient <- is_child_knit() || has_child_chunk(F$lines)
   cap_ids <- caption_ids(extra)
   nf <- document_names_from(F$lines, NA_character_, config) %in% c("python", "julia")

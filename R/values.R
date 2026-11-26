@@ -456,13 +456,19 @@ values_source_names <- function(path) values_source_scan(path)$names
 # the named values in front matter), `cap` (the names a caption the hooks do not resolve holds: named values,
 # and governor names of spans there), `auto` (the names Python's auto() is asked for: every named value of the
 # source, wherever it stands, and each governor name of a span in the code of a Python or Julia chunk or in
-# a chunk's options).
-values_scan_lists <- function(path, cfg) {
+# a chunk's options). `F` is the file's state (new_file_state()) when the knit has it: its lines and its scan
+# are the ones read here (E7).
+values_scan_lists <- function(path, cfg, F = NULL) {
+  local_doc_memo()
   out <- list(front = character(), cap = character(), auto = character())
-  lines <- tryCatch(read_view_lines(path), error = function(e) character())
+  lines <- if (!is.null(F)) F$lines else tryCatch(read_view_lines(path), error = function(e) character())
   if (!length(lines)) return(out)
-  extra <- tryCatch(scan_extra_rows(lines, file = NA_character_, config = cfg, project = project_type(path)),
-                    error = function(e) NULL)
+  extra <- if (!is.null(F)) {
+    F$extra
+  } else {
+    tryCatch(scan_extra_rows(lines, file = NA_character_, config = cfg, project = project_type(path)),
+             error = function(e) NULL)
+  }
   if (!is.null(extra) && nrow(extra)) {
     named <- extra$kind == "named" & is.na(extra$error)
     out$front <- extra$expr[named & extra$context == "front-matter"]
@@ -491,7 +497,7 @@ values_lists <- function(s) {
   path <- if (is_child_knit()) knit_input_path() else if (is.na(s$input_path)) NULL else s$input_path
   if (is.null(path) || path %in% s$list_paths) return(s$lists)
   s$list_paths <- c(s$list_paths, path)
-  new <- values_scan_lists(path, s$config)
+  new <- values_scan_lists(path, s$config, s$files[[path]])
   for (k in c("front", "cap", "auto")) s$lists[[k]] <- union(s$lists[[k]], new[[k]])
   s$lists
 }
