@@ -552,8 +552,7 @@ weft_ansi <- function(x, colors, breaks = FALSE) {
   na <- is.na(p)
   p[na] <- "NA"
   if (!length(p) || colors <= 1L) return(p)
-  md <- attr(x, "markdown")
-  if (is.null(md) || length(md) != length(p)) md <- unname(p)
+  md <- weft_md_attr(x, p)
   old <- options(cli.num_colors = colors)
   on.exit(options(old), add = TRUE)
   nl <- function(s) if (breaks) gsub("\n", " ", s, fixed = TRUE) else s

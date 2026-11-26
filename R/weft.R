@@ -288,6 +288,13 @@ weft_plain <- function(x) {
   p
 }
 
+# The markdown attribute of `x`, or, when it has none of the length of its plain text `p`, that text
+# (unnamed).
+weft_md_attr <- function(x, p = weft_plain(x)) {
+  md <- attr(x, "markdown")
+  if (is.null(md) || length(md) != length(p)) unname(p) else md
+}
+
 # The markdown of each element, names kept. An element whose plain text is no longer its markdown
 # read by PL, and is not text joined as it is, was changed by a function that kept the attributes
 # (WS10): its markdown is then its plain text.
@@ -359,8 +366,7 @@ cli_format.weft <- function(x, style = NULL, ...) {
 # A `weft` object of the elements `...` of both forms.
 weft_pick <- function(x, ...) {
   p <- weft_plain(x)
-  md <- attr(x, "markdown")
-  if (is.null(md) || length(md) != length(p)) md <- unname(p)
+  md <- weft_md_attr(x, p)
   names(md) <- names(p)
   new_weft(p[...], unname(md[...]), names(p[...]))
 }
@@ -429,11 +435,8 @@ c.weft <- function(...) {
 #' @rdname weft
 #' @export
 `is.na<-.weft` <- function(x, value) {
-  p <- weft_plain(x)
-  md <- weft_markdown(x)
-  p[value] <- NA_character_
-  md[value] <- NA_character_
-  new_weft(p, md, names(p))
+  x[value] <- NA_character_
+  x
 }
 
 #' @rdname weft
