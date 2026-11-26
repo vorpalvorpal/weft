@@ -600,18 +600,19 @@ units_is_text <- function(v) {
 # One `units:` table checked as far as its rows go, list(problems, rows, falses). A row is
 # list(key, <its fields>); `is` is its text. A key with `is:` is one token.
 units_table_rows <- function(tbl, where) {
-  problems <- character()
+  acc <- new.env(parent = emptyenv())
+  acc$problems <- character()
   prob <- function(key, what) {
     p <- if (is.null(key)) sprintf("%s: units: %s (rule 9.1.7)", where, what)
          else sprintf("%s: units: `%s`: %s (rule 9.1.7)", where, key, what)
-    problems <<- c(problems, p) # <<- ok: collects into `problems` just above; ten calls
+    acc$problems <- c(acc$problems, p)
   }
   out <- list(problems = character(), rows = list(), falses = character())
   if (is.null(tbl)) return(out)
   if (!is.list(tbl) || (length(tbl) && (is.null(names(tbl)) || any(!nzchar(names(tbl)))))) {
     prob(NULL, paste0("must be a mapping from a unit to its `name`, `plural`, `symbol` and `space`, ",
                       "as `units:` in _weft.yml is written"))
-    out$problems <- problems
+    out$problems <- acc$problems
     return(out)
   }
   str1 <- dict_str1
@@ -623,7 +624,7 @@ units_table_rows <- function(tbl, where) {
       out$falses <- c(out$falses, key)
       next
     }
-    n0 <- length(problems)
+    n0 <- length(acc$problems)
     if (is.null(e) || (is.list(e) && !length(e))) {
       prob(key, "is empty; give it a `name`, `plural`, `symbol` or `space`")
     } else if (!is.list(e) || is.null(names(e)) || any(!nzchar(names(e)))) {
@@ -654,26 +655,27 @@ units_table_rows <- function(tbl, where) {
         }
       }
     }
-    if (length(problems) == n0) {
+    if (length(acc$problems) == n0) {
       out$rows[[key]] <- c(list(key = key), e[intersect(names(e), UNITS_FIELDS)])
     }
   }
-  out$problems <- problems
+  out$problems <- acc$problems
   out
 }
 
 # The entries (key, id and the fields that print) of the rows `rows` of one table, with the
 # problems of each key. Keys without `is` register the tokens the database lacks (4.4.7).
 units_entries <- function(rows, where, installed, project = FALSE) {
-  problems <- character()
+  acc <- new.env(parent = emptyenv())
+  acc$problems <- character()
   prob <- function(key, what) {
     p <- sprintf("%s: units: `%s`: %s (rule 9.1.7)", where, key, what)
-    problems <<- c(problems, p) # <<- ok: collects into `problems` just above; seven calls
+    acc$problems <- c(acc$problems, p)
   }
   entries <- list()
   for (row in rows) {
     key <- row$key
-    n0 <- length(problems)
+    n0 <- length(acc$problems)
     un <- NULL
     if (is.null(row$is)) {
       reg <- dict_register_unit(key)
@@ -684,7 +686,7 @@ units_entries <- function(rows, where, installed, project = FALSE) {
         prob(key, sprintf("is not a unit the units package can read: %s", strip_rule(reg$error)))
       }
     }
-    if (length(problems) == n0) {
+    if (length(acc$problems) == n0) {
       if (grepl("^[0-9.]+$", trimws(key))) {
         prob(key, "is a number, not a unit")
       } else {
@@ -696,7 +698,7 @@ units_entries <- function(rows, where, installed, project = FALSE) {
         }
       }
     }
-    if (!is.null(un) && length(problems) == n0) {
+    if (!is.null(un) && length(acc$problems) == n0) {
       ent <- c(list(key = key, id = unit_whole_id(un)), row[intersect(names(row), UNIT_ENTRY_FIELDS)])
       # a unit of the project's own with a name and no symbol has no symbol (2i I5): it prints by
       # name. A unit weft or the units package already knows keeps its symbol.
@@ -718,7 +720,7 @@ units_entries <- function(rows, where, installed, project = FALSE) {
       if (!named) prob(ent$key, "`symbol: false` prints the unit's name, and it has none; give it a `name`")
     }
   }
-  list(problems = problems, entries = entries)
+  list(problems = acc$problems, entries = entries)
 }
 
 # The checked, merged `units:` table of the default rows, the project and the document (the
@@ -741,8 +743,9 @@ read_units_tables <- function(tabs, mode, root = NULL) {
   dflt <- unit_default_rows()
   tb <- lapply(tabs, function(t) units_table_rows(t$tbl, t$where))
   wheres <- vapply(tabs, function(t) t$where, "")
-  probs <- list(tb[[1L]]$problems, tb[[2L]]$problems)
-  add <- function(t, what) probs[[t]] <<- c(probs[[t]], what) # <<- ok: collects into `probs` just above
+  acc <- new.env(parent = emptyenv())
+  acc$probs <- list(tb[[1L]]$problems, tb[[2L]]$problems)
+  add <- function(t, what) acc$probs[[t]] <- c(acc$probs[[t]], what)
   prob <- function(t, key, what) add(t, sprintf("%s: units: `%s`: %s (rule 9.1.7)", wheres[t], key, what))
   # a `false` row removes a default row
   for (t in 1:2) {
@@ -826,9 +829,9 @@ read_units_tables <- function(tabs, mode, root = NULL) {
     ud_state$ctx <- list(mode = "weft", own = character(), dflt = character())
     blocks <- character()
     for (t in 1:2) {
-      if (length(probs[[t]])) {
-        blocks <- c(blocks, sprintf("weft: %s: %d problem(s) in `units:`\n%s", wheres[t], length(probs[[t]]),
-                                    paste0("  ", probs[[t]], collapse = "\n")))
+      if (length(acc$probs[[t]])) {
+        blocks <- c(blocks, sprintf("weft: %s: %d problem(s) in `units:`\n%s", wheres[t], length(acc$probs[[t]]),
+                                    paste0("  ", acc$probs[[t]], collapse = "\n")))
       }
     }
     units_reset()
@@ -869,8 +872,8 @@ read_units_tables <- function(tabs, mode, root = NULL) {
     if (is.character(sy)) e_def$entries[[i]]$symbol <- gsub(" ", "\u00a0", sy, fixed = TRUE)
   }
   e_t <- lapply(1:2, function(t) units_entries(tb[[t]]$rows, wheres[t], installed, project = TRUE))
-  for (t in 1:2) probs[[t]] <- c(probs[[t]], e_t[[t]]$problems)
-  if (length(probs[[1L]]) || length(probs[[2L]])) fail(installed$tok)
+  for (t in 1:2) acc$probs[[t]] <- c(acc$probs[[t]], e_t[[t]]$problems)
+  if (length(acc$probs[[1L]]) || length(acc$probs[[2L]])) fail(installed$tok)
   # a document's entry for a unit replaces the project's
   proj <- e_t[[1L]]$entries
   doc <- e_t[[2L]]$entries

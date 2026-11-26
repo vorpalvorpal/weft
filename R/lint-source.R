@@ -491,7 +491,8 @@ mask_prose <- function(S) {
   empty_regs <- new_regions()
   empty_regs <- with_attrs(empty_regs, character())
   if (n == 0L) return(list(prose = "", regions = empty_regs))
-  chars <- strsplit(text, "")[[1L]]
+  msk <- new.env(parent = emptyenv())
+  msk$chars <- strsplit(text, "")[[1L]]
   at <- text_cutter(text)
   ls <- S$line_start
   lc <- rep.int(seq_len(nl), nchar(S$lines) + 1L)[seq_len(n)]
@@ -500,20 +501,18 @@ mask_prose <- function(S) {
   keepv <- !nonbody[lc]
   pc <- S$pieces
   if (nrow(pc)) keepv <- keepv | mark_ranges(n, pc$start, pc$end)
-  chars[!keepv & chars != "\n"] <- " "
-  regs <- list()
-  # addreg() and blank() are the steps of the masking below: they write `regs` and `chars`, defined beside
-  # them, with `<<-`; passing the two through some 30 calls would bury each step
+  msk$chars[!keepv & msk$chars != "\n"] <- " "
+  msk$regs <- list()
   addreg <- function(type, s, e, name = NA_character_, row = NA_integer_) {
-    if (length(s)) regs[[length(regs) + 1L]] <<- new_regions(type, s, e, row, name)  # <<- ok: step beside `regs`
+    if (length(s)) msk$regs[[length(msk$regs) + 1L]] <- new_regions(type, s, e, row, name)
   }
   blank <- function(s, e) {
     if (!length(s)) return(invisible())
-    m <- mark_ranges(n, s, e) & chars != "\n"
-    chars[m] <<- " "  # <<- ok: step beside `chars`
+    m <- mark_ranges(n, s, e) & msk$chars != "\n"
+    msk$chars[m] <- " "
     invisible()
   }
-  cur <- function() paste(chars, collapse = "")
+  cur <- function() paste(msk$chars, collapse = "")
   line_texts <- function(w) cut_lines(w, nl)
   work <- cur()
 
@@ -543,7 +542,7 @@ mask_prose <- function(S) {
     }
     if (length(ds)) {
       r <- new_regions("div", ls[ds], ls[de] + nchar(S$lines[de]) - 1L, name = did)
-      regs[[length(regs) + 1L]] <- r
+      msk$regs[[length(msk$regs) + 1L]] <- r
       S$divs <- data.frame(open = ds, close = de, id = did, stringsAsFactors = FALSE)
     }
     work <- cur()
@@ -602,7 +601,7 @@ mask_prose <- function(S) {
     addreg("code", s[cod], e[cod])
     addreg("math", s[md], e[md])
     addreg("refdef", s[ty == "ref"], e[ty == "ref"])
-    for (r in code_attr) regs[[length(regs) + 1L]] <- r
+    for (r in code_attr) msk$regs[[length(msk$regs) + 1L]] <- r
     work <- cur()
   }
 
@@ -758,7 +757,7 @@ mask_prose <- function(S) {
   blank_hit(hit("^[ \t]{0,3}[:~](?=[ \t])"))
 
   prose <- cur()
-  regions <- do.call(rbind, c(list(empty_regs), lapply(regs, function(r) {
+  regions <- do.call(rbind, c(list(empty_regs), lapply(msk$regs, function(r) {
     if (!"classes" %in% names(r)) r <- with_attrs(r, rep(NA_character_, nrow(r)))
     r
   })))

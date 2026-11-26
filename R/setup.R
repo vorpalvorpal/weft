@@ -135,11 +135,12 @@ setup_plan <- function(path, route) {
   docs <- if (single) path else {
     file.path(path, project_doc_paths(path, "setup"))
   }
-  items <- list()
+  tbl <- new.env(parent = emptyenv())
+  tbl$items <- list()
   add <- function(path, new, state, purpose, copy_from = NULL) {
     item <- plan_item(path, root, state, purpose, new = new, eol = if (state == "new") "\n" else file_eol(path),
                       copy_from = copy_from)
-    items[[length(items) + 1L]] <<- item # <<- ok: appends to `items` just above; seven calls
+    tbl$items[[length(tbl$items) + 1L]] <- item
   }
   # a folder or a link where a file should be, or a file where a folder should be: refuse before anything is
   # written
@@ -243,7 +244,7 @@ setup_plan <- function(path, route) {
   }
 
   # report order: .Rprofile, _weft.yml, documents, filters (as planned)
-  list(root = root, route = route, items = items)
+  list(root = root, route = route, items = tbl$items)
 }
 
 # ---- editing a document's front matter, as text -----------------------------

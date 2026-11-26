@@ -137,11 +137,12 @@ gate_sizes <- function(g, pj) {
   blobs <- unlist(lapply(sides, function(s) s$entries$blob[s$entries$content]))
   sz <- git_sizes(g$top, blobs)
   g$sizes <- sz
-  big <- character()
+  acc <- new.env(parent = emptyenv())
+  acc$big <- character()
   mark <- function(s) {
     e <- s$entries
     b <- e$content & !is.na(sz[e$blob]) & sz[e$blob] > GATE_MAX_BYTES
-    if (any(b)) big <<- c(big, gate_top_path(s$prefix, e$rel[b])) # <<- ok: a callback that also collects `big`
+    if (any(b)) acc$big <- c(acc$big, gate_top_path(s$prefix, e$rel[b]))
     s$entries$big <- b
     s
   }
@@ -149,9 +150,9 @@ gate_sizes <- function(g, pj) {
     pj[[i]]$new <- mark(pj[[i]]$new)
     pj[[i]]$parents <- lapply(pj[[i]]$parents, mark)
   }
-  big <- unique(big)
-  if (length(big)) {
-    g$notes <- c(g$notes, sprintf("%s is over 5 MB and is read as an empty file", big))
+  acc$big <- unique(acc$big)
+  if (length(acc$big)) {
+    g$notes <- c(g$notes, sprintf("%s is over 5 MB and is read as an empty file", acc$big))
   }
   pj
 }

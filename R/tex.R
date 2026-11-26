@@ -123,17 +123,16 @@ tex_cfg <- function(cfg) {
 unit_md_to_tex <- function(md, un) {
   ch <- strsplit(md, "")[[1L]]
   n <- length(ch)
-  out <- character()
-  run <- ""
-  # flush() and emit() are the loop's emitters: they write `out` and `run`, defined beside them, with `<<-`,
-  # and a state environment would only rename the two
+  acc <- new.env(parent = emptyenv())
+  acc$out <- character()
+  acc$run <- ""
   flush <- function() {
-    if (nzchar(run)) out <<- c(out, paste0("\\text{", run, "}"))  # <<- ok: emitter beside `out`
-    run <<- ""  # <<- ok: emitter beside `run`
+    if (nzchar(acc$run)) acc$out <- c(acc$out, paste0("\\text{", acc$run, "}"))
+    acc$run <- ""
   }
   emit <- function(x) {
     flush()
-    out <<- c(out, x)  # <<- ok: emitter beside `out`
+    acc$out <- c(acc$out, x)
   }
   inner <- function(s) {
     s <- gsub("\u2212", "-", s, fixed = TRUE)
@@ -171,12 +170,12 @@ unit_md_to_tex <- function(md, un) {
     } else if (c1 %in% names(TEX_SPECIAL)) {
       emit(TEX_SPECIAL[[c1]])
     } else {
-      run <- paste0(run, c1)
+      acc$run <- paste0(acc$run, c1)
     }
     i <- i + 1L
   }
   flush()
-  paste(out, collapse = "")
+  paste(acc$out, collapse = "")
 }
 
 # What a unit adds to a number under TeX: `\,` or nothing before a symbol, `\ ` before a name; or, for a

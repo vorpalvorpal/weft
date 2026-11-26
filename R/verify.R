@@ -491,11 +491,12 @@ verify_ledgers <- function(root, docs) {
 
 verify_report_lines <- function(x) {
   short <- if (is.na(x$since)) "" else substr(x$since, 1L, 7L)
-  lines <- sprintf("weft verify: %s", if (x$ok) "passed" else "failed")
-  lines <- c(lines, sprintf("  %-10s %s", x$parts$part, x$parts$detail))
-  if (length(x$notes)) lines <- c(lines, paste0("note: ", x$notes))
+  acc <- new.env(parent = emptyenv())
+  acc$lines <- sprintf("weft verify: %s", if (x$ok) "passed" else "failed")
+  acc$lines <- c(acc$lines, sprintf("  %-10s %s", x$parts$part, x$parts$detail))
+  if (length(x$notes)) acc$lines <- c(acc$lines, paste0("note: ", x$notes))
   sec <- function(head, body) {
-    if (length(body)) lines <<- c(lines, "", head, body) # <<- ok: appends to `lines` just above; 12 calls
+    if (length(body)) acc$lines <- c(acc$lines, "", head, body)
   }
   fl <- function(df) if (nrow(df)) gate_finding_lines(df) else character()
   sec("Construct errors", fl(x$errors))
@@ -559,9 +560,9 @@ verify_report_lines <- function(x) {
   sec(sprintf("Constructs removed since %s (reported, not judged; rule 8.2.2)", short), rl)
   sec("Tier-2 findings on added lines", fl(x$tier2))
   if (nrow(x$tolerated)) {
-    lines <- c(lines, "",
+    acc$lines <- c(acc$lines, "",
                "Tolerated findings (rule 8.1.2); make a rule strict in _weft.yml when its count is 0:",
                sprintf("  %-15s %d remain", x$tolerated$rule, x$tolerated$n))
   }
-  c(lines, sprintf("weft verify: %.1f s", x$seconds))
+  c(acc$lines, sprintf("weft verify: %.1f s", x$seconds))
 }

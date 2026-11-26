@@ -407,11 +407,12 @@ checks_read <- function(src) {
   cx$memo <- new.env(parent = emptyenv())
   cx$local <- local %||% character()
   pieces <- code_pieces(src)
-  recs <- list()
+  tbl <- new.env(parent = emptyenv())
+  tbl$recs <- list()
   add <- function(off, role, level, text, always, filter, p) {
     rec <- list(off = as.numeric(off), line = findInterval(off, src$line_start), role = role,
                 level = level, text = text, always = always, filter = filter, p = p)
-    recs[[length(recs) + 1L]] <<- rec # <<- ok: appends to `recs` just above; five call sites stay one-liners
+    tbl$recs[[length(tbl$recs) + 1L]] <- rec
   }
   assigned <- character()
   for (p in pieces) {
@@ -489,7 +490,7 @@ checks_read <- function(src) {
         if (j == 1L || identical(a$name, "level") || identical(a$name, "decision")) next
         sp <- piece_span(p, a$node)
         add(sp[1L], "claim", level, text, always, FALSE, if (infn) NULL else ck_read_check(cx, t, a$node, dot))
-        recs[[length(recs)]]$line <- findInterval(piece_span(p, i)[1L], src$line_start)
+        tbl$recs[[length(tbl$recs)]]$line <- findInterval(piece_span(p, i)[1L], src$line_start)
       }
     }
   }
@@ -507,20 +508,20 @@ checks_read <- function(src) {
       }
     }
   }
-  if (!length(recs)) {
+  if (!length(tbl$recs)) {
     out <- checks_empty()
     attr(out, "rebound_names") <- character()
     return(out)
   }
-  ord <- order(vapply(recs, function(r) r$line, 1L), vapply(recs, function(r) r$off, 1), seq_along(recs))
-  recs <- recs[ord]
+  ord <- order(vapply(tbl$recs, function(r) r$line, 1L), vapply(tbl$recs, function(r) r$off, 1), seq_along(tbl$recs))
+  tbl$recs <- tbl$recs[ord]
   # the display orientation of two value operands: the first check on the pair in the document (N124)
   disp <- new.env(parent = emptyenv())
-  n <- length(recs)
+  n <- length(tbl$recs)
   value <- op <- other <- cond <- key <- rep(NA_character_, n)
   refs <- vector("list", n)
   for (q in seq_len(n)) {
-    p <- recs[[q]]$p
+    p <- tbl$recs[[q]]$p
     if (is.null(p)) next
     refs[[q]] <- p$refs
     if (p$op == "is") {
@@ -549,10 +550,10 @@ checks_read <- function(src) {
   rebound_names <- sort(names(counts)[counts > 1L], method = "radix")
   rebound <- vapply(refs, function(r) length(r) > 0L && any(r %in% rebound_names), NA)
   out <- data.frame(
-    file = rep(as.character(src$file), n), line = vapply(recs, function(r) r$line, 1L), role = vapply(recs, function(r) r$role, ""),
-    level = vapply(recs, function(r) r$level, ""), value = value, op = op, other = other, cond = cond, key = key,
-    text = vapply(recs, function(r) r$text, ""), always = vapply(recs, function(r) r$always, NA), rebound = rebound,
-    filter = vapply(recs, function(r) r$filter, NA), stringsAsFactors = FALSE)
+    file = rep(as.character(src$file), n), line = vapply(tbl$recs, function(r) r$line, 1L), role = vapply(tbl$recs, function(r) r$role, ""),
+    level = vapply(tbl$recs, function(r) r$level, ""), value = value, op = op, other = other, cond = cond, key = key,
+    text = vapply(tbl$recs, function(r) r$text, ""), always = vapply(tbl$recs, function(r) r$always, NA), rebound = rebound,
+    filter = vapply(tbl$recs, function(r) r$filter, NA), stringsAsFactors = FALSE)
   out$line <- as.integer(out$line)
   rownames(out) <- NULL
   attr(out, "rebound_names") <- rebound_names

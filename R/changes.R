@@ -346,11 +346,12 @@ sgn <- function(x) as.numeric(sign(x))
 # the structural reasons (C8) of one changed entry, in C8's order, with the place
 # of each in that order
 structural_reasons <- function(kind, arm_b, arm_a, b, a, keys, tb, ta, ub = NA_character_, ua = NA_character_) {
-  r <- character()
-  place <- integer()
+  tbl <- new.env(parent = emptyenv())
+  tbl$r <- character()
+  tbl$place <- integer()
   add <- function(txt, i) {
-    r <<- c(r, txt) # <<- ok: collects into `r` just above; six calls
-    place <<- c(place, i) # <<- ok: as `r`
+    tbl$r <- c(tbl$r, txt)
+    tbl$place <- c(tbl$place, i)
   }
   differs <- !(identical(arm_b, arm_a) || (is.na(arm_b) && is.na(arm_a)))
   if (!is.na(kind) && kind %in% c("n", "if", "sign", "list") && differs) {
@@ -386,7 +387,7 @@ structural_reasons <- function(kind, arm_b, arm_a, b, a, keys, tb, ta, ub = NA_c
     }
     if (b != 0 && a != 0 && abs(log10(abs(a / b))) >= 1 - 1e-9) add("order of magnitude", 6L)
   }
-  list(reasons = r, place = if (length(place)) min(place) else NA_integer_)
+  list(reasons = tbl$r, place = if (length(tbl$place)) min(tbl$place) else NA_integer_)
 }
 
 ENTRY_COLS <- c("ledger", "output", "file", "section", "kind", "expr", "occ", "id", "change", "structural",

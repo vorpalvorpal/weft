@@ -183,12 +183,13 @@ decision_pointer_rows <- function(src) {
   empty <- data.frame(file = character(), line = integer(), key = character(), decision = character(),
                       stringsAsFactors = FALSE)
   if (isTRUE(src$invalid)) return(empty)
-  parts <- list()
+  tbl <- new.env(parent = emptyenv())
+  tbl$parts <- list()
   add <- function(line, key, decision) {
     if (length(line)) {
       rows <- data.frame(file = rep(src$file, length(line)), line = as.integer(line), key = key,
                          decision = decision, stringsAsFactors = FALSE)
-      parts[[length(parts) + 1L]] <<- rows # <<- ok: appends to `parts` just above; three calls
+      tbl$parts[[length(tbl$parts) + 1L]] <- rows
     }
   }
   r <- src$rows
@@ -213,8 +214,8 @@ decision_pointer_rows <- function(src) {
       if (nrow(cd)) add(ch$code_line[j] + cd$line - 1L, "claim()", cd$decision)
     }
   }
-  if (!length(parts)) return(empty)
-  out <- do.call(rbind, parts)
+  if (!length(tbl$parts)) return(empty)
+  out <- do.call(rbind, tbl$parts)
   out <- out[order(out$line, seq_len(nrow(out))), , drop = FALSE]
   rownames(out) <- NULL
   out
