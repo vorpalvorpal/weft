@@ -700,7 +700,8 @@ plain text is the markdown text read as follows, so the two never disagree:
 
 - **PL1** Escape: `\` followed by an ASCII punctuation character
   (`` !"#$%&'()*+,-./:;<=>?@[\]^_`{|}~ ``) is that character, as text, and no
-  other rule sees it. `\` followed by a newline is a newline. Any other `\` is
+  other rule sees it. `\` followed by a newline is a newline, and `\` followed by a space is a
+  no-break space U+00A0 (Pandoc; review-e1 F13). Any other `\` is
   text.
 - **PL2** Code span: a run of n backticks, then text, then the next run of
   exactly n backticks. A code run of its content, verbatim (no rule applies

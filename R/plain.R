@@ -84,6 +84,10 @@ plain_read_chars <- function(ch) {
       } else if (!is.na(d) && d == "\n") {
         text("\n")
         i <- i + 2L
+      } else if (!is.na(d) && d == " ") {
+        # Pandoc: a backslash-space is a no-break space
+        text("\u00A0")
+        i <- i + 2L
       } else {
         text("\\")
         i <- i + 1L
@@ -216,13 +220,7 @@ plain_read_chars <- function(ch) {
         j <- j + 1L
       }
       if (ok && j > i + 1L) {
-        # Pandoc: a backslash-space in a script is a no-break space
         inner <- ch[(i + 1L):(j - 1L)]
-        w <- which(inner[-length(inner)] == "\\" & inner[-1L] == " ")
-        if (length(w)) {
-          inner[w] <- "\u00A0"
-          inner <- inner[-(w + 1L)]
-        }
         add(plain_run(if (c == "^") "sup" else "sub", kids = plain_read_chars(inner)))
         i <- j + 1L
       } else {
