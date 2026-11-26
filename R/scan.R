@@ -845,15 +845,14 @@ arm_tokens <- function(S, a, b, items = NULL) {
   ch <- S$chars
   istart <- items$start
   iend <- items$end
-  tp <- character()
-  tv <- character()
-  tpos <- integer()
-  tesc <- logical()
-  push <- function(type, val, pos, esc = FALSE) {
-    tp <<- c(tp, type)
-    tv <<- c(tv, val)
-    tpos <<- c(tpos, pos)
-    tesc <<- c(tesc, esc)
+  tk <- list(tp = character(), tv = character(), tpos = integer(), tesc = logical())
+  # the tokens `tk` with one more on the end
+  push <- function(tk, type, val, pos, esc = FALSE) {
+    tk$tp <- c(tk$tp, type)
+    tk$tv <- c(tk$tv, val)
+    tk$tpos <- c(tk$tpos, pos)
+    tk$tesc <- c(tk$tesc, esc)
+    tk
   }
   is_item <- function(i) if (length(istart)) match(i, istart) else NA_integer_
   i <- a
@@ -861,24 +860,24 @@ arm_tokens <- function(S, a, b, items = NULL) {
   while (i <= b) {
     k <- is_item(i)
     if (!is.na(k)) {
-      push("t", paste0(SENT_OPEN, k, SENT_CLOSE), i)
+      tk <- push(tk, "t", paste0(SENT_OPEN, k, SENT_CLOSE), i)
       i <- iend[k] + 1L
       next
     }
     c <- ch[i]
     if (i <= verbatim_to) {
-      push("t", c, i)
+      tk <- push(tk, "t", c, i)
       i <- i + 1L
       next
     }
     if (c == "\\") {
       nx <- if (i < b && is.na(is_item(i + 1L))) ch[i + 1L] else ""
       if (nx == "|") {
-        push("s", "|", i, TRUE)   # at the backslash
+        tk <- push(tk, "s", "|", i, TRUE)   # at the backslash
       } else if (nx == "#") {
-        push("h", "#", i + 1L)   # the backslash goes first, then `#` is read (1.5.12)
+        tk <- push(tk, "h", "#", i + 1L)   # the backslash goes first, then `#` is read (1.5.12)
       } else {
-        push("t", paste0(c, nx), i)
+        tk <- push(tk, "t", paste0(c, nx), i)
       }
       i <- i + 1L + nzchar(nx)
       next
@@ -888,19 +887,19 @@ arm_tokens <- function(S, a, b, items = NULL) {
       if (!is.na(e) && e <= b) {
         if (length(istart) && any(istart >= i & istart <= e)) {
           verbatim_to <- e
-          push("t", c, i)
+          tk <- push(tk, "t", c, i)
         } else {
-          push("t", paste(ch[i:e], collapse = ""), i)
+          tk <- push(tk, "t", paste(ch[i:e], collapse = ""), i)
           i <- e
         }
         i <- i + 1L
         next
       }
     }
-    if (c == "|") push("s", "|", i) else if (c == "#") push("h", "#", i) else push("t", c, i)
+    tk <- if (c == "|") push(tk, "s", "|", i) else if (c == "#") push(tk, "h", "#", i) else push(tk, "t", c, i)
     i <- i + 1L
   }
-  list(tp = tp, tv = tv, tpos = tpos, tesc = tesc)
+  tk
 }
 
 # Split the body `b1:b2` of a span. Returns the resolved arms, the position
@@ -1971,7 +1970,8 @@ check_ids <- function(rows, lenient = FALSE, known = character()) {
   nr <- nrow(rows)
   err <- rep(NA_character_, nr)
   if (!nr) return(err)
-  add <- function(k, msg) err[k] <<- if (is.na(err[k])) msg else paste(err[k], msg, sep = "\n")
+  # the errors `old` (or `NA`) with `msg` added on a line of its own
+  add <- function(old, msg) if (is.na(old)) msg else paste(old, msg, sep = "\n")
   is_def <- !is.na(rows$id) & rows$kind %in% c("value", "n", "if", "sign", "named")
   resolver <- if (is.null(rows$resolver)) rep("hooks", nr) else rows$resolver
   def <- which(is_def)
@@ -1992,7 +1992,8 @@ check_ids <- function(rows, lenient = FALSE, known = character()) {
     if (is.null(first[[id]])) {
       first[[id]] <- k
     } else {
-      add(k, sprintf("The id `%s` is defined twice; an id is unique within a document (rule 1.7.5).", id))
+      err[k] <- add(err[k], sprintf("The id `%s` is defined twice; an id is unique within a document (rule 1.7.5).",
+                                    id))
     }
   }
   refs <- which(rows$kind %in% c("n", "sign") & !is.na(rows$expr) &
@@ -2000,25 +2001,26 @@ check_ids <- function(rows, lenient = FALSE, known = character()) {
   for (k in refs) {
     id <- sub("^#", "", trim_ws(rows$expr[k]))
     d <- first[[id]]
-    if (is.null(d)) {
-      # a child document or a caption may define it: the knit decides
-      if (lenient || id %in% known) next
-      add(k, sprintf("The id `#%s` is not defined in this document (rule 1.7.10).", id))
+    # a child document or a caption may define it: the knit decides
+    if (is.null(d) && (lenient || id %in% known)) next
+    msg <- if (is.null(d)) {
+      sprintf("The id `#%s` is not defined in this document (rule 1.7.10).", id)
     } else if (resolver[k] == "hooks" && rows$kind[d] == "named" && resolver[d] == "filter") {
-      add(k, sprintf(paste0("`#%s` names an id on a named value, which the hooks cannot read; refer to an id ",
-                            "of the same form (rule 1.12.10)."), id))
+      sprintf(paste0("`#%s` names an id on a named value, which the hooks cannot read; refer to an id ",
+                     "of the same form (rule 1.12.10)."), id)
     } else if (resolver[k] == "filter" && resolver[d] == "hooks") {
-      add(k, sprintf(paste0("`#%s` names an id on an R value, which the filter cannot read; refer to an id ",
-                            "of the same form (rule 1.12.10)."), id))
+      sprintf(paste0("`#%s` names an id on an R value, which the filter cannot read; refer to an id ",
+                     "of the same form (rule 1.12.10)."), id)
     } else if (rows$kind[d] == "if") {
-      add(k, sprintf("The id `#%s` is on an `if` span, which has no printed number to refer to (rule 1.7.5).", id))
+      sprintf("The id `#%s` is on an `if` span, which has no printed number to refer to (rule 1.7.5).", id)
     } else if (!(rows$end[d] < rows$start[k])) {
-      add(k, sprintf("The id `#%s` is defined further down, not before this span (rule 1.7.10).", id))
+      sprintf("The id `#%s` is defined further down, not before this span (rule 1.7.10).", id)
     } else if (!all(chain(d) %in% chain(k))) {
-      add(k, sprintf(paste0("The id `#%s` is defined inside an arm that this span is not in; ",
-                            "an id in an arm can be referred to only from inside the same arm ",
-                            "(rule 1.7.11)."), id))
+      sprintf(paste0("The id `#%s` is defined inside an arm that this span is not in; ",
+                     "an id in an arm can be referred to only from inside the same arm ",
+                     "(rule 1.7.11)."), id)
     }
+    if (!is.null(msg)) err[k] <- add(err[k], msg)
   }
   err
 }
@@ -2118,16 +2120,16 @@ mask_text <- function(text) {
   r <- scan_text(text)
   if (nrow(r) == 0L) return(text)
   chars <- strsplit(text, "")[[1]]
+  # the characters of `a:b` that are not line breaks
   fill <- function(a, b) {
     idx <- a:b
-    idx <- idx[chars[idx] != "\n" & chars[idx] != "\r"]
-    chars[idx] <<- "x"
+    idx[chars[idx] != "\n" & chars[idx] != "\r"]
   }
   for (k in seq_len(nrow(r))) {
     if (r$kind[k] %in% c("bare", "value", "named")) {
-      fill(r$start[k], r$end[k])
+      chars[fill(r$start[k], r$end[k])] <- "x"
     } else if (!is.na(r$block_start[k])) {
-      fill(r$block_start[k], r$end[k])
+      chars[fill(r$block_start[k], r$end[k])] <- "x"
     }
   }
   paste(chars, collapse = "")

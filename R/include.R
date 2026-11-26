@@ -28,23 +28,25 @@ block_shortcode <- function(line) {
   if (!length(name)) return(NULL)
   rest <- trimws(substring(cap, nchar(name) + 1L))
   params <- character()
-  take <- function(rx) {
+  # the start of `rest` that `rx` matches, or NULL
+  lead <- function(rx) {
     hit <- regmatches(rest, regexpr(rx, rest, perl = TRUE))
-    if (length(hit)) {
-      rest <<- trimws(substring(rest, nchar(hit) + 1L))
-      hit
-    } else NULL
+    if (length(hit)) hit else NULL
   }
   while (nzchar(rest)) {
     # a named parameter (key="v", key='v', key=v) is not a positional one
-    if (!is.null(take("^[A-Za-z0-9_-]+=\"[^\"]*\"")) || !is.null(take("^[A-Za-z0-9_-]+='[^']*'")) ||
-        !is.null(take("^[A-Za-z0-9_-]+=[^\"'\\s]+"))) next
-    p <- take("^[^\"'\\s]+")
-    if (is.null(p)) {
-      p <- take("^\"[^\"]*\"|^'[^']*'")
-      if (is.null(p)) return(NULL)
-      p <- substr(p, 2L, nchar(p) - 1L)
+    named <- lead("^[A-Za-z0-9_-]+=\"[^\"]*\"") %||% lead("^[A-Za-z0-9_-]+='[^']*'") %||%
+      lead("^[A-Za-z0-9_-]+=[^\"'\\s]+")
+    if (!is.null(named)) {
+      rest <- trimws(substring(rest, nchar(named) + 1L))
+      next
     }
+    p <- lead("^[^\"'\\s]+")
+    quoted <- is.null(p)
+    if (quoted) p <- lead("^\"[^\"]*\"|^'[^']*'")
+    if (is.null(p)) return(NULL)
+    rest <- trimws(substring(rest, nchar(p) + 1L))
+    if (quoted) p <- substr(p, 2L, nchar(p) - 1L)
     params <- c(params, p)
   }
   list(name = name, params = params)
@@ -60,12 +62,13 @@ include_skipped_lines <- function(lines) {
   cell_rx <- "^\\s*(```+)\\s*\\{([=A-Za-z][=A-Za-z0-9._]*)( *[ ,].*)?\\}\\s*$"
   end_rx <- "^\\s*(```+)\\s*$"
   buf <- integer()
-  flush <- function(force = FALSE) {
-    if (length(buf) || force) {
+  # `skip` with the lines `buf` of one cell marked when the cell's text holds ```` ```{shortcodes=false} ````
+  flush <- function(skip, buf) {
+    if (length(buf)) {
       txt <- paste(lines[buf], collapse = "\n")
-      if (grepl("\\s*```\\s*\\{\\s*shortcodes\\s*=\\s*false\\s*\\}", txt, perl = TRUE)) skip[buf] <<- TRUE
+      if (grepl("\\s*```\\s*\\{\\s*shortcodes\\s*=\\s*false\\s*\\}", txt, perl = TRUE)) skip[buf] <- TRUE
     }
-    buf <<- integer()
+    skip
   }
   blank <- function(k) k >= 1L && k <= n && !nzchar(trimws(lines[k]))
   yaml_delim <- function(k, skip_hr) {
@@ -83,20 +86,20 @@ include_skipped_lines <- function(lines) {
     plain <- !in_cell && in_code == 0L && !in_yaml
     if (in_code == 0L && !in_cell && yaml_delim(k, !in_yaml)) {
       if (in_yaml) {
-        buf <- c(buf, k)
-        flush()
+        skip <- flush(skip, c(buf, k))
+        buf <- integer()
         in_yaml <- FALSE
       } else {
-        flush()
+        skip <- flush(skip, buf)
         buf <- k
         in_yaml <- TRUE
       }
     } else if (plain && maybe[k] && !is.null(tryCatch(block_shortcode(line), error = function(e) NULL))) {
-      flush()
-      buf <- k
-      flush()
+      skip <- flush(skip, buf)
+      skip <- flush(skip, k)
+      buf <- integer()
     } else if (plain && grepl(cell_rx, line, perl = TRUE)) {
-      flush()
+      skip <- flush(skip, buf)
       in_cell <- TRUE
       in_code <- nchar(sub(cell_rx, "\\1", line, perl = TRUE))
       buf <- k
@@ -104,7 +107,8 @@ include_skipped_lines <- function(lines) {
       buf <- c(buf, k)
       if (in_cell) {
         in_cell <- FALSE
-        flush(TRUE)
+        skip <- flush(skip, buf)
+        buf <- integer()
       }
       in_code <- 0L
     } else if (in_code == 0L && startsWith(line, "```")) {
@@ -115,8 +119,7 @@ include_skipped_lines <- function(lines) {
       buf <- c(buf, k)
     }
   }
-  flush()
-  skip
+  flush(skip, buf)
 }
 
 # The Quarto project root a leading `/` resolves against (I4): the folder of `_quarto.yml` above the main
@@ -177,24 +180,25 @@ include_walk <- function(path, lines = NULL, root = NULL,
   main <- norm_path(path)
   main_dir <- dirname(main)
   if (is.null(root)) root <- include_root(main_dir)
-  seen <- main
-  files <- list()
-  missing <- character()
-  walk <- function(ln, in_included) {
+  # `acc` (the files found so far, the paths that are not a file, and every path reached) with the
+  # includes of the lines `ln` added, depth first
+  walk <- function(ln, in_included, acc) {
     tg <- include_targets(ln, main_dir, root, in_included)
     for (p in tg$path) {
-      if (p %in% seen) next
+      if (p %in% acc$seen) next
       if (!utils::file_test("-f", p)) {
-        missing <<- c(missing, p)
+        acc$missing <- c(acc$missing, p)
         next
       }
-      seen <<- c(seen, p)
+      acc$seen <- c(acc$seen, p)
       il <- read(p)
-      files[[length(files) + 1L]] <<- list(path = p, lines = il %||% character())
-      if (length(il)) walk(il, TRUE)
+      acc$files[[length(acc$files) + 1L]] <- list(path = p, lines = il %||% character())
+      if (length(il)) acc <- walk(il, TRUE, acc)
     }
+    acc
   }
+  acc <- list(files = list(), missing = character(), seen = main)
   if (is.null(lines)) lines <- read(main)
-  if (length(lines)) walk(lines, FALSE)
-  list(files = files, missing = unique(missing))
+  if (length(lines)) acc <- walk(lines, FALSE, acc)
+  list(files = acc$files, missing = unique(acc$missing))
 }

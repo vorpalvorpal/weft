@@ -682,10 +682,12 @@ guest_call <- function(ch, track) {
 guest_prepare <- function(code, envir) {
   ex <- parse(text = code, keep.source = FALSE)
   if (!grepl("py", code, fixed = TRUE) && !grepl("jl_value", code, fixed = TRUE)) return(ex)
-  py_guest <- NULL
+  # whether `py` in `envir` is the guest, asked the first time a read needs it
+  memo <- new.env(parent = emptyenv())
+  memo$py_guest <- NULL
   is_guest <- function() {
-    if (is.null(py_guest)) py_guest <<- py_is_guest(envir)
-    py_guest
+    if (is.null(memo$py_guest)) memo$py_guest <- py_is_guest(envir)
+    memo$py_guest
   }
   read_of <- function(node) {
     ch <- guest_chain(node)

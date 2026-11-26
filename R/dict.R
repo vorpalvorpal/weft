@@ -42,9 +42,6 @@ DICT_KEY_RX <- paste0(
 # `tk`). `first` and `last` bound the lines of the dictionary.
 dict_prepare <- function(lines, first = 1L, last = length(lines), docs = TRUE) {
   pre <- list()
-  add <- function(line, what, key = NULL) {
-    pre[[length(pre) + 1L]] <<- list(line = line, what = what, key = key)
-  }
   none <- data.frame(key = character(), line = integer(), plain = logical(),
                      stringsAsFactors = FALSE)
   out <- lines
@@ -57,7 +54,8 @@ dict_prepare <- function(lines, first = 1L, last = length(lines), docs = TRUE) {
   if (docs && any(body)) {
     later <- which(grepl("^---(\\s|$)", txt) & seq_along(txt) > which(body)[1L])
     if (length(later)) {
-      add(idx[later[1L]], "the file holds more than one YAML document; write one")
+      pre[[length(pre) + 1L]] <- list(line = idx[later[1L]],
+                                      what = "the file holds more than one YAML document; write one", key = NULL)
     }
   }
   merge <- which(body & grepl("^\\s*(-\\s+)?<<\\s*:|[{,]\\s*<<\\s*:", txt))
@@ -94,7 +92,8 @@ dict_prepare <- function(lines, first = 1L, last = length(lines), docs = TRUE) {
           fp <- regmatches(txt[fl], fm[ok])
           fk <- vapply(fp, function(z) z[3L], "")
           for (d in which(duplicated(fk))) {
-            add(idx[fl[d]], sprintf("`%s` is written twice", fk[d]), key[j])
+            pre[[length(pre) + 1L]] <- list(line = idx[fl[d]], what = sprintf("`%s` is written twice", fk[d]),
+                                            key = key[j])
             out[idx[fl[d]]] <- paste0(strrep(" ", ind[fl[d]]), "weft_dup_", idx[fl[d]], ":",
                                       substring(txt[fl[d]], nchar(fp[[d]][1L]) + 1L))
           }
@@ -104,8 +103,8 @@ dict_prepare <- function(lines, first = 1L, last = length(lines), docs = TRUE) {
   }
   for (z in merge) {
     owner <- tk$key[tk$line <= idx[z]]
-    add(idx[z], "merge keys are not read (`<<`); write the fields out",
-        if (length(owner)) owner[length(owner)] else NULL)
+    pre[[length(pre) + 1L]] <- list(line = idx[z], what = "merge keys are not read (`<<`); write the fields out",
+                                    key = if (length(owner)) owner[length(owner)] else NULL)
   }
   list(lines = out, tk = tk, pre = pre)
 }
@@ -187,13 +186,16 @@ read_dict <- function(path = "dict.yml") {
 # what dict_prepare() found.
 build_dict <- function(raw, file, scope, lines = character(), first = 1L, offset = 0L,
                        prep = NULL) {
-  problems <- character()
-  at <- integer()
+  # the problems found and the line of each (`NA` for none); prob() records one, and is handed to
+  # dict_avoid() and dict_spellings(), so it writes to this environment rather than returning
+  found <- new.env(parent = emptyenv())
+  found$problems <- character()
+  found$at <- integer()
   prob <- function(what, rule, key = NULL, line = NA_integer_) {
     where <- if (is.na(line)) file else paste0(file, ":", line)
-    problems <<- c(problems, if (is.null(key)) sprintf("%s: %s (rule %s)", where, what, rule)
-                   else sprintf("%s: `%s`: %s (rule %s)", where, key, what, rule))
-    at <<- c(at, line)
+    found$problems <- c(found$problems, if (is.null(key)) sprintf("%s: %s (rule %s)", where, what, rule)
+                        else sprintf("%s: `%s`: %s (rule %s)", where, key, what, rule))
+    found$at <- c(found$at, line)
   }
   for (z in prep$pre) prob(z$what, "4.2.1", z$key, z$line + offset)
   yerr <- attr(raw, "yaml_error")
@@ -240,32 +242,34 @@ build_dict <- function(raw, file, scope, lines = character(), first = 1L, offset
   installed <- character()
   # `avoid` is read once more with `true` and `false` marked and every list
   # kept as a list: YAML reads them as booleans, which weft reads as text
-  # elsewhere (4.2.5), and a list of one string as that string
-  raw2 <- NULL
+  # elsewhere (4.2.5), and a list of one string as that string. `reread` keeps each extra read of the
+  # file, made the first time it is needed
+  reread <- new.env(parent = emptyenv())
+  reread$raw2 <- NULL
   avoid_raw <- function(i) {
     if (scope != "project" || is.null(prep)) return(NULL)
-    if (is.null(raw2)) {
+    if (is.null(reread$raw2)) {
       h <- list(seq = function(x) structure(as.list(x), class = "weft_seq"),
                 "bool#yes" = mark_bool, "bool#no" = mark_bool)
-      raw2 <<- tryCatch(yaml_read_text(prep$lines, handlers = h), error = function(e) list())
-      if (length(raw2) != length(raw)) raw2 <<- list()
+      reread$raw2 <- tryCatch(yaml_read_text(prep$lines, handlers = h), error = function(e) list())
+      if (length(reread$raw2) != length(raw)) reread$raw2 <- list()
     }
-    e2 <- raw2[[i]]
+    e2 <- reread$raw2[[i]]
     if (is.list(e2) && "avoid" %in% names(e2)) e2[["avoid"]] else NULL
   }
   # the decimals a number was written with (`0.50` is read as 0.5): the file
   # read once more, with a float marked by its text
-  wr <- NULL
+  reread$wr <- NULL
   written <- function(i) {
     if (is.null(prep)) return(NULL)
-    if (is.null(wr)) {
+    if (is.null(reread$wr)) {
       h <- c(dict_yaml_handlers(),
              list("float#fix" = function(x) structure(as.numeric(x), decimals = text_decimals(x))))
       y <- tryCatch(suppressWarnings(yaml_read_text(prep$lines, handlers = h)), error = function(e) list())
       if (scope != "project") y <- if (is.list(y) && is.list(y$weft)) y$weft$dict_local else list()
-      wr <<- if (is.list(y) && length(y) == length(raw)) y else list()
+      reread$wr <- if (is.list(y) && length(y) == length(raw)) y else list()
     }
-    if (length(wr) >= i) wr[[i]] else NULL
+    if (length(reread$wr) >= i) reread$wr[[i]] else NULL
   }
   decs <- rep(NA_integer_, length(raw))
   canon <- rep(NA_character_, length(raw))
@@ -287,7 +291,7 @@ build_dict <- function(raw, file, scope, lines = character(), first = 1L, offset
       next
     }
     e <- e[!startsWith(names(e), "weft_dup_")]
-    n0 <- length(problems)
+    n0 <- length(found$problems)
     unk <- setdiff(names(e), DICT_FIELDS)
     for (f in unk) {
       p(sprintf("unknown field `%s`; the fields are %s", f, paste(DICT_FIELDS, collapse = ", ")), "4.2.1")
@@ -360,7 +364,7 @@ build_dict <- function(raw, file, scope, lines = character(), first = 1L, offset
         }
       }
     }
-    if (type_ok && type %in% c("quantity", "range") && !is.na(unit) && length(problems) == n0) {
+    if (type_ok && type %in% c("quantity", "range") && !is.na(unit) && length(found$problems) == n0) {
       u <- dict_in_unit(values[[i]], type, unit, disp, p)
       installed <- c(installed, u$installed)
       registered <- c(registered, u$registered)
@@ -373,10 +377,10 @@ build_dict <- function(raw, file, scope, lines = character(), first = 1L, offset
                       term = trm, avoid = avd)
   }
   if (scope == "project") dict_spellings(rows, tprob, canon, keys, key_line, prob)
-  if (length(problems)) {
+  if (length(found$problems)) {
     # a read that reports problems installs no unit (ruling 6)
     for (tok in unique(installed)) try(units::remove_unit(tok, tok), silent = TRUE)
-    problems <- problems[order(ifelse(is.na(at), 0L, at))]
+    problems <- found$problems[order(ifelse(is.na(found$at), 0L, found$at))]
     dict_abort(paste0(sprintf("weft: %s: %d problem(s) in the dictionary", file, length(problems)),
                       "\n", paste(problems, collapse = "\n")))
   }

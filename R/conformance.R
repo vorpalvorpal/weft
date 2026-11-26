@@ -164,16 +164,17 @@ conf_n_text <- function(value, one, many) {
 
 conf_words_rows <- function() {
   d <- conf_frame(character(), character(), character(), character())
-  add <- function(vals, cl, f) {
+  # the rows of `vals` under the class `cl`, with the text the formatter `f` gives
+  rows_of <- function(vals, cl, f) {
     dd <- conf_frame(vals, cl, "", "")
     dd$text <- vapply(dd$value, function(v) conf_text(f, v, ""), "", USE.NAMES = FALSE)
-    d <<- rbind(d, dd)
+    dd
   }
-  add(as.character(c(0:20, 25, 99, 100, 1000, 1234567)), "word", fmt_word)
-  add(as.character(c(0:4, 10:14, 20:24, 31, 99, 100, 101, 102, 111, 112, 113, 121, 1000, 1001, 1234567)),
-      "ord", fmt_ord)
-  add(as.character(c(0:15, 99, 100, 1000, 1234567)), "count", fmt_count)
-  add(as.character(c(0, 1, 2, 3, 9, 10, 11, 12, 100)), "no", fmt_no)
+  d <- rbind(d, rows_of(as.character(c(0:20, 25, 99, 100, 1000, 1234567)), "word", fmt_word))
+  d <- rbind(d, rows_of(as.character(c(0:4, 10:14, 20:24, 31, 99, 100, 101, 102, 111, 112, 113, 121, 1000, 1001,
+                                       1234567)), "ord", fmt_ord))
+  d <- rbind(d, rows_of(as.character(c(0:15, 99, 100, 1000, 1234567)), "count", fmt_count))
+  d <- rbind(d, rows_of(as.character(c(0, 1, 2, 3, 9, 10, 11, 12, 100)), "no", fmt_no))
   gov <- c("0", "1", "2", "3", "11", "21", "100", "1000000")
   forms <- list(c("site", "sites"), c("child", "children"))
   for (f in forms) {
@@ -367,8 +368,10 @@ conf_p_rows <- function() {
 conf_collapse_rows <- function() {
   ltr <- "c(\"a\", \"b\", \"c\", \"d\", \"e\")"
   w4 <- "c(\"a\", \"b\", \"c\", \"d\")"
-  out <- conf_frame(character(), character(), character(), character())
-  add <- function(vals, cl, keys = "") out <<- rbind(out, conf_frame(vals, cl, keys, ""))
+  # the table so far: add() extends it, and is called too often for each call to assign its result
+  tbl <- new.env(parent = emptyenv())
+  tbl$out <- conf_frame(character(), character(), character(), character())
+  add <- function(vals, cl, keys = "") tbl$out <- rbind(tbl$out, conf_frame(vals, cl, keys, ""))
   # .pairs
   pv <- c("c(A = 1.2, B = 3.4, C = 5.6)", "c(A = 1.2, B = 3.4)", "c(A = 1.25)",
           "c(A = 1.2, B = 3.4, C = 5.6, D = 7.8)", "c(north = 10, south = 2.5)",
@@ -420,12 +423,14 @@ conf_collapse_rows <- function() {
   add("c(1, 2, 3, 12)", "count or")
   add("c(1, 2, 3)", "ord and", "cfg.serial_comma=true")
   add("c(1, 2, 3, 4, 5)", "word and", "trunc=2")
-  conf_finish(out)
+  conf_finish(tbl$out)
 }
 
 conf_text_rows <- function() {
-  out <- conf_frame(character(), character(), character(), character())
-  add <- function(vals, cl, keys = "") out <<- rbind(out, conf_frame(vals, cl, keys, ""))
+  # the table so far: add() extends it, and is called too often for each call to assign its result
+  tbl <- new.env(parent = emptyenv())
+  tbl$out <- conf_frame(character(), character(), character(), character())
+  add <- function(vals, cl, keys = "") tbl$out <- rbind(tbl$out, conf_frame(vals, cl, keys, ""))
   # .a: by sound, on numbers and number words
   an <- c("0", "1", "2", "3", "8", "9", "10", "11", "12", "18", "19", "80", "81", "89", "90", "100",
           "800", "899", "900", "1000", "8000", "11000", "18000", "80000", "100000", "800000",
@@ -458,14 +463,16 @@ conf_text_rows <- function() {
   add("\"apples\"", "cap strong")
   add("\"apples\"", "em")
   add("5", "word strong")
-  conf_finish(out)
+  conf_finish(tbl$out)
 }
 
 conf_governors_rows <- function() {
-  out <- conf_frame(character(), character(), character(), character())
+  # the table so far: add() extends it, and is called too often for each call to assign its result
+  tbl <- new.env(parent = emptyenv())
+  tbl$out <- conf_frame(character(), character(), character(), character())
   add <- function(vals, cl, span, extra = "") {
     keys <- paste(c(paste0("span=", conf_esc(span)), if (nzchar(extra)) extra), collapse = " ")
-    out <<- rbind(out, conf_frame(vals, cl, keys, ""))
+    tbl$out <- rbind(tbl$out, conf_frame(vals, cl, keys, ""))
   }
   k <- c("0", "1", "2", "3", "11", "100", "1234", "1.5", "0.04", "1L", "2L")
   # n: arm counts 1 to 4
@@ -531,7 +538,7 @@ conf_governors_rows <- function() {
   add(c("c(1, 2, 3)", "5L"), "list word", l3)
   add(c("as.Date(\"2024-03-05\")", "as.Date(c(\"2024-03-05\", \"2024-12-25\"))"), "list", l3)
   add(c("as.Date(\"2024-03-05\")", "as.Date(c(\"2024-03-05\", \"2024-12-25\"))"), "list date", l3)
-  conf_finish(out)
+  conf_finish(tbl$out)
 }
 
 # ---- the TeX set (dev/design-9.md, D80): tex.tsv ----------------------------------------------
@@ -541,10 +548,12 @@ conf_governors_rows <- function() {
 # are untouched. Regenerate with `conformance_write(dir, sets = CONF_TEX_SETS)`.
 
 conf_tex_rows <- function() {
-  out <- conf_frame(character(), character(), character(), character())
+  # the table so far: add() extends it, and is called too often for each call to assign its result
+  tbl <- new.env(parent = emptyenv())
+  tbl$out <- conf_frame(character(), character(), character(), character())
   add <- function(vals, classes, extra = "") {
     keys <- paste(c("target=tex", if (nzchar(extra)) extra), collapse = " ")
-    out <<- rbind(out, conf_frame(vals, classes, keys, ""))
+    tbl$out <- rbind(tbl$out, conf_frame(vals, classes, keys, ""))
   }
   nums <- c("1234567.891", "-1234567.891", "-1234567.89", "999.95", "3", "0.5", "-2.5", "0", "1000", "999",
             "0.995", "pi", "1234.5678", "0.04", "-0.04", "100000", "1e-6", "12", "0.15", "1234.5", "1/3")
@@ -610,7 +619,7 @@ conf_tex_rows <- function() {
     add(rg, "range plus", paste0("digits=", k))
   }
   for (k in 1:2) add(rg, "range", paste0("sigfig=", k))
-  conf_finish(out)
+  conf_finish(tbl$out)
 }
 
 CONF_NEW_SETS <- c("dates", "sci", "p", "collapse", "text", "governors")

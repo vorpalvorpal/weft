@@ -299,9 +299,10 @@ glossary_value <- function(v, type, one_line, dec = NA_integer_, converted = FAL
   if (type == "date") return(as.character(fmt_date(v)))
   if (converted) {
     # a display unit that prints the value as zero: the entry's own unit, with no warning (4.7.1)
-    zeroed <- FALSE
-    txt <- as.character(apply_formatters(v, ".num", on_zero = function(msg) zeroed <<- TRUE))
-    if (!zeroed) return(txt)
+    zero <- new.env(parent = emptyenv())
+    zero$seen <- FALSE
+    txt <- as.character(apply_formatters(v, ".num", on_zero = function(msg) zero$seen <- TRUE))
+    if (!zero$seen) return(txt)
     if (!is.na(unit)) v <- u_make(v, unit)
     converted <- FALSE
   }

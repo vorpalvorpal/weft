@@ -13,9 +13,11 @@ LC_WS <- c(" ", "\t", "\r", "\n")
 attr_tokens <- function(blk, base) {
   ch <- strsplit(blk, "")[[1L]]
   n <- length(ch)
-  nm <- character(); ty <- character(); ps <- numeric(); vs <- numeric(); vl <- character()
-  put <- function(a, b, c, d, e) {
-    nm <<- c(nm, a); ty <<- c(ty, b); ps <<- c(ps, c); vs <<- c(vs, d); vl <<- c(vl, e)
+  tk <- list(nm = character(), ty = character(), ps = numeric(), vs = numeric(), vl = character())
+  # the tokens `tk` with one more on the end
+  put <- function(tk, a, b, c, d, e) {
+    tk$nm <- c(tk$nm, a); tk$ty <- c(tk$ty, b); tk$ps <- c(tk$ps, c); tk$vs <- c(tk$vs, d); tk$vl <- c(tk$vl, e)
+    tk
   }
   stops <- c(LC_WS, "}")
   i <- 2L
@@ -26,7 +28,8 @@ attr_tokens <- function(blk, base) {
     if (c == "." || c == "#") {
       e <- i
       while (e < n && !(ch[e + 1L] %in% stops)) e <- e + 1L
-      put(paste(ch[i:e], collapse = ""), if (c == ".") "class" else "id", base + i - 1, NA_real_, NA_character_)
+      tk <- put(tk, paste(ch[i:e], collapse = ""), if (c == ".") "class" else "id", base + i - 1, NA_real_,
+                NA_character_)
       i <- e + 1L
       next
     }
@@ -43,17 +46,17 @@ attr_tokens <- function(blk, base) {
       idx <- if (vp + 1L <= n) which(ch[(vp + 1L):n] == q) else integer()
       cl <- if (length(idx)) vp + idx[1L] else n + 1L
       val <- if (cl > vp + 1L) paste(ch[(vp + 1L):(min(cl, n + 1L) - 1L)], collapse = "") else ""
-      put(key, "key", base + i - 1, base + vp, val)
+      tk <- put(tk, key, "key", base + i - 1, base + vp, val)
       i <- cl + 1L
     } else {
       e <- vp
       while (e <= n && !(ch[e] %in% stops)) e <- e + 1L
       val <- if (e > vp) paste(ch[vp:(e - 1L)], collapse = "") else ""
-      put(key, "key", base + i - 1, base + vp - 1, val)
+      tk <- put(tk, key, "key", base + i - 1, base + vp - 1, val)
       i <- e
     }
   }
-  data.frame(name = nm, type = ty, pos = ps, vstart = vs, value = vl, stringsAsFactors = FALSE)
+  data.frame(name = tk$nm, type = tk$ty, pos = tk$ps, vstart = tk$vs, value = tk$vl, stringsAsFactors = FALSE)
 }
 
 # ---- parse data as a tree --------------------------------------------------------------
@@ -377,20 +380,20 @@ FORMAT_FNS <- c("round", "signif", "format", "formatC", "prettyNum", "sprintf")
 value_constants <- function(p) {
   t <- p$tree
   tk <- t$pd$token
-  found <- list()
+  # the constants under the node `i`, in the order they are written
   walk <- function(i, exempt) {
-    if (tk[i] != "expr") return(invisible())
+    if (tk[i] != "expr") return(list())
     k <- t$kids[[i]]
     if (length(k) == 1L && tk[k] == "NUM_CONST") {
       v <- num_value(t, i)
-      if (!exempt && !is.na(v) && !(v %in% c(0, 1))) found[[length(found) + 1L]] <<- list(from = i, to = i)
-      return(invisible())
+      if (!exempt && !is.na(v) && !(v %in% c(0, 1))) return(list(list(from = i, to = i)))
+      return(list())
     }
     if (length(k) == 2L && tk[k[1L]] == "'-'" && length(t$kids[[k[2L]]]) == 1L &&
         tk[t$kids[[k[2L]]]] == "NUM_CONST") {
       v <- num_value(t, k[2L])
-      if (!exempt && !is.na(v) && !(v %in% c(0, 1))) found[[length(found) + 1L]] <<- list(from = k[1L], to = k[2L])
-      return(invisible())
+      if (!exempt && !is.na(v) && !(v %in% c(0, 1))) return(list(list(from = k[1L], to = k[2L])))
+      return(list())
     }
     ci <- call_info(t, i)
     argex <- integer()
@@ -402,10 +405,12 @@ value_constants <- function(p) {
         if ((claim && j >= 2L && !identical(a$name, "level")) || (fmt && j >= 2L)) argex <- c(argex, a$node)
       }
     }
-    for (kk in k) if (tk[kk] == "expr") walk(kk, exempt || kk %in% argex)
-    invisible()
+    found <- list()
+    for (kk in k) if (tk[kk] == "expr") found <- c(found, walk(kk, exempt || kk %in% argex))
+    found
   }
-  for (r in t$roots) walk(r, FALSE)
+  found <- list()
+  for (r in t$roots) found <- c(found, walk(r, FALSE))
   found
 }
 
@@ -550,26 +555,29 @@ span_items <- function(src) {
   if (!is.null(src$cache$span_items)) return(src$cache$span_items)
   reg <- src$regions
   rows <- src$rows
-  items <- list()
-  seen <- numeric()
   sp <- reg[reg$type == "span" & !is.na(reg$attr_start), , drop = FALSE]
-  add_span <- function(open, close, astart, aend, row) {
-    if (open %in% seen) return(invisible())
-    seen <<- c(seen, open)
+  # `acc` (the items so far, and the opening of each span among them) with the span added, unless a span
+  # that opens at the same place is there already
+  add_span <- function(acc, open, close, astart, aend, row) {
+    if (open %in% acc$seen) return(acc)
+    acc$seen <- c(acc$seen, open)
     tk <- attr_tokens(src_substr(src, astart, aend), astart)
-    items[[length(items) + 1L]] <<- list(kind = "span", open = open, close = close, astart = astart,
-                                         aend = aend, toks = tk, row = row)
+    acc$items[[length(acc$items) + 1L]] <- list(kind = "span", open = open, close = close, astart = astart,
+                                                aend = aend, toks = tk, row = row)
+    acc
   }
+  acc <- list(items = list(), seen = numeric())
   for (i in seq_len(nrow(sp))) {
     row <- if (is.na(sp$row[i])) NA_integer_ else sp$row[i]
-    add_span(sp$inner_start[i], sp$inner_end[i], sp$attr_start[i], sp$attr_end[i], row)
+    acc <- add_span(acc, sp$inner_start[i], sp$inner_end[i], sp$attr_start[i], sp$attr_end[i], row)
   }
   for (i in seq_len(nrow(sp))) {
     nested <- find_spans(src_substr(src, sp$start[i], sp$end[i]), sp$start[i])
     for (j in seq_len(nrow(nested))) {
-      add_span(nested$open[j], nested$close[j], nested$astart[j], nested$aend[j], NA_integer_)
+      acc <- add_span(acc, nested$open[j], nested$close[j], nested$astart[j], nested$aend[j], NA_integer_)
     }
   }
+  items <- acc$items
   ca <- reg[reg$type == "code_attr" & !is.na(reg$attr_start), , drop = FALSE]
   for (i in seq_len(nrow(ca))) {
     tk <- attr_tokens(src_substr(src, ca$attr_start[i], ca$attr_end[i]), ca$attr_start[i])

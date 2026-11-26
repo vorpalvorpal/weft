@@ -9,15 +9,16 @@ unit_parse_problem <- function(txt) {
   if (grepl("\\^[ ]*[(]?[ ]*[+-]?[0-9]*[.][0-9]|\\^[ ]*[(][^)]*/", txt)) {
     return(sprintf("a power that is not a whole number (%s) is not supported (rule 4.4.6)", txt))
   }
-  warned <- NULL
+  st <- new.env(parent = emptyenv())
+  st$warned <- NULL
   r <- withCallingHandlers(
     tryCatch({ units::as_units(txt); NULL },
              error = function(e) sub("\n.*$", "", conditionMessage(e))),
     warning = function(w) {
-      warned <<- sub("\n.*$", "", conditionMessage(w))
+      st$warned <- sub("\n.*$", "", conditionMessage(w))
       invokeRestart("muffleWarning")
     })
-  r %||% warned
+  r %||% st$warned
 }
 
 # Whether converting `from` to `to` (both `units` quantities or symbolic units)
