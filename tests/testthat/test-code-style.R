@@ -20,3 +20,14 @@ test_that("R/ uses no super-assignment (<<- or ->>) without a recorded reason", 
   expect(length(hits) == 0L,
          sprintf("%d super-assignment line(s) in R/:\n%s", length(hits), paste(hits, collapse = "\n")))
 })
+
+# A kept `<<-` is safe only while its target is bound in an enclosing function: when the binding is
+# renamed or deleted, the write lands in the global environment with no error. codetools sees that.
+test_that("every kept <<- writes a variable bound in an enclosing function", {
+  skip_if_not_installed("codetools")
+  st <- new.env(parent = emptyenv())
+  st$msgs <- character()
+  codetools::checkUsageEnv(asNamespace("weft"), report = function(s) st$msgs <- c(st$msgs, s))
+  bad <- grep("no visible binding for '<<-' assignment", st$msgs, value = TRUE, fixed = TRUE)
+  expect(length(bad) == 0L, paste(c("<<- to an unbound name:", trimws(bad)), collapse = "\n"))
+})
