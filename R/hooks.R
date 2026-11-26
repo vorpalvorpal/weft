@@ -247,14 +247,36 @@ eager_row <- function(s, code) {
   n <- length(F$inline_code)
   ptr <- F$park_ptr
   if (ptr > n) return(NULL)
-  j <- match(unwrap_quarto(trim_ws(code)), F$inline_code[ptr:n])
+  key <- unwrap_quarto(trim_ws(code))
+  # the next piece is the usual one
+  j <- if (isTRUE(F$inline_code[ptr] == key)) ptr else next_inline(F, key, ptr)
   if (is.na(j)) return(NULL)
-  j <- ptr + j - 1L
   F$park_ptr <- j + 1L
   if (F$inline_kind[j] != "bare" || !is.na(F$inline_parent[j]) ||
       !is.na(F$inline_error[j])) return(NULL)
   s$early_row <- list(F = F, line = F$inline_line[j])
   s$early_row
+}
+
+# The first piece of the scan at or after `ptr` whose code is `key`, as
+# `ptr - 1 + match(key, F$inline_code[ptr:n])` finds it, from an index of the
+# pieces by their code that is built once per file. The index is an
+# environment, whose names R limits in length: a longer code, or NA, is
+# matched as it was.
+next_inline <- function(F, key, ptr) {
+  code <- F$inline_code
+  indexed <- function(x) !is.na(x) & nchar(x, type = "bytes") < 9000L
+  if (!indexed(key)) {
+    j <- match(key, code[ptr:length(code)])
+    return(if (is.na(j)) j else ptr + j - 1L)
+  }
+  if (is.null(F$inline_at)) {
+    ok <- which(indexed(code))
+    F$inline_at <- list2env(split(ok, paste0("k", code[ok])), parent = emptyenv())
+  }
+  at <- F$inline_at[[paste0("k", key)]]
+  at <- at[at >= ptr]
+  if (length(at)) at[1L] else NA_integer_
 }
 
 early_line <- function(s) {
