@@ -282,30 +282,34 @@ format_numbers <- function(value, class, keys, cfg, bound = NULL, range = FALSE,
   default <- is.null(digits) && is.null(sigfig) && class %in% c(".num", ".pct")
   # `.range` prints both ends to the default decimals; that is not a `digits` given
   if (range && default && !all(whole(value[is.finite(value)]))) digits <- cfg$digits
-  hit <- rep(FALSE, length(value))
-  shown <- rep("", length(value))
+  # one element printed (`p`); `hit` when it printed as zero, with `shown`, the value as written
   one <- function(i) {
     v <- value[i]
-    if (class == ".sci") return(sci_one(v, digits, sigfig, cfg))
+    if (class == ".sci") return(list(p = sci_one(v, digits, sigfig, cfg), hit = FALSE, shown = ""))
     sv <- if (class == ".pct" && isTRUE(cfg$pct_proportion)) v * 100 else v
     p <- print_one(sv, digits, sigfig, cfg, quantity)
     p$text <- zero_noise(p, cfg)
+    hit <- FALSE
+    shown <- ""
     if (default && p$number == 0 && sv != 0 && !whole(sv)) {
       if (bound[i]) {
         nd <- 0L
         while (nd < 15L && abs(sv - round(sv, nd)) > 1e-12 * max(1, abs(sv))) nd <- nd + 1L
         p <- print_one(sv, nd, NULL, cfg)
       } else {
-        hit[i] <<- TRUE
-        shown[i] <<- trimws(format(signif(sv, 12), scientific = FALSE, drop0trailing = TRUE))
+        hit <- TRUE
+        shown <- trimws(format(signif(sv, 12), scientific = FALSE, drop0trailing = TRUE))
       }
     }
     # `.plus` (N2 to N4): a number printed above zero takes `+` where the minus would stand
     if (plus && p$number > 0) p$text <- paste0("+", p$text)
     if (class == ".pct") p$text <- paste0(p$text, if (isTRUE(cfg$tex)) "\\%" else "%")
-    p
+    list(p = p, hit = hit, shown = shown)
   }
-  res <- lapply(seq_along(value), one)
+  each <- lapply(seq_along(value), one)
+  hit <- vapply(each, `[[`, NA, "hit")
+  shown <- vapply(each, `[[`, "", "shown")
+  res <- lapply(each, `[[`, "p")
   out <- new_weft_text(
     vapply(res, `[[`, "", "text"),
     number = vapply(res, `[[`, 0, "number"),
