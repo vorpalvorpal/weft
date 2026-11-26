@@ -855,3 +855,64 @@ that change behaviour. Details are in the design and review notes named.
   cannot read as assigning (it errs towards not failing a correct render).
   Alternative for the last: compare object identity after each chunk;
   there is no supported cheap identity for every object.
+- **Review of E3** (`dev/review-e3.md`). Under a sink, `print()` uses the
+  smaller of the `stdout()` and `"auto"` colour counts, so a sink gets
+  plain text unless colour is forced (alternative: trust `stdout()`, which
+  does not see sinks). A failure marker in joined text is still drawn
+  (alternative: plain, as C4 said; the marker is the one thing that must
+  be seen); markers are styled inside math and across line breaks.
+- **Review of E4** (`dev/review-e4.md`). A script is skipped by its own
+  nearest `_weft.yml` (`scripts_skip`, paths relative to that folder), in
+  every reader and the gate. `scripts_skip: ~` means the default `[tests]`
+  and `[]` reads every script (alternative: M1; an emptied key is more
+  likely a commented-out list). Only the bare symbol `weft` (or
+  `weft::weft`) is a weft call; on the right of a pipe the left side is
+  `x` unless an argument is named `x`. Scripts are read by weft's own
+  reader whatever `reader` is.
+
+## Simplify pass (2026-11-26, orchestrator; Robin asked for it)
+
+Four reviews (reuse, simplification, efficiency, altitude) over R/, the
+Lua filter and the Python module; findings and batches in the session
+scratchpad. Behaviour was held fixed by filtered test runs and golden
+comparisons of `read_source()` and of knits; the fixes below that change
+behaviour went through test-first.
+
+- **Four bugs the reviews found are fixed.** The gate read only the default
+  `scripts_skip` (it now reads each side's `_weft.yml`). `\ ` in plain
+  prose is U+00A0 in the plain form, as Pandoc reads it (PL1 amended). A
+  `weft()` string in a `!expr` caption of a block-quoted chunk is masked by
+  the lints. `dict_glossary()` no longer pins the session's units: the
+  narrow fix (`explicit = FALSE`) rather than dropping the `explicit`
+  parameter, which would rewrite about 90 test calls for no visible gain.
+- **One include reader, following Quarto** (Robin: "check what Quarto does
+  and then do it"). Quarto 1.11.9 was tested by experiment; the rules (I1
+  to I7) are in `dev/weft-spec.md` 2.7.4 and NEWS. An include is a whole
+  line `{{< include path >}}`; every path at any depth resolves against
+  the main document's folder (`/` against the project root); includes in
+  fences, `{r}` cells and HTML comments are followed; only a
+  `{shortcodes=false}` block in the main document is skipped; cycles stop
+  on a visited set. Alternatives: keep the six readers' differing rules
+  (each site disagreed with the others and with Quarto), or resolve
+  relative to the including file (what most tools do, but not Quarto).
+  The R reader, the Lua filter and the Python module share these rules.
+  A `file=` values file named in an included file is read against the main
+  folder in the lints too, as the filter does. Out of scope: Quarto merges
+  an included file's front matter; weft does not read it.
+- **`resolve_markup()` and `apply_formatters()` are split** (Robin: every
+  `<<-` is a place a later change can alter behaviour unnoticed; do it
+  before real projects use weft). `resolve_markup()` is four phases (rows,
+  checks, evaluate-and-render, ledger) over one explicit context object;
+  its 35 `<<-` are gone. Evaluate and render stay one phase: a governed
+  span picks its arm before evaluating, so separating them would change
+  which code runs. `apply_formatters()` is a sequence of steps named as the
+  Lua `format_vector()` names its stages. Alternative: leave both as one
+  closure each and test harder; refused for Robin's reason. Front-matter
+  rows now carry `context = "front-matter"` in `last_knit()$constructs`.
+- **Skipped, with reasons.** Memoising the project root per working
+  folder (a `_weft.yml` made mid-session would be missed). Unifying the
+  scanner's and the copies' attribute decoding, and the two front-matter
+  line readers (each changes what is read; needs its own ruling). One
+  `quarto inspect` per rehearsal (would mean faking Quarto's execute-info
+  file). The post-hoc `breaks` substitution (low value, risk to hard
+  breaks).

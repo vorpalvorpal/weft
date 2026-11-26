@@ -510,6 +510,15 @@ Status (26 Nov, overnight build):
 - E4 review K10 (phrase literals) fixed 2026-11-26 by the simplify pass: see below.
 - `weft_test_lib()` now passes the session's libraries to the install
   (it saw only the system library's units 0.8-5).
+- **Simplify pass done (26 Nov)**, over R/, the Lua filter and the Python
+  module: four reviews, then batches 0 to 7 (decisions in
+  `dev/decisions.md`, "Simplify pass"). Four bugs fixed test-first; one
+  include reader following Quarto (R, Lua, Python); `resolve_markup()`
+  and `apply_formatters()` split into top-level steps over an explicit
+  context (no `<<-` left in resolve.R or format.R; about 95 remain
+  elsewhere, mostly short local accumulators). Each batch checked by
+  filtered tests and golden comparisons; a final regression-test round
+  and the whole suite close it.
 
 ## Goal noted: weft everywhere (14 Nov, from Robin; superseded 25 Nov)
 
