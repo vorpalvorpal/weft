@@ -61,9 +61,7 @@ plain_read_chars <- function(ch) {
     out[[length(out) + 1L]] <<- run
   }
   text <- function(x) buf <<- c(buf, x)
-  is_ws <- function(c) !is.na(c) && c %in% c(" ", "\t", "\n", "\r", "\u00A0", "\u2009")
-  is_alnum <- function(c) !is.na(c) && grepl("[[:alnum:]]", c)
-  at <- function(j) if (j >= 1L && j <= n) ch[j] else NA_character_
+  at <- function(j) plain_at(ch, j)
   sp <- ch %in% PLAIN_SPECIAL
   i <- 1L
   while (i <= n) {
@@ -234,33 +232,30 @@ plain_read_chars <- function(ch) {
       k <- plain_run_len(ch, i, c)
       after <- at(i + k)
       before <- at(i - 1L)
-      opens <- k <= 3L && !is.na(after) && !is_ws(after) &&
-        (c == "*" || !is_alnum(before))
+      opens <- k <= 3L && !is.na(after) && !plain_is_ws(after) &&
+        (c == "*" || !plain_is_alnum(before))
       if (opens) {
         ev <- plain_emph_close(ch, i, k, c)
         if (length(ev)) {
           if (length(ev) == 1L) {
             kids <- plain_read_chars(ch[(i + k):(ev[[1L]][1L] - 1L)])
-            run <- if (k == 1L) {
-              plain_run("em", kids = kids)
-            } else if (k == 2L) {
-              plain_run("strong", kids = kids)
-            } else {
+            run <- if (k == 3L) {
               plain_run("strong", kids = list(plain_run("em", kids = kids)))
+            } else {
+              plain_run(emph_type(k), kids = kids)
             }
             end <- ev[[1L]][1L] + ev[[1L]][2L] - 1L
           } else {
             # a run of three closed in two steps: the inner emphasis first
             inner_kids <- plain_read_chars(ch[(i + k):(ev[[1L]][1L] - 1L)])
-            inner <- plain_run(if (ev[[1L]][2L] == 1L) "em" else "strong", kids = inner_kids)
+            inner <- plain_run(emph_type(ev[[1L]][2L]), kids = inner_kids)
             rest_from <- ev[[1L]][1L] + ev[[1L]][2L]
             rest <- if (ev[[2L]][1L] > rest_from) {
               plain_read_chars(ch[rest_from:(ev[[2L]][1L] - 1L)])
             } else {
               list()
             }
-            run <- plain_run(if (ev[[2L]][2L] == 1L) "em" else "strong",
-                             kids = c(list(inner), rest))
+            run <- plain_run(emph_type(ev[[2L]][2L]), kids = c(list(inner), rest))
             end <- ev[[2L]][1L] + ev[[2L]][2L] - 1L
           }
           add(run)
@@ -295,6 +290,13 @@ plain_read_chars <- function(ch) {
   out
 }
 
+# One character is white space, or letter or digit (NA is neither); the character at `j` of `ch`, or NA
+# outside it; the kind of emphasis a run of `k` marks makes.
+plain_is_ws <- function(x) !is.na(x) && x %in% c(" ", "\t", "\n", "\r", "\u00A0", "\u2009")
+plain_is_alnum <- function(x) !is.na(x) && grepl("[[:alnum:]]", x)
+plain_at <- function(ch, j) if (j >= 1L && j <= length(ch)) ch[j] else NA_character_
+emph_type <- function(k) if (k == 1L) "em" else "strong"
+
 # The index just past a code span opening at `j` (or past the backticks when it has no closer).
 plain_skip_code <- function(ch, j) {
   k <- plain_run_len(ch, j, "`")
@@ -305,16 +307,15 @@ plain_skip_code <- function(ch, j) {
 # The index of the `$` that ends the math opening at `i`, or NA (PL3).
 plain_math_end <- function(ch, i) {
   n <- length(ch)
-  is_ws <- function(c) !is.na(c) && c %in% c(" ", "\t", "\n", "\r", "\u00A0", "\u2009")
   nx <- if (i < n) ch[i + 1L] else NA_character_
   if (!is.na(nx) && nx == "$") {
     j <- plain_find_str(ch, i + 2L, "$$")
     return(if (is.na(j)) NA_integer_ else j + 1L)
   }
-  if (is.na(nx) || is_ws(nx)) return(NA_integer_)
+  if (is.na(nx) || plain_is_ws(nx)) return(NA_integer_)
   j <- i + 1L
   while (j <= n && ch[j] != "$") j <- j + if (ch[j] == "\\") 2L else 1L
-  if (j <= n && !is_ws(ch[j - 1L]) && !(j < n && grepl("[0-9]", ch[j + 1L]))) j else NA_integer_
+  if (j <= n && !plain_is_ws(ch[j - 1L]) && !(j < n && grepl("[0-9]", ch[j + 1L]))) j else NA_integer_
 }
 
 # The closing run(s) of the emphasis opened by the run of `k` copies of `c` at `i`, as a list of
@@ -324,9 +325,6 @@ plain_math_end <- function(ch, i) {
 # Returns an empty list when there is no closer.
 plain_emph_close <- function(ch, i, k, c) {
   n <- length(ch)
-  is_ws <- function(x) !is.na(x) && x %in% c(" ", "\t", "\n", "\r", "\u00A0", "\u2009")
-  is_alnum <- function(x) !is.na(x) && grepl("[[:alnum:]]", x)
-  at <- function(j) if (j >= 1L && j <= n) ch[j] else NA_character_
   need <- k
   stack <- integer()
   events <- list()
@@ -351,10 +349,10 @@ plain_emph_close <- function(ch, i, k, c) {
       next
     }
     m <- plain_run_len(ch, j, c)
-    before <- at(j - 1L)
-    after <- at(j + m)
-    can_close <- !is_ws(before) && (c == "*" || !is_alnum(after))
-    can_open <- !is.na(after) && !is_ws(after) && (c == "*" || !is_alnum(before))
+    before <- plain_at(ch, j - 1L)
+    after <- plain_at(ch, j + m)
+    can_close <- !plain_is_ws(before) && (c == "*" || !plain_is_alnum(after))
+    can_open <- !is.na(after) && !plain_is_ws(after) && (c == "*" || !plain_is_alnum(before))
     rem <- m
     if (can_close) {
       while (rem > 0L && length(stack)) {
@@ -456,9 +454,7 @@ plain_bracket_end <- function(ch, i) {
       next
     }
     if (d == "`") {
-      k <- plain_run_len(ch, j, "`")
-      e <- plain_find_run(ch, j + k, "`", k)
-      j <- if (is.na(e)) j + k else e + k
+      j <- plain_skip_code(ch, j)
       next
     }
     if (d == "[") depth <- depth + 1L

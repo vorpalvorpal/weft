@@ -7,7 +7,7 @@ TARGETS <- c("markdown", "tex", "plain")
 # E100, FT3: `target` is "markdown", "tex" or "plain". Returns TRUE for "tex", FALSE for the other two.
 # Anything else is a construct error.
 tex_target <- function(target) {
-  if (is.character(target) && length(target) == 1L && !is.na(target)) {
+  if (is_string(target)) {
     if (identical(target, "tex")) return(TRUE)
     if (identical(target, "markdown") || identical(target, "plain")) return(FALSE)
     got <- paste0("\"", target, "\"")
@@ -15,12 +15,6 @@ tex_target <- function(target) {
     got <- "something else"
   }
   construct_error(sprintf("`target` must be \"markdown\", \"tex\" or \"plain\"; got %s.", got))
-}
-
-# For the fmt_*() that do not reach apply_formatters() first.
-check_target <- function(target) {
-  if (!identical(target, "markdown")) tex_target(target)
-  invisible(target)
 }
 
 # E101: the classes with no TeX form, and why.

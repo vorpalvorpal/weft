@@ -388,11 +388,6 @@ next_special <- function(S, i) {
 
 para_limit <- function(S, i) S$plim[findInterval(i - 1L, S$plim) + 1L]
 
-fence_end_at <- function(S, p) {
-  fi <- fence_index(S, p)
-  if (is.na(fi)) NA_integer_ else S$f_end[fi]
-}
-
 fence_index <- function(S, p) {
   fi <- findInterval(p, S$f_start)
   if (fi > 0L && p <= S$f_end[fi]) fi else NA_integer_
@@ -2082,7 +2077,7 @@ scan_file <- function(path, config = NULL) {
 # given, over the project's `_weft.yml` (read here when no configuration is given). "r", "python", "julia",
 # or NULL when absent or not one of those (the knit's read_config() reports a bad value).
 document_names_from <- function(lines, file = NA_character_, config = NULL) {
-  ok <- function(v) if (is.character(v) && length(v) == 1L && !is.na(v) && v %in% c("r", "python", "julia")) v
+  ok <- function(v) if (is_string(v) && v %in% c("r", "python", "julia")) v
   v <- NULL
   if (!is.null(config)) {
     v <- ok(config$names_from)
