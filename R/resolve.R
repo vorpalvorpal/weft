@@ -402,6 +402,13 @@ resolve_rows <- function(s, x, block, ctx) {
     }
   }
   R$context <- rep(if (is_str) (ctx$context %||% "weft") else "prose", nr)
+  # a row in front matter or an end metadata block (D5, G2)
+  if (nr && !is_str && !is.null(F)) {
+    front <- vapply(R$line_view, function(l) {
+      !is.na(l) && isTRUE(tryCatch(in_front_matter(F, l), error = function(e) FALSE))
+    }, NA)
+    R$context[front] <- "front-matter"
+  }
   R$chunk <- rep(if (is_str) as.character(ctx$chunk %||% NA_character_) else NA_character_, nr)
   R$option <- rep(if (is_str) as.character(ctx$option %||% NA_character_) else NA_character_, nr)
   draft <- isTRUE(cfg$draft)
@@ -1055,8 +1062,7 @@ render_named <- function(rc, k) {
   reads <- if (in_weft) !identical(ctx$read_names, FALSE) else identical(cfg$names_from %||% "r", "r")
   if (!reads) return(named_leave(rc, k, nm))
   # a row in front matter or an end metadata block is the filter's (BN6, D5, G2)
-  if (!in_weft && isTRUE(tryCatch(ledger_where(s, rc$F, R$file[k], R$line_view[k], rc$chunk_label)$front,
-                                  error = function(e) FALSE))) {
+  if (!in_weft && identical(R$context[k], "front-matter")) {
     return(named_leave(rc, k, nm, join = TRUE))
   }
   env <- if (rc$is_str) (ctx$named_env %||% ctx$envir) else knitr::knit_global()
@@ -1573,8 +1579,7 @@ make_entry <- function(rc, it, out) {
   }
   id <- if (kind %in% c("value", "n", "if", "sign", "list") && !is.na(R$id[k]) && nzchar(R$id[k])) R$id[k] else NULL
   list(file = wh$file, section = wh$section, kind = kind, expr = expr, id = id,
-       context = if (wh$front) "front-matter" else
-         if (identical(R$context[k], "prose") && nzchar(R$tex[k])) c(math = "math", raw = "tex")[[R$tex[k]]] else R$context[k],
+       context = if (identical(R$context[k], "prose") && nzchar(R$tex[k])) c(math = "math", raw = "tex")[[R$tex[k]]] else R$context[k],
        text = if (is.na(fail)) out else NULL,
        arm = if (is.na(arm)) NULL else arm, rel = if (is.na(rel)) NULL else rel,
        raw = if (is.na(raw)) NULL else raw,
