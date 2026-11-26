@@ -2033,7 +2033,41 @@ are relative to the block.
 
 **2.7.4** Under Quarto, knitr reads an intermediate file with
 `{{< include >}}` already expanded. weft maps lines back through the includes,
-so an error in an included file names that file.
+so an error in an included file names that file. Every place weft follows
+includes (this map, the filter's line search and ledger header (2.13.6, N112),
+the names a source names (3.8.7, N45), a report's reads (4.6.5) and the lints
+(5.1.8, 5.8.9, rule 1 of the publishing lints)) follows them as Quarto
+1.11.9 expands them, by the rules I1 to I6:
+
+- I1. A line is an include only when the whole line is the shortcode:
+  optional white space, `{{< `, the name, the path, ` >}}`, optional white
+  space, with exactly one space after `{{<` and before `>}}`. Text before or
+  after, a list marker, `> `, a code span, a one-line HTML comment, the
+  escaped `{{</* include x */>}}` and `{{<include x>}}` are not includes.
+- I2. The name is `include`, lowercase, in the main document; in an included
+  file it may be in any case (Quarto's two handlers differ).
+- I3. The path is the first positional parameter: `"..."` or `'...'` (which
+  may hold spaces), or a run with no white space or quote. Later parameters
+  are ignored.
+- I4. Every path, at any depth, resolves against the MAIN document's folder,
+  never the including file's: `two.qmd` named in `sub/one.qmd` is the main
+  folder's `two.qmd`, and `..` is taken from the main folder too. A leading
+  `/` resolves against the Quarto project root (the folder of
+  `_quarto.yml`) when there is one, else against the main document's folder.
+- I5. An include inside a fence (```` ``` ```` or `~~~`), an executable cell
+  (```` ```{r} ````) or a multi-line HTML comment is followed, as Quarto
+  expands it there. Only a cell of the main document whose text holds
+  ```` ```{shortcodes=false} ```` is not (Quarto checks no cell of an included
+  file). The filter's line search blanks the text of a file included inside a
+  fence or comment, as it blanks the fence (2.13.6).
+- I6. There is no depth limit (Quarto has none). A file already reached is
+  not read again, so a cycle ends (Quarto stops with an error or overflows its
+  stack). A missing file is skipped, except where a section says otherwise
+  (4.6.5); Quarto's render stops there.
+
+Which documents a place reads includes from is its own (the lints read every
+document as a main document). An included file's front matter, which Quarto
+merges into the document's, is not read.
 
 **2.7.5** Only exported knitr functions are used.
 
@@ -2415,7 +2449,7 @@ Pandoc, and a Quarto render with no post-render script, print it from the
 filter.
 
 **2.13.6** A failure's line is found by searching the source, its includes
-(at most 8 deep) and its chunk-option lines for the construct's text, in
+(as Quarto expands them, 2.7.4) and its chunk-option lines for the construct's text, in
 order: for a construct, the next occurrence after the previous occurrence of
 the same text. Fenced code is blanked except its `#|` lines, and HTML
 comments are blanked. A span is found by its governor key as written and its value,
@@ -3196,7 +3230,7 @@ an integer of any size is published exactly.
 names that the cell changed. The names the document names are: each `NAME` of
 a `` `NAME`{ `` code span (1.12.1), and each name in a governor value (`n`,
 `if`, `sign` or `list`) in any form of 1.2.2, outside string literals, in the
-source and in the files it includes through `{{< include >}}`, up to 8 deep. The path of the source
+source and in the files it includes through `{{< include >}}`, as Quarto expands them (2.7.4). The path of the source
 is
 `QUARTO_DOCUMENT_PATH` joined to `QUARTO_DOCUMENT_FILE`, else the argument; with
 neither, it says which variables are not set. The cell that calls `auto()` is
@@ -4690,9 +4724,11 @@ before anything runs. The error names the nearest key as 4.1.2 does.
 construct keys. `tar_quarto_rep()` and `tar_render_rep()` targets are report
 targets too. A report's sources are followed through knitr `child=` files, Quarto
 includes and any source that `tarchetypes` lists, whatever its extension, to any
-depth. A Quarto include whose path starts with `/` is resolved against the Quarto
-project root, the folder that holds `_quarto.yml`, else the document's own
-folder; a quoted include path may hold spaces. A report with a `child=` that is
+depth. A Quarto include is followed as Quarto expands it (2.7.4): every path,
+at any depth, against the report's own folder, a path that starts with `/`
+against the Quarto project root, the folder that holds `_quarto.yml`, else
+the report's folder; a quoted include path may hold spaces. A knitr child is
+resolved against the file that names it. A report with a `child=` that is
 computed rather than a literal, or a child or include that does not resolve to a
 file, depends on every key (4.6.8). The scan prints nothing to the console.
 
@@ -4893,7 +4929,8 @@ says so. `reader` is `"weft"`, the package's own reader and the default, or
 `files` says, because ids, anchors, includes and child documents are
 project-wide. Folders whose name starts with `.`, and `renv`, are skipped.
 Folders whose name starts with `_` (an include folder, `_partials`) are read
-for anchors and for what they include, and are not linted; `_site`, `_book`,
+for anchors and for what they include, and are not linted; includes are
+followed as Quarto expands them (2.7.4); `_site`, `_book`,
 `_freeze` and `_extensions` are not read. A `.md` file is read for anchors
 only. Each document's settings are `_weft.yml` merged with its own `weft:`
 key; the lints read the YAML and install no units. The scripts of the project

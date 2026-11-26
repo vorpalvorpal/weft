@@ -193,7 +193,9 @@ depends on every entry.
 A report rendered by `tarchetypes::tar_render()` or
 `tarchetypes::tar_quarto()`, passed through `tar_dict_deps()`, is scanned the
 same way: its chunks, its inline R and the expressions of its spans, and the
-files it includes. This report reads one target and one entry:
+files it includes, followed as Quarto expands them: at any depth, with every
+include path read from the report's own folder (a leading `/` from the Quarto
+project root). This report reads one target and one entry:
 
 ````{verbatim, lang = "markdown"}
 ---
