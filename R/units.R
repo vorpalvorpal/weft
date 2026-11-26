@@ -87,7 +87,7 @@ u <- function(value, unit) {
   if (missing(unit)) unit_abort("u(): the unit is missing; write u(35, m).")
   if (missing(value)) unit_abort("u(): the value is missing; write u(35, m).")
   ex <- substitute(unit)
-  txt <- if (is.character(ex) && length(ex) == 1L && !is.na(ex)) ex else
+  txt <- if (is_string(ex)) ex else
     paste(deparse(ex, width.cutoff = 500L), collapse = " ")
   if (!nzchar(trimws(txt))) unit_abort("u(): the unit is blank; write u(35, m).")
   # a missing logical (`NA`, `logical(0)`) is a missing or empty quantity; TRUE and FALSE are refused (2i I2)

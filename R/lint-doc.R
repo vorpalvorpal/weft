@@ -462,9 +462,8 @@ doc_cite_rows <- function(src) {
   val <- rw$expr[k]
   for (i in which(is.na(val))) {
     at <- if (is.na(rw$fblock[k[i]])) "" else src_substr(src, rw$fblock[k[i]], rw$fend[k[i]])
-    m <- regmatches(at, regexec(paste0("cite[ \t]*=[ \t]*(?:\"((?:[^\"\\\\]|\\\\.)*)\"|'((?:[^'\\\\]|\\\\.)*)'|",
-                                       "((?:[^\\s}\"'\\\\]|\\\\\\|)+))"), at, perl = TRUE))[[1L]]
-    val[i] <- if (length(m)) gsub("\\\\([\"'|])", "\\1", paste0(m[2L], m[3L], m[4L])) else ""
+    m <- attr_value(at, "cite")
+    val[i] <- if (length(m)) m[2L] else ""
   }
   data.frame(start = as.integer(rw$fstart[k]), end = as.integer(rw$fend[k]), value = val,
              context = rw$context[k], stringsAsFactors = FALSE)

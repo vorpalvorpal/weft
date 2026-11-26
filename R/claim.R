@@ -92,7 +92,7 @@ claim <- function(x, ..., level = c("fail", "warn"), decision = NULL) {
 # is not blank, or one whole number from 1, is E52 (N103).
 claim_decision <- function(d) {
   if (is.null(d)) return(NULL)
-  if (is.character(d) && length(d) == 1L && !is.na(d) && nzchar(trimws(d))) return(d)
+  if (is_string(d) && nzchar(trimws(d))) return(d)
   if (is.numeric(d) && length(d) == 1L && !is.na(d) && is.finite(d) && d >= 1 && d == round(d) &&
       is.null(dim(d))) {
     return(format(d, scientific = FALSE, trim = TRUE))

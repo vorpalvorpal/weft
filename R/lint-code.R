@@ -866,7 +866,7 @@ tar_default_store <- function(ctx) {
   f <- file.path(ctx$root, "_targets.yaml")
   y <- if (file.exists(f)) tryCatch(yaml_read_file(f), error = function(e) NULL) else NULL
   s <- if (is.list(y) && is.list(y$main)) y$main$store else NULL
-  if (is.character(s) && length(s) == 1L && !is.na(s) && nzchar(s)) s else "_targets"
+  if (is_string(s) && nzchar(s)) s else "_targets"
 }
 
 # the names in a targets store, or NULL with a note when there is no store to read

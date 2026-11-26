@@ -613,7 +613,7 @@ units_table_rows <- function(tbl, where) {
     out$problems <- problems
     return(out)
   }
-  str1 <- function(x) is.character(x) && length(x) == 1L && !is.na(x) && nzchar(trimws(x))
+  str1 <- dict_str1
   keys <- names(tbl)
   for (i in seq_along(tbl)) {
     key <- keys[i]

@@ -46,7 +46,7 @@ tool_abort <- function(message) weft_abort(message, "weft_tool_error")
 use_dictionary <- function(path = ".") {
   if (!is.character(path) || length(path) != 1L || is.na(path) || !dir.exists(path)) {
     tool_abort(sprintf("use_dictionary(): `path` must be a directory; got %s.",
-                       if (is.character(path) && length(path) == 1L && !is.na(path))
+                       if (is_string(path))
                          paste0("`", path, "`") else "`something else`"))
   }
   start <- normalizePath(path, mustWork = TRUE)
@@ -352,7 +352,7 @@ dict_vale <- function(dict = NULL, path = "styles/Weft/Terms.yml", level = "warn
   bad_path <- function() {
     tool_abort(sprintf(paste0("dict_vale(): `path` must name a rule file inside a style folder, ",
                               "as styles/Weft/Terms.yml; got `%s`."),
-                       if (is.character(path) && length(path) == 1L && !is.na(path)) path
+                       if (is_string(path)) path
                        else "something else"))
   }
   if (!is.character(path) || length(path) != 1L || is.na(path)) bad_path()
@@ -427,7 +427,7 @@ dict_vale <- function(dict = NULL, path = "styles/Weft/Terms.yml", level = "warn
     paste0("level: ", level),
     "ignorecase: false",
     "swap:",
-    paste0("  ", quote1(vale_escape(swap$spelling)), ": ", quote1(swap$canon)))
+    paste0("  ", quote1(regex_escape(swap$spelling)), ": ", quote1(swap$canon)))
   bytes <- charToRaw(enc2utf8(paste0(paste(text, collapse = "\n"), "\n")))
   if (file.exists(abs) && identical(readBin(abs, "raw", file.size(abs)), bytes)) {
     message(sprintf("Nothing to change: %s is up to date.", abs))
@@ -517,7 +517,6 @@ vale_swaps <- function(d) {
   data.frame(spelling = sp[o], canon = cn[o], stringsAsFactors = FALSE)
 }
 
-vale_escape <- function(x) gsub("([\\\\.+*?()|\\[\\]{}^$])", "\\\\\\1", x, perl = TRUE)
 
 # ---- dict_seed() -------------------------------------------------------------------------
 
@@ -694,7 +693,7 @@ seed_assignment <- function(e) {
 seed_literal <- function(e) {
   num <- function(x) is.numeric(x) && length(x) == 1L && is.finite(x)
   if (num(e)) return(as.numeric(e))
-  if (is.character(e) && length(e) == 1L && !is.na(e)) return(e)
+  if (is_string(e)) return(e)
   if (!is.call(e) || !is.symbol(e[[1L]])) return(NULL)
   fn <- as.character(e[[1L]])
   if (fn %in% c("-", "+") && length(e) == 2L && num(e[[2L]])) {

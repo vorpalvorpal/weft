@@ -63,7 +63,7 @@ render_frame_value <- function(name) {
 state_input <- function(s) {
   p <- normalizePath(s$input_path, winslash = "/", mustWork = FALSE)
   oi <- render_frame_value("original_input")
-  if (is.character(oi) && length(oi) == 1L && !is.na(oi) && file.exists(oi)) {
+  if (is_string(oi) && file.exists(oi)) {
     o <- normalizePath(oi, winslash = "/", mustWork = FALSE)
     if (!identical(o, p) && identical(gsub("[ <>()|\\\\:&;#?*']", "-", basename(o)), basename(p))) p <- o
   }

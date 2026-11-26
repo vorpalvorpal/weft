@@ -201,12 +201,11 @@ replay_cached <- function(s, p) {
   base <- unique(c(knitr::opts_knit$get("root.dir"),
                    if (!is.na(s$input_path)) dirname(s$input_path), getwd()))
   # knitr names the cache files with the label as written, spaces and all
-  esc <- function(x) gsub("([][{}()+*^$|\\\\?.])", "\\\\\\1", x)
   labels <- unique(c(p$label, gsub("[^[:alnum:]_.-]", "_", p$label)))
   for (b in base) {
     dir <- file.path(b, dirname(paste0(p$path %||% "cache/", "x")))
     if (!dir.exists(dir)) next
-    fs <- list.files(dir, pattern = paste0("^(", paste(esc(labels), collapse = "|"),
+    fs <- list.files(dir, pattern = paste0("^(", paste(regex_escape(labels), collapse = "|"),
                                            ")_[0-9a-f]{32}\\.weft\\.rds$"),
                      full.names = TRUE)
     fs <- fs[file.exists(sub("\\.weft\\.rds$", ".rdx", fs)) |

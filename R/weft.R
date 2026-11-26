@@ -167,7 +167,7 @@ new_weft <- function(plain, md, names = NULL) {
 current_chunk_label <- function() {
   if (!knit_in_progress()) return(NA_character_)
   lab <- tryCatch(knitr::opts_current$get("label"), error = function(e) NULL)
-  if (is.character(lab) && length(lab) == 1L && !is.na(lab)) lab else NA_character_
+  if (is_string(lab)) lab else NA_character_
 }
 
 # The state a string is resolved against (CF1): the knit's, when weft's hooks are installed and a
@@ -310,7 +310,7 @@ weft_markdown <- function(x) {
 }
 
 weft_target <- function(target) {
-  if (is.character(target) && length(target) == 1L && !is.na(target)) {
+  if (is_string(target)) {
     if (target %in% c("plain", "markdown", "ansi")) return(target)
     got <- paste0("\"", target, "\"")
   } else {

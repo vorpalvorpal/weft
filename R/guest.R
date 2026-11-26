@@ -597,7 +597,7 @@ guest_read <- function(steps, read, prefixes, track = FALSE) {
 py_value <- function(...) {
   args <- list(...)
   ok <- length(args) > 0L && all(vapply(args, function(a) {
-    is.character(a) && length(a) == 1L && !is.na(a) && nzchar(a)
+    is_string(a) && nzchar(a)
   }, NA))
   if (!ok) weft_abort("py_value() takes names as strings: py_value(\"n\").", "weft_guest_arg_error")
   steps <- vapply(args, function(a) a, "")
@@ -623,7 +623,7 @@ guest_root <- function(x) {
 
 literal_name <- function(s) {
   if (is.symbol(s)) return(as.character(s))
-  if (is.character(s) && length(s) == 1L && !is.na(s) && nzchar(s)) return(s)
+  if (is_string(s) && nzchar(s)) return(s)
   NULL
 }
 
@@ -656,7 +656,7 @@ guest_py_value_call <- function(node) {
        identical(f[[2L]], as.name("weft")) && identical(f[[3L]], as.name("py_value")))
   if (!is_pv || length(node) < 2L || !is.null(names(node)) && any(nzchar(names(node)[-1L]))) return(NULL)
   args <- as.list(node)[-1L]
-  ok <- all(vapply(args, function(a) is.character(a) && length(a) == 1L && !is.na(a) && nzchar(a), NA))
+  ok <- all(vapply(args, function(a) is_string(a) && nzchar(a), NA))
   if (!ok) return(NULL)
   list(root = "call", steps = vapply(args, function(a) a, ""),
        nodes = lapply(seq_along(args), function(j) as.call(c(list(f), args[seq_len(j)]))))

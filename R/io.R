@@ -95,6 +95,9 @@ json_read_text <- function(text, file = NULL) {
 # The JSON of a file; the file is read as source text (`read_source_text()`).
 json_read_file <- function(path) json_read_text(read_source_text(path), file = path)
 
+# A literal string as a regular expression (the metacharacters backslash-escaped).
+regex_escape <- function(x) gsub("([\\\\.+*?()|\\[\\]{}^$])", "\\\\\\1", x, perl = TRUE)
+
 # ---- git ------------------------------------------------------------------------------------------
 
 # where git is: "" when it is not on the PATH

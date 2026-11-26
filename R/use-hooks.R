@@ -74,11 +74,10 @@ hooks_plan <- function(root, overwrite = FALSE, rscript = NULL, lib = NULL) {
                        c("@RSCRIPT@" = sh_quote(rscript),
                          "@LIBS@" = sh_quote(paste(lib, collapse = .Platform$path.sep))))
 
-  manager <- git_hooks_path_set(root)
-  hooks_dir <- git_dir_of(root, c("rev-parse", "--git-path", "hooks"))
-  common <- git_dir_of(root, c("rev-parse", "--git-common-dir"))
-  hook <- file.path(hooks_dir, "commit-msg")
-  copy <- file.path(common, "weft", "commit-msg")
+  hp <- hook_paths(root)
+  manager <- hp$manager
+  hook <- hp$hook
+  copy <- hp$copy
 
   items <- list()
   notes <- character()
@@ -124,11 +123,10 @@ hooks_remove <- function(root) {
   if (!g$ok) {
     tool_abort(sprintf("use_hooks() needs a git work tree, and %s is not in one (%s).", root, g$reason))
   }
-  manager <- git_hooks_path_set(root)
-  hooks_dir <- git_dir_of(root, c("rev-parse", "--git-path", "hooks"))
-  common <- git_dir_of(root, c("rev-parse", "--git-common-dir"))
-  hook <- file.path(hooks_dir, "commit-msg")
-  weft_dir <- file.path(common, "weft")
+  hp <- hook_paths(root)
+  manager <- hp$manager
+  hook <- hp$hook
+  weft_dir <- hp$weft_dir
   message("weft will remove, under ", root, ":")
   removed <- character()
   foreign <- manager

@@ -816,16 +816,15 @@ print.weft_checks <- function(x, ...) {
 }
 
 checks_print_lines <- function(x) {
-  plural <- function(k, w) paste(k, if (k == 1L) w else paste0(w, "s"))
   nd <- attr(x, "documents") %||% length(unique(x$file))
   repeats <- attr(x, "repeats") %||% 3L
-  if (!nrow(x)) return(sprintf("weft checks: no checks in %s", plural(nd, "document")))
+  if (!nrow(x)) return(sprintf("weft checks: no checks in %s", chg_plural(nd, "document")))
   rd <- !is.na(x$cond)
   gk <- paste(x$file, x$value, sep = "\001")
   groups <- unique(gk[rd])
   flagged <- sum(vapply(groups, function(g) any(x$flag[rd & gk == g] != ""), NA))
-  out <- c(sprintf("weft checks: %s of %s in %s; %s flagged", plural(nrow(x), "check"), plural(length(groups), "value"),
-                   plural(nd, "document"), plural(flagged, "value")), "")
+  out <- c(sprintf("weft checks: %s of %s in %s; %s flagged", chg_plural(nrow(x), "check"), chg_plural(length(groups), "value"),
+                   chg_plural(nd, "document"), chg_plural(flagged, "value")), "")
   lines_of <- function(l) {
     s <- if (length(l) > 10L) paste0(paste(l[1:10], collapse = ", "), ", and ", length(l) - 10L, " more") else paste(l, collapse = ", ")
     paste0(if (length(l) == 1L) "line " else "lines ", s)

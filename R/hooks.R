@@ -400,7 +400,7 @@ check_static <- function(s, F, draft) {
 # The document's `lang` (2.1.6): its own front matter, else Quarto's merged
 # metadata (quarto_metadata()), which holds a project-level `lang`.
 document_lang <- function(front, path, s = NULL) {
-  one <- function(x) if (is.character(x) && length(x) == 1L && !is.na(x)) x else NULL
+  one <- function(x) if (is_string(x)) x else NULL
   one(front$lang) %||% one(quarto_metadata(path, s)$lang) %||% ""
 }
 

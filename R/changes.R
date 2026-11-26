@@ -108,7 +108,7 @@ claim_words <- function() {
 sentence_claim <- function(sentence, text) {
   if (is.na(sentence) || !nzchar(sentence)) return(NA_character_)
   if (!is.na(text) && nzchar(text)) {
-    esc <- gsub("([][\\\\^$.|?*+(){}])", "\\\\\\1", text)
+    esc <- regex_escape(text)
     sentence <- sub(paste0("(?<![[:alpha:]])", esc, "(?![[:alpha:]])"), "", sentence, perl = TRUE)
   }
   tok <- strsplit(tolower(sentence), "[^[:alpha:]]+")[[1L]]
@@ -577,7 +577,7 @@ changes <- function(since = "HEAD", path = ".", files = NULL) {
   if (!nzchar(git_path())) {
     changes_abort("changes() needs git: git is not on the path (rule 7.3.1).")
   }
-  if (!identical(git_lines(root, c("rev-parse", "--is-inside-work-tree")), "true")) {
+  if (!git_in_work_tree(root)) {
     changes_abort(sprintf("changes() needs git: %s is not inside a git work tree (rule 7.3.1).", root))
   }
   rv <- git_lines(root, c("rev-parse", "--verify", "-q", paste0(since, "^{commit}")))

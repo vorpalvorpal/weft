@@ -25,7 +25,7 @@ table_digest <- function(txt) {
 table_caption <- function(opts, txt) {
   for (nm in c("tbl-cap", "tab.cap")) {
     v <- opts[[nm]]
-    if (is.character(v) && length(v) == 1L && !is.na(v) && nzchar(v)) return(v)
+    if (is_string(v) && nzchar(v)) return(v)
   }
   if (nchar(txt) > 80L) paste0(substr(txt, 1L, 80L), "...") else txt
 }

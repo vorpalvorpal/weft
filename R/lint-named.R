@@ -44,7 +44,7 @@ values_blocks <- function(lines) {
 
 # The names a JSON text of schema 1 publishes, or `character()` when it does not read.
 values_keys <- function(text) {
-  x <- tryCatch(jsonlite::fromJSON(text, simplifyVector = FALSE), error = function(e) NULL)
+  x <- tryCatch(json_read_text(text), error = function(e) NULL)
   if (!is.list(x) || !is.list(x$values)) return(character())
   names(x$values) %||% character()
 }
@@ -66,8 +66,12 @@ path_inside <- function(p, root) {
 
 # The `file=` of a values block's attributes, in any form of 1.2.2 and decoded (1.2.3), as c(match, value); or
 # character().
-values_file_attr <- function(attrs) {
-  m <- regmatches(attrs, regexec(paste0("file[ \t]*=[ \t]*(?:\"((?:[^\"\\\\]|\\\\.)*)\"|'((?:[^'\\\\]|\\\\.)*)'|",
+values_file_attr <- function(attrs) attr_value(attrs, "file")
+
+# `key=value` in an attribute string, the value quoted either way or bare, as c(match, value) with the
+# value decoded (1.2.3: `\"`, `\'` and `\|` lose their backslash); or character() when there is no such key.
+attr_value <- function(attrs, key) {
+  m <- regmatches(attrs, regexec(paste0(key, "[ \t]*=[ \t]*(?:\"((?:[^\"\\\\]|\\\\.)*)\"|'((?:[^'\\\\]|\\\\.)*)'|",
                                         "((?:[^\\s}\"'\\\\]|\\\\\\|)+))"), attrs, perl = TRUE))[[1L]]
   if (!length(m)) return(character())
   v <- m[2:4][nzchar(m[2:4])][1L]

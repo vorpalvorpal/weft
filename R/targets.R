@@ -39,7 +39,7 @@ reads_walker <- function(envir = globalenv(), keys = character()) {
   add_key <- function(k) {
     if (k %in% keys) st$keys <- c(st$keys, k) else st$unknown <- c(st$unknown, k)
   }
-  lit_chr <- function(e) if (is.character(e) && length(e) == 1L && !is.na(e)) e else NULL
+  lit_chr <- function(e) if (is_string(e)) e else NULL
 
   lookup <- function(nm) {
     f <- get0(nm, envir = envir, inherits = FALSE, mode = "function")
@@ -452,7 +452,7 @@ dict_path_ok <- function(path) {
   if (!is.character(path) || length(path) != 1L || is.na(path) || !nzchar(path) ||
       !file.exists(path) || dir.exists(path)) {
     pipeline_abort(sprintf("weft: `path` must name an existing dictionary file; got %s (rule 4.6.1).",
-                           if (is.character(path) && length(path) == 1L && !is.na(path))
+                           if (is_string(path))
                              paste0("`", path, "`") else "something else"))
   }
   invisible(path)
@@ -761,7 +761,7 @@ report_files <- function(t) {
   if (length(ex) != 1L || !is.call(ex[[1L]])) return(NULL)
   cmd <- ex[[1L]]
   h <- paste(deparse(cmd[[1L]]), collapse = "")
-  one <- function(p) if (is.character(p) && length(p) == 1L && !is.na(p)) p else NULL
+  one <- function(p) if (is_string(p)) p else NULL
   if (identical(h, "tarchetypes::tar_quarto_run")) {
     s <- tryCatch(eval(cmd[["sources"]], baseenv()), error = function(e) NULL)
     if (is.character(s)) return(s)
@@ -1002,7 +1002,7 @@ chapter_reads <- function(s) {
   for (i in seq_along(reads)) {
     if (!is.null(reads[[i]]$expr) && is.na(tg$store[i])) {
       v <- tryCatch(eval(reads[[i]]$expr, knitr::knit_global()), error = function(e) NULL)
-      if (is.character(v) && length(v) == 1L && !is.na(v) && nzchar(v)) {
+      if (is_string(v) && nzchar(v)) {
         tg$store[i] <- v
       } else {
         unresolved <- c(unresolved, reads[[i]]$name)

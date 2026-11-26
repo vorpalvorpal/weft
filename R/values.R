@@ -254,7 +254,7 @@ values_claim_parts <- function(e, env) {
   level <- "fail"
   if (!is.null(mc$level)) {
     lv <- tryCatch(eval(mc$level, env), error = function(err) NULL)
-    if (!(is.character(lv) && length(lv) == 1L && !is.na(lv) && lv %in% c("fail", "warn"))) return(NULL)
+    if (!(is_string(lv) && lv %in% c("fail", "warn"))) return(NULL)
     level <- lv
   }
   list(x = mc$x, checks = checks, level = level)

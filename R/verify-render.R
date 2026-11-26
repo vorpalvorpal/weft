@@ -7,7 +7,7 @@
 
 # The quarto to run: QUARTO_PATH, the quarto package's, the PATH's. NA when there is none.
 verify_quarto_path <- function() {
-  ok <- function(p) is.character(p) && length(p) == 1L && !is.na(p) && nzchar(p) && file.exists(p)
+  ok <- function(p) is_string(p) && nzchar(p) && file.exists(p)
   e <- Sys.getenv("QUARTO_PATH", "")
   if (ok(e)) return(e)
   if (requireNamespace("quarto", quietly = TRUE)) {
@@ -80,7 +80,7 @@ freeze_stamp_run <- function(root, stem) {
   f <- stamp_file_name(paste0(stem, c(".qmd", ".Rmd", ".rmd")))
   f <- f[file.exists(file.path(dir, f))]
   if (!length(f)) return(NA_character_)
-  s <- tryCatch(jsonlite::fromJSON(file.path(dir, f[1L]), simplifyVector = FALSE), error = function(e) NULL)
+  s <- tryCatch(json_read_file(file.path(dir, f[1L])), error = function(e) NULL)
   if (!is.list(s) || is.null(s$run)) return(NA_character_)
   as.character(s$run)
 }
@@ -188,7 +188,7 @@ verify_render_list <- function(q, root) {
   out <- tryCatch(suppressWarnings(system2(q, shQuote("inspect"), stdout = TRUE, stderr = FALSE)),
                   error = function(e) NULL)
   if (is.null(out) || !is.null(attr(out, "status"))) return(NULL)
-  js <- tryCatch(jsonlite::fromJSON(paste(out, collapse = "\n"), simplifyVector = FALSE), error = function(e) NULL)
+  js <- tryCatch(json_read_text(paste(out, collapse = "\n")), error = function(e) NULL)
   inp <- js$files$input
   if (!is.list(js) || is.null(inp)) return(NULL)
   inp <- vapply(inp, function(x) as.character(x)[1L], "")
@@ -309,7 +309,7 @@ verify_read_output <- function(path) {
   lines <- readLines(path, warn = FALSE, encoding = "UTF-8")
   rows <- list()
   for (l in lines[nzchar(trimws(lines))]) {
-    r <- tryCatch(jsonlite::fromJSON(l, simplifyVector = FALSE), error = function(e) NULL)
+    r <- tryCatch(json_read_text(l), error = function(e) NULL)
     if (!is.list(r) || !identical(r$source, "output")) next
     ch <- function(k) if (is.null(r[[k]]) || is.na(r[[k]])) "" else as.character(r[[k]])
     rows[[length(rows) + 1L]] <- data.frame(file = ch("file"), format = ch("format"), kind = ch("kind"),
@@ -342,7 +342,7 @@ verify_read_stamps <- function(root, docs, run) {
   for (rel in docs) {
     f <- file.path(root, ".weft", "stamps", stamp_file_name(rel))
     if (!file.exists(f)) next
-    s <- tryCatch(jsonlite::fromJSON(f, simplifyVector = FALSE), error = function(e) NULL)
+    s <- tryCatch(json_read_file(f), error = function(e) NULL)
     if (!is.list(s) || !identical(as.character(s$run %||% ""), run)) next
     current <- c(current, rel)
     # N120: the stamp says the values were not computed in this run

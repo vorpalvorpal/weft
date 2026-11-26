@@ -215,6 +215,18 @@ git_hooks_path_set <- function(root) {
   identical(r$status, 0L) && nzchar(trimws(paste(raw_lines(r$out), collapse = "")))
 }
 
+# Where the commit-msg hook lives: whether a hooks manager owns `core.hooksPath`, the hooks folder, the
+# common git folder, the hook, and weft's copy of it under the common folder.
+hook_paths <- function(root) {
+  manager <- git_hooks_path_set(root)
+  hooks_dir <- git_dir_of(root, c("rev-parse", "--git-path", "hooks"))
+  common <- git_dir_of(root, c("rev-parse", "--git-common-dir"))
+  list(manager = manager, hooks_dir = hooks_dir, common = common,
+       hook = file.path(hooks_dir, "commit-msg"),
+       weft_dir = file.path(common, "weft"),
+       copy = file.path(common, "weft", "commit-msg"))
+}
+
 # the URL of `origin`, or NA
 git_origin <- function(root) {
   r <- git_raw(root, c("remote", "get-url", "origin"))
@@ -229,7 +241,7 @@ origin_on_github <- function(url) {
 install_root <- function(path, fn) {
   if (!is.character(path) || length(path) != 1L || is.na(path) || !dir.exists(path)) {
     tool_abort(sprintf("%s(): `path` must be a directory; got %s.", fn,
-                       if (is.character(path) && length(path) == 1L && !is.na(path))
+                       if (is_string(path))
                          paste0("`", path, "`") else "`something else`"))
   }
   normalizePath(find_project_root(path), winslash = "/", mustWork = TRUE)

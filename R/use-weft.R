@@ -509,11 +509,10 @@ status_quarto <- function(root) {
 }
 
 status_hook <- function(root) {
-  manager <- git_hooks_path_set(root)
-  hooks_dir <- git_dir_of(root, c("rev-parse", "--git-path", "hooks"))
-  common <- git_dir_of(root, c("rev-parse", "--git-common-dir"))
-  hook <- file.path(hooks_dir, "commit-msg")
-  copy <- file.path(common, "weft", "commit-msg")
+  hp <- hook_paths(root)
+  manager <- hp$manager
+  hook <- hp$hook
+  copy <- hp$copy
   inst <- weft_version_string()
   ours <- function(p, where) {
     s <- file_status(p, HOOK_STATE_FN)

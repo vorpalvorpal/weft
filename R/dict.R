@@ -163,7 +163,7 @@ read_dict <- function(path = "dict.yml") {
   if (!is.character(path) || length(path) != 1L || is.na(path) || !nzchar(path) ||
       !file.exists(path) || dir.exists(path)) {
     dict_abort(sprintf("weft: read_dict() needs one path to an existing file; got %s.",
-                       if (is.character(path) && length(path) == 1L && !is.na(path))
+                       if (is_string(path))
                          paste0("`", path, "`") else "something else"))
   }
   lines <- read_source_lines(path, "weft_dict_error")
@@ -399,7 +399,7 @@ build_dict <- function(raw, file, scope, lines = character(), first = 1L, offset
 # ---- the checks build_dict() runs on one entry -------------------------------------
 # Each takes the entry `e` and `p(what, rule)`, which records a problem against its key.
 
-dict_str1 <- function(x) is.character(x) && length(x) == 1L && !is.na(x) && nzchar(trimws(x))
+dict_str1 <- function(x) is_string(x) && nzchar(trimws(x))
 
 # The `display` unit (4.2.7), or NA.
 dict_display <- function(e, type, type_ok, unit, p) {
@@ -498,7 +498,7 @@ dict_avoid <- function(e, scope, raw_avoid, trm, is_string, p) {
           bad <- TRUE
         }
         cn <- if (!is.na(trm)) trm else e[["value"]]
-        if (is.character(cn) && length(cn) == 1L && !is.na(cn)) {
+        if (is_string(cn)) {
           for (v in unique(avd[avd == cn])) {
             p(sprintf("`avoid` lists `%s`, which is the entry's own spelling", v), "4.7.4")
             bad <- TRUE
@@ -603,7 +603,7 @@ mark_bool <- function(x) if (tolower(x) %in% c("true", "false")) paste0("\001", 
 # The strings of an `avoid` as the second reading gives it, or NULL when it
 # is not a string or a non-empty list of strings.
 avoid_items <- function(a) {
-  one <- function(x) is.character(x) && length(x) == 1L && !is.na(x) && !startsWith(x, "\001")
+  one <- function(x) is_string(x) && !startsWith(x, "\001")
   if (one(a)) return(a)
   if (is.list(a) && length(a) && (inherits(a, "weft_seq") || is.null(names(a))) &&
       all(vapply(a, one, NA))) {
@@ -625,7 +625,7 @@ NONDECIMAL <- paste0("is a whole number written with a leading zero, or in hex o
 # A whole number that YAML 1.1 would read as octal or hex, or that is a
 # string written like one.
 nondecimal <- function(x) {
-  is.character(x) && length(x) == 1L && !is.na(x) &&
+  is_string(x) &&
     grepl("^[+-]?0([0-9]+|[xXoObB][0-9A-Fa-f_]+)$", trimws(x))
 }
 
@@ -666,7 +666,7 @@ dict_value <- function(v, type, unit) {
     },
     labels = {
       if (!is.list(v) || !length(v) || is.null(names(v)) || any(!nzchar(names(v))) ||
-          !all(vapply(v, function(x) is.character(x) && length(x) == 1L && !is.na(x), NA))) {
+          !all(vapply(v, function(x) is_string(x), NA))) {
         bad("must be a non-empty mapping from label to phrase, every phrase a string")
       } else {
         f <- lookup(unlist(v))

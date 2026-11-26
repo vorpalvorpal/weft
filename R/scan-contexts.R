@@ -756,7 +756,7 @@ token_value <- function(tok) {
 # The value of a string token when it is one string, else NULL.
 str_token_value <- function(tok) {
   v <- token_value(tok)
-  if (is.character(v) && length(v) == 1L && !is.na(v)) v else NULL
+  if (is_string(v)) v else NULL
 }
 
 # ---- weft() strings ----------------------------------------------------------

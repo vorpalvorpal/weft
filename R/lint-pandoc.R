@@ -42,7 +42,7 @@ pandoc_of_quarto <- function() {
 # remembered for the session under the values of `weft.pandoc` and `WEFT_PANDOC`.
 pandoc_path <- function() {
   opt <- getOption("weft.pandoc")
-  opt <- if (is.character(opt) && length(opt) == 1L && !is.na(opt)) opt else ""
+  opt <- if (is_string(opt)) opt else ""
   env <- Sys.getenv("WEFT_PANDOC")
   key <- paste(opt, env, sep = "\r")
   hit <- pandoc_cache[[key]]

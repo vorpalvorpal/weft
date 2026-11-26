@@ -149,7 +149,7 @@ parse_jsonl <- function(lines, kind, lenient = FALSE, what = "the file") {
   for (i in seq_along(lines)) {
     l <- lines[i]
     if (!nzchar(trimws(l))) next
-    obj <- tryCatch(jsonlite::fromJSON(l, simplifyVector = FALSE), error = function(e) NULL)
+    obj <- tryCatch(json_read_text(l), error = function(e) NULL)
     ok <- is.list(obj) && (length(obj) == 0L || !is.null(names(obj)))
     if (!ok) {
       if (lenient) next
@@ -358,7 +358,7 @@ ledger_where <- function(s, F = NULL, name = NA_character_, view_line = NA_integ
   use_line <- !is.null(F) && !is.na(view_line)
   file <- ledger_file(s, Fx, if (!is.null(F) && !is.na(name)) name else Fx$name)
   line <- if (use_line) view_line else {
-    if (is.character(chunk) && length(chunk) == 1L && !is.na(chunk) && !is.null(Fx$chunk_lines)) {
+    if (is_string(chunk) && !is.null(Fx$chunk_lines)) {
       unname(Fx$chunk_lines[source_chunk_label(Fx, chunk)])
     } else NA_integer_
   }
@@ -390,7 +390,7 @@ ledger_output_name <- function(s, warn = FALSE) {
   # first (D2 lists the render frame first for a plain rmarkdown render)
   if (!quarto) {
     of <- render_frame_value("output_file")
-    if (is.character(of) && length(of) == 1L && !is.na(of) && nzchar(of)) return(strip_ext(of))
+    if (is_string(of) && nzchar(of)) return(strip_ext(of))
   }
   src <- strip_ext(if (is.na(s$input_path)) "document" else {
     root <- ledger_root(s)
@@ -523,7 +523,7 @@ ledger_prior_version_check <- function(path) {
   if (!file.exists(path) || dir.exists(path)) return(invisible())
   l <- tryCatch(readLines(path, n = 1L, warn = FALSE), error = function(e) character())
   if (!length(l)) return(invisible())
-  h <- tryCatch(jsonlite::fromJSON(l[1L], simplifyVector = FALSE), error = function(e) NULL)
+  h <- tryCatch(json_read_text(l[1L]), error = function(e) NULL)
   v <- suppressWarnings(as.numeric(h$version))
   if (length(v) == 1L && !is.na(v) && v > LEDGER_VERSION) {
     ledger_warn(sprintf(paste0("weft: %s is version %s, newer than this weft reads; it is rewritten ",
