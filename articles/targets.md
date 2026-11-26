@@ -201,8 +201,10 @@ or
 passed through
 [`tar_dict_deps()`](https://vorpalvorpal.github.io/weft/reference/tar_dict_deps.md),
 is scanned the same way: its chunks, its inline R and the expressions of
-its spans, and the files it includes. This report reads one target and
-one entry:
+its spans, and the files it includes, followed as Quarto expands them:
+at any depth, with every include path read from the report’s own folder
+(a leading `/` from the Quarto project root). This report reads one
+target and one entry:
 
 ```` markdown
 ---

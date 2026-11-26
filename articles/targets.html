@@ -244,8 +244,10 @@ computed <code>k</code>, depends on every entry.</p>
 <p>A report rendered by <code><a href="https://docs.ropensci.org/tarchetypes/reference/tar_render.html" class="external-link">tarchetypes::tar_render()</a></code> or
 <code><a href="https://docs.ropensci.org/tarchetypes/reference/tar_quarto.html" class="external-link">tarchetypes::tar_quarto()</a></code>, passed through
 <code><a href="../reference/tar_dict_deps.html">tar_dict_deps()</a></code>, is scanned the same way: its chunks, its
-inline R and the expressions of its spans, and the files it includes.
-This report reads one target and one entry:</p>
+inline R and the expressions of its spans, and the files it includes,
+followed as Quarto expands them: at any depth, with every include path
+read from the report’s own folder (a leading <code>/</code> from the
+Quarto project root). This report reads one target and one entry:</p>
 <div class="sourceCode" id="cb11"><pre class="sourceCode markdown"><code class="sourceCode markdown"><span id="cb11-1"><a href="#cb11-1" tabindex="-1"></a><span class="co">---</span></span>
 <span id="cb11-2"><a href="#cb11-2" tabindex="-1"></a><span class="an">title:</span><span class="co"> "Turbidity"</span></span>
 <span id="cb11-3"><a href="#cb11-3" tabindex="-1"></a><span class="an">output:</span><span class="co"> md_document</span></span>

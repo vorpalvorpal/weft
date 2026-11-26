@@ -2,6 +2,23 @@
 
 ## weft (development version)
 
+- **Behaviour change:** weft follows `{{< include >}}` as Quarto
+  (1.11.9) expands it, everywhere it follows includes: the knit’s line
+  map, the Lua filter’s line search and ledger header, the names R and
+  Python’s `auto()` publish for,
+  [`tar_dict_deps()`](https://vorpalvorpal.github.io/weft/reference/tar_dict_deps.md),
+  and the `named-unpublished` and `engine` lints. A path in a nested
+  include now resolves against the main document’s folder, not the
+  including file’s (so `two.qmd` named in `sub/one.qmd` is the main
+  folder’s `two.qmd`), and a leading `/` against the Quarto project
+  root, else the main document’s folder. A line is an include only when
+  the whole line is the shortcode with one space inside each bracket
+  (`{{<include x>}}`, a list item, a block quote or text around it is
+  not), `include` is lowercase in the main document and any case in an
+  included file, the path is the first parameter (quoted, it may hold
+  spaces), and an include inside a fence, a code cell or a multi-line
+  HTML comment is followed, but not inside a `{shortcodes=false}` cell.
+  The limit of 8 levels is gone; a cycle ends.
 - [`lints()`](https://vorpalvorpal.github.io/weft/reference/lints.md),
   the commit gate,
   [`arms()`](https://vorpalvorpal.github.io/weft/reference/arms.md),

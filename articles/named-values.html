@@ -646,12 +646,13 @@ is.</p>
 <code><a href="../reference/use_quarto.html">use_quarto()</a></code>, the report prints once, from the post-render
 script, which collects every document’s failures. With plain Pandoc, or
 a Quarto render with no post-render script, the filter prints it.</p>
-<p>A failure’s line is found by searching the source, its includes and
-its chunk options for the construct’s text. Text that a chunk printed
-has no line, and the report names the file only. If a construct’s text
-also appears later in the source, a printed construct takes that later
-line. A span in a pipe-table cell whose attribute holds <code>\|</code>
-is found too.</p>
+<p>A failure’s line is found by searching the source, its includes
+(followed as Quarto expands them, every path read from the main
+document’s folder) and its chunk options for the construct’s text. Text
+that a chunk printed has no line, and the report names the file only. If
+a construct’s text also appears later in the source, a printed construct
+takes that later line. A span in a pipe-table cell whose attribute holds
+<code>\|</code> is found too.</p>
 <div class="section level3">
 <h3 id="the-traps">The traps<a class="anchor" aria-label="anchor" href="#the-traps"></a>
 </h3>
