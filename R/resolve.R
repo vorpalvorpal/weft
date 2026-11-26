@@ -825,112 +825,6 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
     res
   }
 
-  # ---- resolve_markup(): ids and back-references (1.7) ----------------------------------
-
-  # The printed record of a governor value under the default class (1.5.18),
-  # or the value's own record when it is one.
-  governor_record <- function(v, cc, cfg) {
-    if (inherits(v, "weft_text")) {
-      return(if (length(v) == 1L) v else NULL)
-    }
-    if (!is.numeric(v) || length(v) != 1L || !is.finite(v)) return(NULL)
-    tryCatch(apply_formatters(v, cc$own, as.list(cc$keys), cfg, governor = TRUE),
-             error = function(e) NULL)
-  }
-
-  raw_of <- function(v) {
-    if (inherits(v, "weft_text")) {
-      r <- attr(v, "raw")
-      return(if (is.numeric(r) && length(r) == 1L) r else NA_real_)
-    }
-    if (is.numeric(v) && length(v) == 1L) as.numeric(v) else NA_real_
-  }
-
-  # The unit of a governor value, or NULL: a quantity's, or a formatter's text's.
-  unit_of <- function(v) {
-    if (inherits(v, c("units", "weft_text"))) attr(v, "units") else NULL
-  }
-
-  # `num` as a quantity in the unit `un`; a bare number when there is none (4.4.4).
-  with_unit <- function(num, un) {
-    if (is.null(un)) num else units::set_units(num, un, mode = "standard")
-  }
-
-  register_id <- function(rc, k, v, cc, rec = NULL) {
-    id <- rc$R$id[k]
-    if (is.na(id) || !nzchar(id)) return(invisible())
-    if (is.null(rec)) rec <- governor_record(v, cc, rc$cfg)
-    # a ladder printed the value in the rung it picked: the id holds the quantity there (L15)
-    if (!is.null(rc$picked) && rc$picked$k == k) v <- rc$picked$value
-    rc$picked <- NULL
-    s <- rc$s
-    s$ids[[id]] <- list(rec = rec, raw = raw_of(v), un = unit_of(v), loc = id_loc(rc$R, k))
-    invisible()
-  }
-
-  # where an id was defined, so the same construct met again is not a second
-  # definition, while another one is (1.7.5, over the document as knitted)
-  id_loc <- function(R, k) paste(R$file[k], R$line[k], R$context[k], R$start[k])
-
-  has_id_row <- function(R, k) !is.na(R$id[k]) && nzchar(R$id[k])
-
-  has_id <- function(R, k) {
-    R$kind[k] %in% c("value", "n", "if", "sign", "list") && !is.na(R$id[k]) && nzchar(R$id[k])
-  }
-
-  # Where a back-reference gets its value (1.7.6 to 1.7.8): the printed record
-  # of the occurrence, or, when the span has a formatter of its own, the raw
-  # value formatted afresh. Returns a list with `stop` (a marker) or `v`.
-  backref_value <- function(rc, k, expr, label, own_fmt) {
-    id <- sub("^#", "", trim_ws(expr))
-    ent <- rc$s$ids[[id]]
-    if (is.null(ent)) {
-      return(list(stop = construct_fail(rc, k, sprintf(
-        "The id `#%s` is not defined before this span, or its arm was not chosen (rule 1.7.10).", id))))
-    }
-    if (isTRUE(ent$left)) {
-      return(list(stop = record_fail(rc, k, "no value", label, sprintf(paste0(
-        "`#%s` names an id on `%s`, which R did not read here and left for the filter; the hooks cannot read ",
-        "it (rule 1.12.10)."), id, ent$name))))
-    }
-    if (isTRUE(ent$failed)) {
-      return(list(stop = record_fail(rc, k, "no value", label, sprintf(
-        "The id `#%s` was defined by a value that failed, so it has no value (rule 1.7.10).", id))))
-    }
-    if (own_fmt) {
-      if (is.na(ent$raw)) {
-        return(list(stop = record_fail(rc, k, "value error", label, sprintf(
-          "The id `#%s` has no number to format afresh (rule 1.7.8).", id))))
-      }
-      return(list(v = with_unit(ent$raw, ent$un), claim_failed = FALSE))
-    }
-    if (is.null(ent$rec)) {
-      return(list(stop = record_fail(rc, k, "value error", label, sprintf(
-        "The id `#%s` has no printed number (rule 1.7.8).", id))))
-    }
-    list(v = ent$rec, claim_failed = FALSE)
-  }
-
-  # The governor of an `n` or `sign` span: a value to read the number from.
-  # Returns a list with `stop` (a marker, when it failed) or `v`.
-  get_governor <- function(rc, k, label, cc) {
-    R <- rc$R
-    expr <- R$expr[k]
-    own_fmt <- has_own_format(cc, rc$cfg$formatters)
-    if (R$kind[k] == "n" && identical(trim_ws(expr), ".")) {
-      if (is.null(rc$gov)) {
-        return(list(stop = construct_fail(rc, k, "`n=\".\"` outside an `n` or `sign` span (rule 1.7.2).")))
-      }
-      return(list(v = rc$gov, claim_failed = FALSE, inherit = TRUE))
-    }
-    if (is_backref(expr)) return(backref_value(rc, k, expr, label, own_fmt))
-    ev <- eval_expr(rc, k, expr, gov_label(R$expr[k]))
-    if (!ev$ok) return(list(stop = fail_from_error(rc, k, ev$error, label)))
-    prob <- guest_governor_problem(ev$guest, R$kind[k])
-    if (!is.null(prob)) return(list(stop = record_fail(rc, k, "value error", label, prob)))
-    list(v = ev$value, claim_failed = ev$claim_failed)
-  }
-
   # ---- resolve_markup(): the governed spans ----------------------------------------------
 
   render_n <- function(rc, k) {
@@ -1636,5 +1530,111 @@ finish_construct <- function(rc, k, text, cc, claim_failed, text_classes = TRUE)
     text <- paste0(text, resolve_marker(rc, "failed claim", rc$R$line[k]))
   }
   text
+}
+
+# ---- resolve_markup(): ids and back-references (1.7) ----------------------------------
+
+# The printed record of a governor value under the default class (1.5.18),
+# or the value's own record when it is one.
+governor_record <- function(v, cc, cfg) {
+  if (inherits(v, "weft_text")) {
+    return(if (length(v) == 1L) v else NULL)
+  }
+  if (!is.numeric(v) || length(v) != 1L || !is.finite(v)) return(NULL)
+  tryCatch(apply_formatters(v, cc$own, as.list(cc$keys), cfg, governor = TRUE),
+           error = function(e) NULL)
+}
+
+raw_of <- function(v) {
+  if (inherits(v, "weft_text")) {
+    r <- attr(v, "raw")
+    return(if (is.numeric(r) && length(r) == 1L) r else NA_real_)
+  }
+  if (is.numeric(v) && length(v) == 1L) as.numeric(v) else NA_real_
+}
+
+# The unit of a governor value, or NULL: a quantity's, or a formatter's text's.
+unit_of <- function(v) {
+  if (inherits(v, c("units", "weft_text"))) attr(v, "units") else NULL
+}
+
+# `num` as a quantity in the unit `un`; a bare number when there is none (4.4.4).
+with_unit <- function(num, un) {
+  if (is.null(un)) num else units::set_units(num, un, mode = "standard")
+}
+
+register_id <- function(rc, k, v, cc, rec = NULL) {
+  id <- rc$R$id[k]
+  if (is.na(id) || !nzchar(id)) return(invisible())
+  if (is.null(rec)) rec <- governor_record(v, cc, rc$cfg)
+  # a ladder printed the value in the rung it picked: the id holds the quantity there (L15)
+  if (!is.null(rc$picked) && rc$picked$k == k) v <- rc$picked$value
+  rc$picked <- NULL
+  s <- rc$s
+  s$ids[[id]] <- list(rec = rec, raw = raw_of(v), un = unit_of(v), loc = id_loc(rc$R, k))
+  invisible()
+}
+
+# where an id was defined, so the same construct met again is not a second
+# definition, while another one is (1.7.5, over the document as knitted)
+id_loc <- function(R, k) paste(R$file[k], R$line[k], R$context[k], R$start[k])
+
+has_id_row <- function(R, k) !is.na(R$id[k]) && nzchar(R$id[k])
+
+has_id <- function(R, k) {
+  R$kind[k] %in% c("value", "n", "if", "sign", "list") && !is.na(R$id[k]) && nzchar(R$id[k])
+}
+
+# Where a back-reference gets its value (1.7.6 to 1.7.8): the printed record
+# of the occurrence, or, when the span has a formatter of its own, the raw
+# value formatted afresh. Returns a list with `stop` (a marker) or `v`.
+backref_value <- function(rc, k, expr, label, own_fmt) {
+  id <- sub("^#", "", trim_ws(expr))
+  ent <- rc$s$ids[[id]]
+  if (is.null(ent)) {
+    return(list(stop = construct_fail(rc, k, sprintf(
+      "The id `#%s` is not defined before this span, or its arm was not chosen (rule 1.7.10).", id))))
+  }
+  if (isTRUE(ent$left)) {
+    return(list(stop = record_fail(rc, k, "no value", label, sprintf(paste0(
+      "`#%s` names an id on `%s`, which R did not read here and left for the filter; the hooks cannot read ",
+      "it (rule 1.12.10)."), id, ent$name))))
+  }
+  if (isTRUE(ent$failed)) {
+    return(list(stop = record_fail(rc, k, "no value", label, sprintf(
+      "The id `#%s` was defined by a value that failed, so it has no value (rule 1.7.10).", id))))
+  }
+  if (own_fmt) {
+    if (is.na(ent$raw)) {
+      return(list(stop = record_fail(rc, k, "value error", label, sprintf(
+        "The id `#%s` has no number to format afresh (rule 1.7.8).", id))))
+    }
+    return(list(v = with_unit(ent$raw, ent$un), claim_failed = FALSE))
+  }
+  if (is.null(ent$rec)) {
+    return(list(stop = record_fail(rc, k, "value error", label, sprintf(
+      "The id `#%s` has no printed number (rule 1.7.8).", id))))
+  }
+  list(v = ent$rec, claim_failed = FALSE)
+}
+
+# The governor of an `n` or `sign` span: a value to read the number from.
+# Returns a list with `stop` (a marker, when it failed) or `v`.
+get_governor <- function(rc, k, label, cc) {
+  R <- rc$R
+  expr <- R$expr[k]
+  own_fmt <- has_own_format(cc, rc$cfg$formatters)
+  if (R$kind[k] == "n" && identical(trim_ws(expr), ".")) {
+    if (is.null(rc$gov)) {
+      return(list(stop = construct_fail(rc, k, "`n=\".\"` outside an `n` or `sign` span (rule 1.7.2).")))
+    }
+    return(list(v = rc$gov, claim_failed = FALSE, inherit = TRUE))
+  }
+  if (is_backref(expr)) return(backref_value(rc, k, expr, label, own_fmt))
+  ev <- eval_expr(rc, k, expr, gov_label(R$expr[k]))
+  if (!ev$ok) return(list(stop = fail_from_error(rc, k, ev$error, label)))
+  prob <- guest_governor_problem(ev$guest, R$kind[k])
+  if (!is.null(prob)) return(list(stop = record_fail(rc, k, "value error", label, prob)))
+  list(v = ev$value, claim_failed = ev$claim_failed)
 }
 
