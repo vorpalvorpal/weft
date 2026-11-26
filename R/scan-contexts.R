@@ -14,24 +14,52 @@ CAPTION_OPTIONS <- c("fig-cap", "fig.cap", "fig-alt", "fig.alt", "fig-scap",
 DIV_REMEDY <- paste0("write the caption in a figure or table div instead, ",
                      "`::: {#fig-name}` ... caption paragraph ... `:::` (rules 1.10.5, 2.3.5)")
 
+# ---- the skeleton of a document, read once (E1) ----------------------------
+
+# A document's skeleton (its metadata blocks, chunks and front-matter fields)
+# is read by many callers from the same lines. `local_doc_memo()` opens a memo
+# for the length of the calling function (one document read, one knit's file
+# state), in which each is computed once per `lines`; with none open, every call
+# computes. The memo ends with that call.
+local_doc_memo <- function(envir = parent.frame()) {
+  if (!is.null(weft_env$doc_memo)) return(invisible())
+  weft_env$doc_memo <- new.env(parent = emptyenv())
+  withr::defer(weft_env$doc_memo <- NULL, envir = envir)
+  invisible()
+}
+
+# `compute(lines)`, kept under `kind` for lines identical to `lines` while a
+# memo is open (the last eight of each kind). A call that fails keeps nothing.
+doc_memo <- function(kind, lines, compute) {
+  m <- weft_env$doc_memo
+  if (is.null(m)) return(compute(lines))
+  for (e in m[[kind]]) if (identical(e$lines, lines)) return(e$value)
+  v <- compute(lines)
+  m[[kind]] <- c(list(list(lines = lines, value = v)), utils::head(m[[kind]], 7L))
+  v
+}
+
 # ---- metadata blocks ---------------------------------------------------------
 
 # The metadata blocks of a document, as the line numbers of the delimiters.
 # Like Pandoc, a block opens with a `---` line at the start or after a blank
 # line, followed by a line that is not blank, and closes at the next `---` or
 # `...` line. Fenced blocks are left alone.
-metadata_blocks <- function(lines) {
+metadata_blocks <- function(lines) doc_memo("metadata_blocks", lines, metadata_blocks_)
+
+metadata_blocks_ <- function(lines) {
   n <- length(lines)
   is_blank <- function(l) !nzchar(trim_ws(l))
   open <- integer()
   close <- integer()
   # only a fence line or a `---` line can matter: the rest are skipped, in one pass
   cand <- which(grepl("^[ \t>]*(`{3,}|~{3,})", lines) | grepl("^---[ \t\r]*$", lines))
-  # the first line after `k` that closes the fence `fence`, or n + 1
+  # the first line after `k` that closes the fence `fence`, or n + 1: a closing line is a fence line, so
+  # only the candidates are tried (E2)
   next_close <- function(fence, k) {
-    if (k >= n) return(n + 1L)
-    hit <- which(grepl(fence, lines[(k + 1L):n], perl = TRUE))
-    if (length(hit)) k + hit[1L] else n + 1L
+    after <- cand[cand > k]
+    hit <- after[grepl(fence, lines[after], perl = TRUE)]
+    if (length(hit)) hit[1L] else n + 1L
   }
   k <- 1L
   while (k <= n) {
@@ -88,7 +116,9 @@ is_yaml_mapping <- function(x) {
 # last line of its value, and the form of the scalar: `block` (`|` or `>`:
 # the value starts on the line after the key) or `other` (the value starts on
 # the key's line).
-front_fields <- function(lines) {
+front_fields <- function(lines) doc_memo("front_fields", lines, front_fields_)
+
+front_fields_ <- function(lines) {
   mb <- metadata_blocks(lines)
   out <- list()
   for (b in seq_len(nrow(mb))) {
@@ -144,33 +174,28 @@ mask_front_matter <- function(text) {
 }
 
 # The type of the project a file is in (`project: type:` of the nearest
-# `_quarto.yml`), or "".
+# `_quarto.yml`), or "". Read once per folder in a walk (walk_memo()).
 project_type <- function(path) {
   if (is.null(path) || is.na(path)) return("")
   d <- normalizePath(path, mustWork = FALSE)
   if (!dir.exists(d)) d <- dirname(d)
-  repeat {
-    for (f in QUARTO_MARKERS) {
-      p <- file.path(d, f)
-      if (file.exists(p)) {
-        y <- tryCatch(yaml_read_file(p), error = function(e) NULL)
-        ty <- if (is.list(y)) y$project$type else NULL
-        return(if (is.character(ty) && length(ty) == 1L) ty else "")
-      }
-    }
-    up <- dirname(d)
-    if (identical(up, d)) return("")
-    d <- up
-  }
+  walk_memo("project_type", d, function() {
+    r <- find_quarto_root(d)
+    if (is.null(r)) return("")
+    p <- file.path(r, QUARTO_MARKERS)
+    y <- tryCatch(yaml_read_file(p[file.exists(p)][1L]), error = function(e) NULL)
+    ty <- if (is.list(y)) y$project$type else NULL
+    if (is.character(ty) && length(ty) == 1L) ty else ""
+  })
 }
 
 # The chunk options the document sets for every chunk: `knitr: opts_chunk:`,
 # then `execute:` over it (the first metadata block). Option names are as
 # written; a dot and a hyphen are the same name.
 doc_execute <- function(lines) {
-  mb <- metadata_blocks(lines)
-  if (!nrow(mb) || mb$open[1L] != 1L || mb$close[1L] - 2L < 1L) return(list())
-  y <- tryCatch(yaml_read_text(lines[2L:(mb$close[1L] - 1L)]), error = function(e) NULL)
+  fm <- front_block(lines)
+  if (!length(fm)) return(list())
+  y <- tryCatch(yaml_read_text(fm), error = function(e) NULL)
   if (!is.list(y)) return(list())
   oc <- if (is.list(y$knitr)) y$knitr$opts_chunk else NULL
   ex <- y$execute
@@ -274,14 +299,18 @@ scan_front_matter_rows <- function(lines, file = NA_character_, config = NULL,
 
 # The executed chunks of a document: header line, close line, engine, and the
 # header's options as written.
-find_chunks <- function(lines) {
+find_chunks <- function(lines) doc_memo("find_chunks", lines, find_chunks_)
+
+find_chunks_ <- function(lines) {
   n <- length(lines)
   mb <- metadata_blocks(lines)
   inyaml <- rep(FALSE, n)
   for (b in seq_len(nrow(mb))) inyaml[mb$open[b]:mb$close[b]] <- TRUE
   begin <- "^[ \t>]*(`{3,})[ \t]*\\{[ \t]*([A-Za-z0-9_]+)(.*)\\}[ \t]*$"
-  # a chunk header is a fence line: only those are looked at, in one pass
-  cand <- which(!inyaml & grepl("^[ \t>]*(`{3,}|~{3,})", lines))
+  # a chunk header is a fence line: only those are looked at, in one pass; a closing line is a fence line
+  # too, metadata or not, so the close is looked for among those (E2)
+  fl <- which(grepl("^[ \t>]*(`{3,}|~{3,})", lines))
+  cand <- fl[!inyaml[fl]]
   out <- list()
   k <- 1L
   while (k <= n) {
@@ -294,11 +323,9 @@ find_chunks <- function(lines) {
     if (length(m) || length(gen)) {
       fence <- if (length(m)) m[2] else gen[2]
       close_re <- paste0("^[ \t>]*", substr(fence, 1, 1), "{", nchar(fence), ",}[ \t\r]*$")
-      j <- n + 1L
-      if (k < n) {
-        hit <- which(grepl(close_re, lines[(k + 1L):n], perl = TRUE))
-        if (length(hit)) j <- k + hit[1L]
-      }
+      after <- fl[fl > k]
+      hit <- after[grepl(close_re, lines[after], perl = TRUE)]
+      j <- if (length(hit)) hit[1L] else n + 1L
       if (length(m)) {
         out[[length(out) + 1L]] <- list(open = k, close = min(j, n + 1L) - 0L,
                                         engine = m[3], header = m[4], closed = j <= n)

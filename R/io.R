@@ -217,6 +217,38 @@ find_quarto_root <- function(start) {
   if (is.na(r)) NULL else r
 }
 
+# ---- a memo for one walk over a project ----------------------------------------------------------
+
+# A walk over a project (lints(), checks(), verify(), a gate side) reads the same project files for every
+# document: the `_weft.yml` of a settings root, the `_quarto.yml` above a folder. `local_walk_memo()` opens a
+# memo for the length of the calling function, in which each is read once (E6). It ends with that call, so the
+# next call reads a changed file fresh. A memo already open is used (a walk inside a walk), unless `fresh` (a
+# gate side, whose project is a temporary copy).
+local_walk_memo <- function(fresh = FALSE, envir = parent.frame()) {
+  old <- weft_env$walk_memo
+  if (!is.null(old) && !fresh) return(invisible())
+  weft_env$walk_memo <- new.env(parent = emptyenv())
+  withr::defer(weft_env$walk_memo <- old, envir = envir)
+  invisible()
+}
+
+# `compute()`, kept under `key` of `kind` while a walk memo is open, and called every time when none is. Only
+# a value is kept: a call that fails is made again.
+walk_memo <- function(kind, key, compute) {
+  m <- weft_env$walk_memo
+  if (is.null(m) || length(key) != 1L || is.na(key) || !nzchar(key)) return(compute())
+  tab <- m[[kind]]
+  if (is.null(tab)) {
+    tab <- new.env(parent = emptyenv())
+    m[[kind]] <- tab
+  }
+  hit <- tab[[key]]
+  if (!is.null(hit)) return(hit[[1L]])
+  v <- compute()
+  tab[[key]] <- list(v)
+  v
+}
+
 # ---- a project's documents ------------------------------------------------------------------------
 
 DOC_EXT_RE <- "\\.(qmd|Rmd|rmd)$"
@@ -256,17 +288,15 @@ doc_path_ok <- function(rel, use = c("lint", "anchors", "setup")) {
 # (`pattern` picks the extension; `.qmd`, `.Rmd` and `.rmd` by default).
 project_doc_paths <- function(root, use = c("lint", "anchors", "setup"), pattern = DOC_EXT_RE) {
   use <- match.arg(use)
-  # dot-folders and dot-files are never listed, so `.git` and `.quarto` are not walked
-  f <- list.files(root, pattern = pattern, recursive = TRUE, include.dirs = FALSE)
-  if (!length(f)) return(character())
-  f <- f[doc_path_ok(f, use)]
-  sort(enc2utf8(f), method = "radix")
+  sort(enc2utf8(project_files_under(root, pattern, use)), method = "radix")
 }
 
-# The `.R` and `.r` files under `root` as relative paths with "/", in folders the documents' rule reads
-# (not a dot-folder, a vendored folder, a folder Quarto writes to, or a `_` folder). Those folders are pruned
-# as the walk goes, so renv's library is not walked, and a symbolic link to one is not followed (K15).
-script_files_under <- function(root) {
+# The files under `root` whose names match `pattern` and that `use` reads (doc_path_ok()), as relative paths
+# with "/", in the order of the walk. The folders that hold none (a dot-folder, a vendored folder, a folder
+# Quarto writes to, and but for "anchors" a `_` folder) are pruned as the walk goes, so renv's library is not
+# walked and a symbolic link by one of those names is not followed (K15). Dot-files are never listed.
+project_files_under <- function(root, pattern, use = c("lint", "anchors", "setup")) {
+  use <- match.arg(use)
   out <- character()
   walk <- function(rel) {
     dir <- if (nzchar(rel)) file.path(root, rel) else root
@@ -274,14 +304,15 @@ script_files_under <- function(root) {
     if (!length(ents)) return(invisible())
     isd <- dir.exists(file.path(dir, ents))
     for (e in ents[isd]) {
-      if (e %in% DOC_VENDORED_DIRS || startsWith(e, "_")) next
+      if (e %in% DOC_VENDORED_DIRS || e %in% DOC_QUARTO_DIRS || (use != "anchors" && startsWith(e, "_"))) next
       walk(if (nzchar(rel)) paste0(rel, "/", e) else e)
     }
-    f <- ents[!isd & grepl(SCRIPT_EXT_RE, ents)]
+    f <- ents[!isd & grepl(pattern, ents)]
     if (length(f)) out <<- c(out, if (nzchar(rel)) paste0(rel, "/", f) else f)
   }
   walk("")
-  out
+  if (!length(out)) return(character())
+  out[doc_path_ok(out, use)]
 }
 
 # The scripts of the project at `root` (C1, C2, K4): `.R` and `.r` files, as sorted relative paths with "/",
@@ -296,7 +327,7 @@ SCRIPT_EXT_RE <- "\\.[rR]$"
 project_script_paths <- function(root) {
   skip_of <- scripts_skip_getter(root)
   skip_of("")
-  f <- script_files_under(root)
+  f <- project_files_under(root, SCRIPT_EXT_RE)
   if (!length(f)) return(character())
   f <- enc2utf8(f)
   keep <- vapply(f, function(rel) !script_skipped_in(root, rel, skip_of), NA, USE.NAMES = FALSE)
