@@ -55,7 +55,7 @@ test_that("N120: a stamp with `fresh` true, or null, passes (control)", {
 
 test_that("N120: a failure of source \"resolve\" in a stamp of this run fails verify() (control)", {
   v4_env()
-  f <- paste0("{\"source\":\"resolve\",\"kind\":\"failed claim\",\"file\":\"a.qmd\",\"line\":3,\"chunk\":null,",
+  f <- paste0("{\"source\":\"resolve\",\"kind\":\"failed claim\",\"file\":\"a.qmd\",\"line\":7,\"chunk\":null,",
               "\"expr\":\"depth\",\"detail\":\"d\",\"hint\":null,\"option\":null,\"chunk_line\":null}")
   fq <- v4_fake_quarto(body = vn_sh_stamp("a.qmd", failures = f))
   p <- vn_proj()

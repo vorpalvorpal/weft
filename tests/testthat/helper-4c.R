@@ -169,8 +169,9 @@ v4_plant_stale_ledger <- function(root, source = "a.qmd") {
 # ---- documents ----------------------------------------------------------------------------------------
 
 # a document that holds a construct (a value) and nothing the static lints object to
-V4_CONSTRUCT_DOC <- c("Intro paragraph.", "", "The reading is `r depth`{.num} metres.",
-                      "", "---", "engine: knitr", "---")
+# (its metadata block is at the top: Quarto reads `engine:` from the first block only, F6)
+V4_CONSTRUCT_DOC <- c("---", "engine: knitr", "---", "",
+                      "Intro paragraph.", "", "The reading is `r depth`{.num} metres.")
 # a document with no weft construct at all
 V4_PLAIN_DOC <- c("Intro paragraph.", "", "Nothing computed here.")
 # a tier-2 claim word in a sentence with a value (3b L20): one finding, rule claim-word

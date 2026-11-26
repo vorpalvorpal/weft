@@ -28,7 +28,7 @@ fk_proj <- function(files = list("a.qmd" = V4_CONSTRUCT_DOC, "b.qmd" = V4_PLAIN_
   v4_proj(files, quarto_yml = V4_QUARTO_YML, env = env, ...)
 }
 
-FAILURE_A <- list(list(kind = "failed claim", file = "a.qmd", line = 3L, expr = "`r claim(depth, . > 100)`",
+FAILURE_A <- list(list(kind = "failed claim", file = "a.qmd", line = 7L, expr = "`r claim(depth, . > 100)`",
                        detail = ". > 100 was FALSE (value 12.5)"))
 NOT_EXECUTED <- "not executed in this render: served from freeze, or knit without weft active"
 
@@ -179,7 +179,7 @@ test_that("4c G26: failures in a stamp of this run fail verify(), listed with th
   expect_true(v4_has_section(r$report, "Knit-time failures"))
   sec <- v4_section(r$report, "Knit-time failures")
   expect_true(any(grepl("a.qmd", sec, fixed = TRUE)))
-  expect_true(any(grepl("3", sec, fixed = TRUE)))
+  expect_true(any(grepl("7", sec, fixed = TRUE)))   # the line of the value in V4_CONSTRUCT_DOC
   expect_true(any(grepl(". > 100 was FALSE (value 12.5)", sec, fixed = TRUE)))
   expect_false(v4_has_section(r$report, "Not executed in this render"))
 })
