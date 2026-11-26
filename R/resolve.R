@@ -354,7 +354,22 @@ starts_sentence <- function(st, text, nlpos, first_ink) {
 # `ctx` names its chunk and option, the environment its code is evaluated in,
 # and whether a failure stops at once (`strict`, outside a knit, 3.6.3) or is
 # collected (2.4.1).
+#
+# The phases share one context, `rc` (see resolve_rows()). Evaluation is part of
+# rendering: a governed span chooses its arm first and evaluates only what that
+# arm holds (1.5.16).
 resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
+  rc <- resolve_rows(s, x, block, ctx)       # the row table
+  on.exit(record_constructs(rc), add = TRUE)
+  check_rows(rc)                             # the errors found from the source
+  out <- render_rows(rc)                     # each row evaluated and rendered
+  write_entries(rc, out)                     # the ledger entries
+  out
+}
+
+# Phase 1: the rows of the markup, one per construct, and the context the later phases
+# share. Returns the context `rc`.
+resolve_rows <- function(s, x, block, ctx) {
   cfg <- s$config
   is_str <- is.null(block)
   strict <- is_str && isTRUE(ctx$strict)
@@ -362,7 +377,6 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
   F <- loc$F
   restored <- restore_parked(x, s$parked)
   text <- restored$text
-  spans <- restored$spans
   sb <- scan_block(if (is_str) text else mask_front_matter(text), file = NA_character_,
                    first_line = loc$start, config = cfg,
                    rmd = !is_str && isTRUE(grepl("\\.rmd$", current_file_name(s), ignore.case = TRUE)))
@@ -411,7 +425,7 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
   rc$F <- F                 # the file state of the block (NULL for a string)
   rc$first_line <- loc$start  # the view line the block starts on
   rc$text <- text           # the markup, the parked code put back
-  rc$spans <- spans         # where each parked span lies in `text`, and its index in `s$parked`
+  rc$spans <- restored$spans  # where each parked span lies in `text`, and its index in `s$parked`
   rc$S <- sb$S              # the scan of `text` (its characters, for the arms' separators)
   rc$R <- R                 # the rows: one per construct, in textual order
   rc$env0 <- if (is_str) (ctx$envir %||% knitr::knit_global()) else knitr::knit_global()  # where code is evaluated
@@ -437,50 +451,73 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
   rc$cur_tex <- ""          # the `tex` of the row being rendered ("" outside math and raw LaTeX)
   rc$gov <- NULL            # the record of the governor whose arm is being rendered (`n="."`)
   rc$picked <- NULL         # the last ladder pick (its row and the quantity in the rung), for the row's id
+  rc
+}
 
-  on.exit({
-    if (nr) {
-      R[c("evaluated", "unit_picked", "chosen")] <- list(rc$evaluated, rc$unit_picked, rc$chosen)
-      # the place of a span among the spans of its line (or of its string) that
-      # read alike, so a rehearsal can tell them apart (3.7.3)
-      grp <- paste(R$context, R$line, R$chunk, gsub("-", ".", R$option, fixed = TRUE),
-                   R$kind, R$expr, sep = "\r")
-      R$ord <- as.integer(stats::ave(seq_len(nr), grp, FUN = seq_along))
-      s$constructs[[length(s$constructs) + 1L]] <- R
-      if (!is.null(F)) {
-        top <- is.na(R$parent) & !(R$kind %in% c("bare", "link"))
-        F$recorded <- c(F$recorded, paste(R$kind[top], R$line_view[top]))
-      }
-    }
-  }, add = TRUE)
+# On exit: the rows go to last_knit()$constructs, with what the render filled in, and the
+# top-level ones count as the document's checks.
+record_constructs <- function(rc) {
+  R <- rc$R
+  nr <- nrow(R)
+  if (!nr) return(invisible())
+  R[c("evaluated", "unit_picked", "chosen")] <- list(rc$evaluated, rc$unit_picked, rc$chosen)
+  # the place of a span among the spans of its line (or of its string) that
+  # read alike, so a rehearsal can tell them apart (3.7.3)
+  grp <- paste(R$context, R$line, R$chunk, gsub("-", ".", R$option, fixed = TRUE),
+               R$kind, R$expr, sep = "\r")
+  R$ord <- as.integer(stats::ave(seq_len(nr), grp, FUN = seq_along))
+  s <- rc$s
+  s$constructs[[length(s$constructs) + 1L]] <- R
+  F <- rc$F
+  if (!is.null(F)) {
+    top <- is.na(R$parent) & !(R$kind %in% c("bare", "link"))
+    F$recorded <- c(F$recorded, paste(R$kind[top], R$line_view[top]))
+  }
+  invisible()
+}
 
+# Phase 2: the errors found from the source, before anything is evaluated.
+check_rows <- function(rc) {
+  R <- rc$R
+  s <- rc$s
+  nr <- nrow(R)
   # construct errors found from the source stop the render at once (2.6.5),
   # except in draft mode, where each becomes a marker where it would print
-  if ((!draft || strict) && nr && any(!is.na(R$error))) {
+  if ((!rc$draft || rc$strict) && nr && any(!is.na(R$error))) {
     k <- which(!is.na(R$error))[1L]
     rc$evaluated[k] <- TRUE
     weft_abort(sprintf("weft: %s: %s", loc_str(rc, k), R$error[k]),
                c("weft_construct_error", "weft_located"))
   }
-
   # an English-only class under another `lang` is found from the source, so a
   # construct in an unchosen arm is an error too and the render does not depend
   # on the data (1.6.8, 1.6.4)
   if (nr && !lang_is_english(s$lang)) {
     for (k in which(R$kind %in% c("value", "n", "sign", "list", "text", "cite", "if") & is.na(R$error))) {
-      cc <- split_classes(R$classes[[k]], R$keys[[k]], rc$owned, cfg$formatters)
+      cc <- split_classes(R$classes[[k]], R$keys[[k]], rc$owned, rc$cfg$formatters)
       msg <- lang_check(s$lang, R$kind[k], R$expr[k], cc$own, cc$keys, length(R$arms[[k]]))
       if (is.null(msg)) next
-      if (!draft) {
+      if (!rc$draft) {
         weft_abort(sprintf("weft: %s: %s", loc_str(rc, k), msg),
                    c("weft_construct_error", "weft_located"))
       }
     }
   }
+  invisible()
+}
 
-  top <- range_items(rc, 1L, nchar(text), which(is.na(R$parent)))
-  out <- render_plain(rc, 1L, nchar(text), top, top = TRUE)
-  # the ledger entries of this block, with the sentence each construct sits in (D12)
+# Phase 3: the markup with every top-level item evaluated and rendered.
+render_rows <- function(rc) {
+  n <- nchar(rc$text)
+  top <- range_items(rc, 1L, n, which(is.na(rc$R$parent)))
+  render_plain(rc, 1L, n, top, top = TRUE)
+}
+
+# Phase 4: the ledger entries of the block, with the sentence each construct sits in (D12);
+# in draft mode, the English-only classes of the rows not rendered; and the parked code let go.
+write_entries <- function(rc, out) {
+  R <- rc$R
+  s <- rc$s
   ents <- Filter(Negate(is.null), rc$ents)
   top_pos <- rc$top_pos
   if (length(ents)) {
@@ -489,25 +526,25 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
       ti <- e$top
       a <- if (!is.null(top_pos) && !is.na(ti) && ti <= nrow(top_pos)) top_pos$start[ti] else NA_integer_
       b <- if (!is.null(top_pos) && !is.na(ti) && ti <= nrow(top_pos)) top_pos$end[ti] else NA_integer_
-      e$sentence <- ledger_sentence(out, a, b, whole = is_str, front = identical(e$context, "front-matter"))
+      e$sentence <- ledger_sentence(out, a, b, whole = rc$is_str, front = identical(e$context, "front-matter"))
       e$top <- NULL
       ents[[j]] <- e
     }
     s$ledger <- c(s$ledger, ents)
   }
-  if (nr && draft && !lang_is_english(s$lang)) {
+  if (nrow(R) && rc$draft && !lang_is_english(s$lang)) {
     for (k in which(R$kind %in% c("value", "n", "sign", "list", "text", "cite", "if") & !rc$evaluated & is.na(R$error))) {
-      cc <- split_classes(R$classes[[k]], R$keys[[k]], rc$owned, cfg$formatters)
+      cc <- split_classes(R$classes[[k]], R$keys[[k]], rc$owned, rc$cfg$formatters)
       msg <- lang_check(s$lang, R$kind[k], R$expr[k], cc$own, cc$keys, length(R$arms[[k]]))
       if (!is.null(msg)) {
         add_failure(s, "construct error", file = R$file[k], line = R$line[k],
-                    expr = source_label(text, R$start[k], R$end[k]), detail = msg, chunk = chunk_label)
+                    expr = source_label(rc$text, R$start[k], R$end[k]), detail = msg, chunk = rc$chunk_label)
       }
     }
   }
   # the parked code is resolved: its environment, a caller's frame, is let go (the code is kept)
-  for (i in spans$idx) s$parked[[i]]$envir <- NULL
-  out
+  for (i in rc$spans$idx) s$parked[[i]]$envir <- NULL
+  invisible()
 }
 
 # ---- resolve_markup(): failure reporting -------------------------------------------------
