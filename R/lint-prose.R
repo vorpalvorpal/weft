@@ -237,75 +237,57 @@ lint_claim_word <- function(src, ctx) {
   if (!nrow(sent)) return(new_findings())
   lw <- line_matches("\\p{L}+", prose)
   if (!length(lw$s)) return(new_findings())
-  ps <- lw$s
-  orig <- lw$w
-  run <- tolower(orig)
-  hit <- run %in% lex
+  w <- data.frame(ps = lw$s, orig = lw$w, run = tolower(lw$w), stringsAsFactors = FALSE)
+  hit <- w$run %in% lex
   if (!any(hit)) return(new_findings())
-  ps <- ps[hit]
-  orig <- orig[hit]
-  run <- run[hit]
-  # keep() filters the three parallel word vectors together, with `<<-`: a pure form would need three
-  # assignments, or a table in place of the vectors, at each of its seven calls
-  keep <- function(ok) {
-    ps <<- ps[ok]  # <<- ok: see above
-    orig <<- orig[ok]  # <<- ok: see above
-    run <<- run[ok]  # <<- ok: see above
-  }
+  w <- w[hit, , drop = FALSE]
   r <- src$rows
   if (nrow(r)) {
     g <- r$kind %in% c("if", "sign")
     guarded <- mark_ranges(nchar(src$text), r$fstart[g], r$fend[g])
-    keep(!guarded[ps])
+    w <- w[!guarded[w$ps], , drop = FALSE]
   }
-  if (!length(ps)) return(new_findings())
-  sid <- innermost_sentence(ps, sent)
-  keep(!is.na(sid))
-  sid <- sid[!is.na(sid)]
-  btype <- src$blocks$type[sent$block[sid]]
-  ok <- !(btype %in% "phrase")
-  keep(ok)
-  sid <- sid[ok]
-  if (!length(ps)) return(new_findings())
+  if (!nrow(w)) return(new_findings())
+  w$sid <- innermost_sentence(w$ps, sent)
+  w <- w[!is.na(w$sid), , drop = FALSE]
+  btype <- src$blocks$type[sent$block[w$sid]]
+  w <- w[!(btype %in% "phrase"), , drop = FALSE]
+  if (!nrow(w)) return(new_findings())
   # CW2: a word inside an idiom is no hit
   rx <- idiom_regex(claim_idioms(src$cfg, src$lang))
   if (!is.null(rx)) {
-    ok <- !inside_matches(prose, rx, ps)
-    keep(ok)
-    sid <- sid[ok]
+    ok <- !inside_matches(prose, rx, w$ps)
+    w <- w[ok, , drop = FALSE]
   }
   # CW4: a hyphen directly before or after the word; U+2010 and U+2011 are hyphens too
-  if (length(ps)) {
-    hy <- "[-\u2010\u2011]"
-    before <- grepl(hy, substring(prose, ps - 1L, ps - 1L)) & ps > 1L
-    after <- grepl(hy, substring(prose, ps + nchar(run), ps + nchar(run)))
+  if (nrow(w)) {
+    hy <- "[-‐‑]"
+    before <- grepl(hy, substring(prose, w$ps - 1L, w$ps - 1L)) & w$ps > 1L
+    after <- grepl(hy, substring(prose, w$ps + nchar(w$run), w$ps + nchar(w$run)))
     ok <- !(before | after)
-    keep(ok)
-    sid <- sid[ok]
+    w <- w[ok, , drop = FALSE]
   }
   # CW5: a capital that is not the first word of its sentence is a proper name
-  if (length(ps)) {
-    cap <- grepl("^\\p{Lu}", orig, perl = TRUE)
-    firstrun <- lw$s[pmin(findInterval(sent$start[sid] - 1L, lw$s) + 1L, length(lw$s))]
-    ok <- !(cap & ps != firstrun)
-    keep(ok)
-    sid <- sid[ok]
+  if (nrow(w)) {
+    cap <- grepl("^\\p{Lu}", w$orig, perl = TRUE)
+    firstrun <- lw$s[pmin(findInterval(sent$start[w$sid] - 1L, lw$s) + 1L, length(lw$s))]
+    ok <- !(cap & w$ps != firstrun)
+    w <- w[ok, , drop = FALSE]
   }
   # CW6: a quantifier counts only in a sentence with a value or a typed digit (`number`); a word
   # the project added counts in any sentence
   vs <- sort(r$fstart[r$kind %in% c("value", "bare", "named", "n", "sign", "list")])
   in_sent <- function(pos, i) (findInterval(sent$end[i], pos) - findInterval(sent$start[i] - 1L, pos)) > 0L
-  if (length(ps) && identical(mode, "number")) {
+  if (nrow(w) && identical(mode, "number")) {
     dg <- gregexpr("[0-9]", prose)[[1L]]
     dg <- if (dg[[1L]] == -1L) integer() else as.integer(dg)
-    ok <- !(run %in% qwords) | in_sent(vs, sid) | in_sent(dg, sid)
-    keep(ok)
-    sid <- sid[ok]
+    ok <- !(w$run %in% qwords) | in_sent(vs, w$sid) | in_sent(dg, w$sid)
+    w <- w[ok, , drop = FALSE]
   }
-  if (!length(ps)) return(new_findings())
-  groups <- split(seq_along(ps), sid)
-  first <- vapply(groups, function(ix) ps[ix[[1L]]], 1L)
-  words <- lapply(groups, function(ix) unique(run[ix]))
+  if (!nrow(w)) return(new_findings())
+  groups <- split(seq_len(nrow(w)), w$sid)
+  first <- vapply(groups, function(ix) w$ps[ix[[1L]]], 1L)
+  words <- lapply(groups, function(ix) unique(w$run[ix]))
   si <- as.integer(names(groups))
   hasval <- in_sent(vs, si)
   quoted <- vapply(words, function(w) paste0("\"", w, "\"", collapse = ", "), "")
