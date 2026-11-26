@@ -115,6 +115,7 @@ local function group_int(digits, mark)
   for i = first + 1, #digits, 3 do parts[#parts + 1] = digits:sub(i, i + 2) end
   return table.concat(parts, mark)
 end
+M.group_int = group_int
 
 -- ---- the literal port of R's double algorithm ------------------------------------------------
 

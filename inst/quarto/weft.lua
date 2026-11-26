@@ -942,14 +942,7 @@ local function elements_of(rec)
   return { rec }, nil
 end
 
-local function group_int(digits, mark)
-  if mark == "" or #digits <= 3 then return digits end
-  local parts = {}
-  local first = #digits % 3
-  if first > 0 then parts[#parts + 1] = digits:sub(1, first) end
-  for i = first + 1, #digits, 3 do parts[#parts + 1] = digits:sub(i, i + 2) end
-  return table.concat(parts, mark)
-end
+local group_int = num.group_int
 
 local function e17(cl, needs, name, kind)
   return string.format("`.%s` needs a %s; `%s` is a %s (rule 1.4.3).", cl, needs, name, cond.kind_name(kind))
@@ -1175,7 +1168,7 @@ local function format_vector(name, rec, c, o)
       text = words.collapse_items(texts, sep, last, trunc, serial)
     end
   else
-    if n > 1 and o.join then text = table.concat(texts, o.join) else text = table.concat(texts, ", ") end
+    text = table.concat(texts, o.join or ", ")
     if n == 1 then P.number, P.decimals, P.relation = items[1].number, items[1].decimals, items[1].relation end
   end
 
@@ -1621,7 +1614,7 @@ end
 
 -- the value of a governor key is trimmed of white space at its ends, as R's scanner trims it (the leading
 -- kind never reaches here: Pandoc does not read such an attribute as a span, and weft-check.lua fails it)
-local function trim_ws(v) return (v:gsub("^[ \t\r\n]+", ""):gsub("[ \t\r\n]+$", "")) end
+local trim_ws = cond.trim
 
 local function governor_of(el)
   local found, raw
@@ -2588,13 +2581,7 @@ local function source_path()
   return nil
 end
 
-local function read_file(path)
-  local f = io.open(path, "rb")
-  if not f then return nil end
-  local s = f:read("a")
-  f:close()
-  return s
-end
+local read_file = config.read_file
 
 -- ---- table digests (design 8, G2; GT1 to GT9) -----------------------------------------------------------
 -- The tables a jupyter or julia cell shows: one entry of kind `table` each, whose text is the xxh3 digest of

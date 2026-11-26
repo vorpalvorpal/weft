@@ -378,6 +378,7 @@ local function read_file(path)
   f:close()
   return s
 end
+M.read_file = read_file
 
 -- find a file by name in a folder or a parent of it (the folder and 8 parents)
 function M.find_upward(start_dir, rel)

@@ -41,6 +41,7 @@ function M.valid_date(v)
 end
 
 local function trim(s) return (s:gsub("^[ \t\r\n]+", ""):gsub("[ \t\r\n]+$", "")) end
+M.trim = trim
 
 -- one scan state for every scan of a condition (rule 1.12.4): outside a string literal either quote opens a
 -- literal of its kind, inside only the same kind closes it. Returns the new state and whether `c` is text.
