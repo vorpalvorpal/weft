@@ -56,7 +56,7 @@ named_val_elements <- function(v, name) {
                                         "use a formatter class such as .num (rule 1.12.2)."),
                                  name, named_val_what(v))))
   }
-  if (is.null(v) || (is.atomic(v) && anyNA(v) && !is.character(v)) || (is.character(v) && anyNA(v)) ||
+  if (is.null(v) || (is.atomic(v) && anyNA(v)) ||
       (is.double(v) && any(!is.finite(v)))) {
     return(list(fail = "no value", detail = sprintf("`%s` has no value to print: it is missing (rule 1.12.2).", name)))
   }

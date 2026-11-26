@@ -89,42 +89,32 @@ values_scalars <- function(x) {
     js[i] <<- json
     kind[i] <<- k
   }
-  if (inherits(x, "integer64")) {
-    s <- as.character(x)
-    na <- is.na(s)
-    put(na, "missing", miss("NA"))
-    put(!na, "int", paste0("{\"t\":\"int\",\"v\":", values_str(s[!na]), "}"))
-  } else if (is.factor(x)) {
-    s <- as.character(x)
-    na <- is.na(s)
-    put(na, "missing", miss("NA"))
-    put(!na, "string", paste0("{\"t\":\"string\",\"v\":", values_str(s[!na]), "}"))
-  } else if (inherits(x, "Date")) {
+  # the missing elements, read once: a double (a Date's too) is missing when it is not finite, and
+  # says which; any other is missing when it is NA
+  u <- if (inherits(x, "integer64") || is.factor(x)) as.character(x) else x
+  if (inherits(x, "Date")) {
     u <- unclass(x)
     attributes(u) <- NULL
-    bad <- !is.finite(u)
-    why <- ifelse(is.nan(u), "NaN", ifelse(is.na(u), "NA", ifelse(u > 0, "Inf", "-Inf")))
-    put(bad, "missing", vapply(why[bad], miss, "", USE.NAMES = FALSE))
-    ok <- !bad
+  }
+  dbl <- is.double(u)
+  bad <- if (dbl) !is.finite(u) else is.na(u)
+  why <- if (dbl) ifelse(is.nan(u), "NaN", ifelse(is.na(u), "NA", ifelse(u > 0, "Inf", "-Inf"))) else "NA"
+  put(bad, "missing", miss(if (dbl) why[bad] else why))
+  ok <- !bad
+  if (inherits(x, "integer64")) {
+    put(ok, "int", paste0("{\"t\":\"int\",\"v\":", values_str(u[ok]), "}"))
+  } else if (is.factor(x)) {
+    put(ok, "string", paste0("{\"t\":\"string\",\"v\":", values_str(u[ok]), "}"))
+  } else if (inherits(x, "Date")) {
     put(ok, "date", paste0("{\"t\":\"date\",\"v\":", values_str(format(x[ok], "%Y-%m-%d")), "}"))
   } else if (is.logical(x)) {
-    na <- is.na(x)
-    put(na, "missing", miss("NA"))
-    put(!na, "bool", ifelse(x[!na], "{\"t\":\"bool\",\"v\":true}", "{\"t\":\"bool\",\"v\":false}"))
+    put(ok, "bool", ifelse(x[ok], "{\"t\":\"bool\",\"v\":true}", "{\"t\":\"bool\",\"v\":false}"))
   } else if (is.integer(x)) {
-    na <- is.na(x)
-    put(na, "missing", miss("NA"))
-    put(!na, "int", paste0("{\"t\":\"int\",\"v\":\"", sprintf("%d", x[!na]), "\"}"))
+    put(ok, "int", paste0("{\"t\":\"int\",\"v\":\"", sprintf("%d", x[ok]), "\"}"))
   } else if (is.double(x)) {
-    bad <- !is.finite(x)
-    why <- ifelse(is.nan(x), "NaN", ifelse(is.na(x), "NA", ifelse(x > 0, "Inf", "-Inf")))
-    put(bad, "missing", vapply(why[bad], miss, "", USE.NAMES = FALSE))
-    ok <- !bad
     put(ok, "float", paste0("{\"t\":\"float\",\"v\":\"", float_text(x[ok]), "\"}"))
   } else {
-    na <- is.na(x)
-    put(na, "missing", miss("NA"))
-    put(!na, "string", paste0("{\"t\":\"string\",\"v\":", values_str(x[!na]), "}"))
+    put(ok, "string", paste0("{\"t\":\"string\",\"v\":", values_str(x[ok]), "}"))
   }
   list(json = js, kind = kind)
 }
