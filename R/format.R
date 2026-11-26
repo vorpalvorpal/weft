@@ -661,9 +661,10 @@ collapse_list <- function(cls, text, nms) {
 #
 # The work is done in steps, each taking the formatting so far (`f`, a list) and returning
 # it: the input (formatter_input(), formatter_quantity()), the construct errors that need no
-# value (formatter_checks()), and the stages i to iv as the filter's format_vector() names
-# them (stage_number(), stage_wording(), stage_collapse(), stage_text()). formatted_text()
-# builds the result.
+# value (formatter_checks()), the classes of stage i and the unit's forms (number_classes(),
+# unit_forms()), and the stages i to iv as the filter's format_vector() names them
+# (stage_number(), stage_wording(), stage_collapse(), stage_text()). formatted_text() builds
+# the result.
 apply_formatters <- function(value, classes = character(), keys = list(),
                              config = current_config(), governor = FALSE,
                              join = NULL, on_zero = note_zero, unit_form = NULL,
@@ -680,7 +681,9 @@ apply_formatters <- function(value, classes = character(), keys = list(),
     none <- new_weft_text(stage_text(f, as.character(f$keys$none)))
     return(if (f$plain) plain_finish(none) else none)
   }
-  f <- stage_number(f, governor)
+  f <- number_classes(f)
+  f <- unit_forms(f, governor)
+  f <- stage_number(f)
   f <- stage_wording(f, governor)
   f <- unit_affixes(f)
   if (governor) {
@@ -958,29 +961,32 @@ judge_unit <- function(f, un1, rung = FALSE) {
 }
 
 
-# Stage i: number. `digits`, `sigfig`, `unit` and a unit class imply `.num` (1.4.7). Adds to
-# `f` the classes of the stage (`ncls`), the forms the unit may print in, and the record
-# printed: its text, number, decimals, relation and raw value, and `zero`, the elements that
-# printed as zero.
-stage_number <- function(f, governor) {
+# The value present, and the classes of stage i (`ncls`). `digits`, `sigfig`, `unit` and a
+# unit class imply `.num` (1.4.7).
+number_classes <- function(f) {
   value <- f$value
   classes <- f$classes
   keys <- f$keys
-  cfg <- f$cfg
-  reg <- f$reg
-  un <- f$un
   what <- "A formatter"
   if (!inherits(value, "weft_text")) check_present(value, what)
-  if (is.factor(value)) value <- as.character(value)
-
+  if (is.factor(value)) f$value <- as.character(value)
   ncls <- c(intersect(classes, NUMBER_CLASSES), proj_classes(f, "number"))
   if (!length(ncls) && (!is.null(keys$digits) || !is.null(keys$sigfig) || !is.null(keys$unit) ||
                         !is.na(unit_class_form(classes)) || ".plus" %in% classes)) {
     ncls <- ".num"
   }
   f$ncls <- ncls
+  f
+}
 
-  # the form each unit prints in (judge_unit())
+# The forms the unit may print in, judged on the classes before any number is printed
+# (judge_unit()): the language, the form in force, whether a text keeps the forms it
+# printed in (`keep_forms`) and whether its text passes through whole (`pass_text`).
+unit_forms <- function(f, governor) {
+  classes <- f$classes
+  cfg <- f$cfg
+  ncls <- f$ncls
+  un <- f$un
   f$lang <- current_lang()
   base_form <- cfg$unit_form %||% "auto"
   f$form_in_force <- if (is.null(f$explicit)) base_form else f$explicit
@@ -998,6 +1004,19 @@ stage_number <- function(f, governor) {
       for (rg in f$ladder$rungs) judge_unit(f, unit_symbolic(rg), rung = TRUE)
     }
   }
+  f
+}
+
+# Stage i: number. Adds to `f` the record printed: its text, number, decimals, relation and
+# raw value, and `zero`, the elements that printed as zero.
+stage_number <- function(f) {
+  value <- f$value
+  classes <- f$classes
+  keys <- f$keys
+  cfg <- f$cfg
+  reg <- f$reg
+  un <- f$un
+  ncls <- f$ncls
   rec <- NULL
   clamp_rel <- NULL
   zero <- NULL
