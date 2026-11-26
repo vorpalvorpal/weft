@@ -899,11 +899,14 @@ build_blocks <- function(S) {
 
 # ---- reading a document ------------------------------------------------------------------------
 
-read_source <- function(path, root, cfg, bytes = NULL) {
+# A document's source; `text` is its text when the caller has read it already (lint_open()), `bytes` a
+# script's bytes. The document's skeleton is computed once for the read (local_doc_memo()).
+read_source <- function(path, root, cfg, bytes = NULL, text = NULL) {
   if (is_script_path(path)) return(read_script_source(path, root, cfg, bytes))
+  local_doc_memo()
   rel <- lint_rel_path(path, root)
   ext <- sub("^.*\\.", "", basename(path))
-  text <- read_source_text_or_null(path)
+  if (is.null(text)) text <- read_source_text_or_null(path)
   if (is.null(text)) {
     return(structure(list(file = rel, path = path, ext = ext, invalid = TRUE, cfg = cfg, text = "",
                           lines = character(), line_start = numeric()), class = "weft_source"))
@@ -923,22 +926,11 @@ read_source <- function(path, root, cfg, bytes = NULL) {
   chunks <- chunk_table(lines, cr)
   ff <- front_fields(lines)
   # metadata
-  meta <- lapply(seq_len(nrow(mb)), function(b) {
-    y <- if (mb$close[b] - mb$open[b] >= 2L) yaml_text(paste(lines[(mb$open[b] + 1L):(mb$close[b] - 1L)], collapse = "\n")) else list()
-    list(open = mb$open[b], close = mb$close[b], yaml = if (is.list(y)) y else list())
-  })
-  front <- list()
-  for (m in meta) if (length(m$yaml) && !is.null(names(m$yaml))) front[names(m$yaml)] <- m$yaml
+  meta <- meta_blocks_yaml(lines, mb)
+  front <- merge_front(meta)
   lang <- NA_character_
   if (is.character(front$lang) && length(front$lang) == 1L) lang <- front$lang
-  if (is.na(lang)) {
-    qp <- file.path(root, QUARTO_MARKERS)
-    qp <- qp[file.exists(qp)]
-    if (length(qp)) {
-      y <- yaml_text(read_source_text_or_null(qp[1L]) %||% "")
-      if (is.list(y) && is.character(y$lang) && length(y$lang) == 1L) lang <- y$lang
-    }
-  }
+  if (is.na(lang)) lang <- quarto_yml_lang(root)
   # rows
   rows <- scan_document(lines, file = rel, config = cfg, project = project_type(path), cr = cr)
   if (nrow(rows)) {
@@ -984,6 +976,17 @@ read_source <- function(path, root, cfg, bytes = NULL) {
                          front, lang)
   src$code_regions <- cr
   src
+}
+
+# The `lang` of the `_quarto.yml` (or `_quarto.yaml`) at `root`, or NA; read once per root in a walk.
+quarto_yml_lang <- function(root) {
+  walk_memo("quarto_lang", root, function() {
+    qp <- file.path(root, QUARTO_MARKERS)
+    qp <- qp[file.exists(qp)]
+    if (!length(qp)) return(NA_character_)
+    y <- yaml_text(read_source_text_or_null(qp[1L]) %||% "")
+    if (is.list(y) && is.character(y$lang) && length(y$lang) == 1L) y$lang else NA_character_
+  })
 }
 
 # The rest of reading a source, shared by documents and scripts (D1): the regions, the prose mask and the

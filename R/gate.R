@@ -247,7 +247,7 @@ bind_plain <- function(parts, empty) {
 # its key is known, and each source read is kept in `captured` for the construct count.
 gate_reader <- function(g, s, captured) {
   keys <- stats::setNames(s$docs$src_key, s$docs$rel)
-  function(path, root, cfg, bytes = NULL) {
+  function(path, root, cfg, bytes = NULL, text = NULL) {
     rel <- lint_rel_path(path, root)
     key <- unname(keys[rel])
     src <- NULL
@@ -260,7 +260,7 @@ gate_reader <- function(g, s, captured) {
       }
     }
     if (is.null(src)) {
-      src <- read_source(path, root, cfg, bytes)
+      src <- read_source(path, root, cfg, bytes, text)
       if (!is.na(key)) {
         g$cache$mem[[key]] <- src
         cache_put(g$cache, "src", key, src)
@@ -355,6 +355,8 @@ gate_side_results <- function(g, s, p, ids) {
     old <- weft_env$lint_reader
     on.exit(weft_env$lint_reader <- old, add = TRUE)
     weft_env$lint_reader <- gate_reader(g, s, captured)
+    # the side's project is a temporary copy: its files are read in a memo of their own (E6)
+    local_walk_memo(fresh = TRUE)
     out <- tryCatch({
       lroot <- normalizePath(find_project_root(root), winslash = "/", mustWork = FALSE)
       all_files <- lint_files_under(lroot)

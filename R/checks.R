@@ -731,6 +731,7 @@ checks <- function(path = ".", files = NULL, repeats = 3L) {
   }
   full <- normalizePath(path, winslash = "/", mustWork = TRUE)
   root <- normalizePath(find_project_root(full), winslash = "/", mustWork = FALSE)
+  local_walk_memo()
   all_files <- c(lint_files_under(root), project_script_paths(root))
   files_rel <- if (!is.null(files)) resolve_files(files, root, lint_abort)
   report <- lint_report_under(all_files, full, root)

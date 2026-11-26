@@ -47,6 +47,11 @@ verify <- function(files = NULL, since = NULL, static = FALSE, path = ".") {
     verify_abort("`static` must be TRUE or FALSE (rule 8.1.1).")
   }
   root <- normalizePath(find_project_root(path), winslash = "/", mustWork = FALSE)
+  # the project's files are read once in this call, and each document once, though four parts read it (E5, E6)
+  local_walk_memo()
+  old_reader <- weft_env$lint_reader
+  on.exit(weft_env$lint_reader <- old_reader, add = TRUE)
+  weft_env$lint_reader <- memo_reader(old_reader)
 
   # draft mode first (G24)
   refuse <- function(clause) {

@@ -272,14 +272,15 @@ print.weft_findings <- function(x, max = 200, ...) {
 # ---- configuration (L4, L8a) ---------------------------------------------------------------
 
 # The settings of one document: `_weft.yml` under the front matter's `weft:`,
-# read as YAML only (no units are installed).
+# read as YAML only (no units are installed). In a walk the file is read once per
+# settings root (walk_memo()); it is checked, and merged with `front`, every time.
 lint_config <- function(root, front = list()) {
   cfg <- default_config()
   file <- file.path(root, "_weft.yml")
   proj <- list()
   raw <- NULL
   if (file.exists(file)) {
-    ws <- read_weft_yml(file)
+    ws <- walk_memo("weft_yml", file, function() read_weft_yml(file))
     proj <- ws$proj
     raw <- ws$raw
     check_raw_scalars(raw)
@@ -363,39 +364,72 @@ settings_root <- function(root, rel) {
   if (nzchar(s)) file.path(root, s) else root
 }
 
-# The front matter of a file, read cheaply (for its `weft:` settings).
-doc_front <- function(path) {
+# The front matter of a file, read cheaply (for its `weft:` settings). `text` is
+# the file's text when the caller has read it already (NULL: read it here).
+doc_front <- function(path, text = NULL) {
   if (is_script_path(path)) return(list())
-  text <- read_source_text_or_null(path)
+  if (is.null(text)) text <- read_source_text_or_null(path)
   if (is.null(text) || !nzchar(text)) return(list())
   lines <- strsplit(text, "\n", fixed = TRUE)[[1L]]
-  mb <- metadata_blocks(lines)
+  merge_front(meta_blocks_yaml(lines, metadata_blocks(lines)))
+}
+
+# The metadata blocks `mb` of `lines`, each with its `open` and `close` lines and its `yaml` (list() when it
+# is empty or not YAML).
+meta_blocks_yaml <- function(lines, mb) {
+  lapply(seq_len(nrow(mb)), function(b) {
+    y <- if (mb$close[b] - mb$open[b] >= 2L) yaml_text(paste(lines[(mb$open[b] + 1L):(mb$close[b] - 1L)], collapse = "\n")) else list()
+    list(open = mb$open[b], close = mb$close[b], yaml = if (is.list(y)) y else list())
+  })
+}
+
+# The front matter of a document from its metadata blocks (meta_blocks_yaml()): the fields of each mapping, a
+# later block's over an earlier one's.
+merge_front <- function(meta) {
   front <- list()
-  for (b in seq_len(nrow(mb))) {
-    if (mb$close[b] - mb$open[b] < 2L) next
-    y <- yaml_text(paste(lines[(mb$open[b] + 1L):(mb$close[b] - 1L)], collapse = "\n"))
-    if (is.list(y) && !is.null(names(y))) front[names(y)] <- y
-  }
+  for (m in meta) if (length(m$yaml) && !is.null(names(m$yaml))) front[names(m$yaml)] <- m$yaml
   front
 }
 
 # Each file's source comes through here, so a cache can stand in (stage 4's
-# `weft_env$lint_reader`). `bytes` are the file's bytes when the caller has read them already.
-lint_read <- function(path, root, cfg, bytes = NULL) {
-  (weft_env$lint_reader %||% read_source)(path, root, cfg, bytes)
+# `weft_env$lint_reader`). `bytes` are a script's bytes, and `text` a document's
+# text, when the caller has read them already.
+lint_read <- function(path, root, cfg, bytes = NULL, text = NULL) {
+  (weft_env$lint_reader %||% read_source)(path, root, cfg, bytes, text)
 }
 
 # One document, read with its own settings.
 lint_open <- function(root, rel) {
   path <- file.path(root, rel)
   bytes <- NULL
+  text <- NULL
   if (is_script_path(rel)) {
     # a script whose bytes do not hold `weft` is judged before any settings are read (K14), and is read once
     bytes <- read_source_bytes(path)
     if (!bytes_mention_weft(bytes)) return(script_stub(rel, path, NULL, "skip"))
+  } else {
+    # the text the settings are read from is the text the document is read from (E6); it is read when the
+    # settings first need it, after `_weft.yml`, as before
+    delayedAssign("text", read_source_text_or_null(path))
   }
-  cfg <- lint_config(settings_root(root, rel), doc_front(path))
-  lint_read(path, root, cfg, bytes)
+  cfg <- lint_config(settings_root(root, rel), doc_front(path, text))
+  lint_read(path, root, cfg, bytes, text)
+}
+
+# A reader (for `weft_env$lint_reader`) that reads each file once for as long as it is in place, through
+# `inner` (the reader in place before it; read_source() when none): verify() reads a document for its lints,
+# its removed constructs, its decision pointers and its constructs (E5). A file read again with other
+# settings is read again.
+memo_reader <- function(inner = NULL) {
+  seen <- new.env(parent = emptyenv())
+  function(path, root, cfg, bytes = NULL, text = NULL) {
+    key <- paste(root, path, sep = "\n")
+    hit <- seen[[key]]
+    if (!is.null(hit) && identical(hit$cfg, cfg)) return(hit$src)
+    src <- (inner %||% read_source)(path, root, cfg, bytes, text)
+    seen[[key]] <- list(cfg = cfg, src = src)
+    src
+  }
 }
 
 new_lint_ctx <- function(root, files, md_files, report, tier, rules, reader) {
@@ -502,6 +536,7 @@ lints <- function(path = ".", files = NULL, rules = NULL, tier = 1, reader = c("
   }
   full <- normalizePath(path, winslash = "/", mustWork = TRUE)
   root <- normalizePath(find_project_root(full), winslash = "/", mustWork = FALSE)
+  local_walk_memo()
   all_files <- lint_files_under(root)
   # the scripts, less those `scripts_skip` leaves out (C1, C2, K4), whatever the reader (K7); the settings are
   # read here, so a bad one stops the run whatever the project holds
@@ -566,6 +601,7 @@ lint_report_under <- function(all_files, full, root) {
 # and the rules that read scripts run on them (C12, C13). Returns the findings, with the notes.
 lint_run <- function(root, all_files, report, sel, tier, rules, reader, notes = character(),
                      file_report = report, keep_project = NULL, scripts = character()) {
+  local_walk_memo()
   md_files <- lint_files_under(root, "\\.md$")
   ctx <- new_lint_ctx(root, all_files, md_files, report, tier, rules, reader)
   for (m in notes) ctx$note(m)
