@@ -345,9 +345,28 @@ guest_form_names <- c(
   "fmt_ul", "fmt_ol", "fmt_dl", "fmt_a", "fmt_cap", "fmt_strong", "fmt_em",
   "plural", "ci", "pm", "about", "of_n", "weft_str")
 
+# weft_str() resolves its markup with R's weft() (PY1), and the markdown form goes back; a missing
+# result goes back to Python as None (NULL).
+guest_weft_str <- function(v) {
+  # the markup's expressions are R, evaluated in a fresh environment under the knit's global,
+  # with nothing bound in it (the markup goes in as a value, F2); a named value in it is
+  # Python's: left for the filter (BN8)
+  env <- new.env(parent = if (knit_in_progress()) knitr::knit_global() else globalenv())
+  # Python's None is a missing value (an NA of any type is a missing text)
+  if (is.null(v) || (length(v) == 1L && !is.object(v) && is.atomic(v) && is.na(v))) {
+    v <- NA_character_
+  }
+  md <- weft_markdown(weft_impl(v, env, read_names = FALSE))
+  if (length(md) == 1L && is.na(md)) return(NULL)
+  md
+}
+
+# The forms that are not the R function of their name, each called with the arguments as read.
+guest_forms <- list(weft_str = function(vals) guest_weft_str(vals[[1L]]))
+
 # An R function that Python calls with its arguments unconverted: each is read
-# by G5 and G6 (G21), the R function is called, and its text goes back as a
-# `str`, or a `list` of them.
+# by G5 and G6 (G21), the form is called (`guest_forms`, else the R function of
+# that name), and its text goes back as a `str`, or a `list` of them.
 guest_form <- function(name) {
   force(name)
   function(...) {
@@ -359,24 +378,12 @@ guest_form <- function(name) {
       record_value(guest_record(args[[i]]), S)
     })
     names(vals) <- nms
-    out <- if (identical(name, "weft_str")) {
-      # the markup's expressions are R, evaluated in a fresh environment under the knit's global,
-      # with nothing bound in it (the markup goes in as a value, F2)
-      env <- new.env(parent = if (knit_in_progress()) knitr::knit_global() else globalenv())
-      # PY1: R's weft() resolves it, and the markdown form goes back
-      # a named value in it is Python's: left for the filter (BN8)
-      v <- vals[[1L]]
-      # Python's None is a missing value (an NA of any type is a missing text)
-      if (is.null(v) || (length(v) == 1L && !is.object(v) && is.atomic(v) && is.na(v))) {
-        v <- NA_character_
-      }
-      w <- weft_impl(v, env, read_names = FALSE)
-      md <- weft_markdown(w)
-      # a missing result goes back to Python as None
-      if (length(md) == 1L && is.na(md)) return(NULL)
-      md
+    form <- guest_forms[[name]]
+    if (is.null(form)) {
+      out <- do.call(get(name, envir = asNamespace("weft")), vals)
     } else {
-      do.call(get(name, envir = asNamespace("weft")), vals)
+      out <- form(vals)
+      if (is.null(out)) return(NULL)
     }
     out <- as.character(unclass(out))
     attributes(out) <- NULL
