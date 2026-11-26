@@ -371,13 +371,13 @@ script_settings_root <- function(root, rel) {
 
 # The `scripts_skip` of a settings root of `root` (a path from it, "" for `root`), normalised and read once.
 scripts_skip_getter <- function(root) {
-  skips <- list()
+  memo <- new.env(parent = emptyenv())
   function(sroot) {
     key <- if (nzchar(sroot)) sroot else "."
-    if (is.null(skips[[key]])) {
-      skips[[key]] <<- list(scripts_skip_list(lint_config(if (nzchar(sroot)) file.path(root, sroot) else root)$scripts_skip))
+    if (is.null(memo[[key]])) {
+      memo[[key]] <- list(scripts_skip_list(lint_config(if (nzchar(sroot)) file.path(root, sroot) else root)$scripts_skip))
     }
-    skips[[key]][[1L]]
+    memo[[key]][[1L]]
   }
 }
 

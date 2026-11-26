@@ -1077,14 +1077,15 @@ lint_guest_call <- function(src, ctx) {
 ojs_template_holes <- function(text) {
   ch <- strsplit(text, "")[[1L]]
   n <- length(ch)
-  holes <- list()
   tag_before <- function(i) {
     j <- i - 1L
     while (j >= 1L && grepl("[A-Za-z0-9_$]", ch[j])) j <- j - 1L
     if (j == i - 1L) "" else paste(ch[(j + 1L):(i - 1L)], collapse = "")
   }
+  # scan_code() and scan_template() each give list(end = where they stopped, holes = the holes found inside)
   scan_code <- function(i, in_hole) {
     depth <- 0L
+    holes <- list()
     while (i <= n) {
       c <- ch[i]
       nx <- if (i < n) ch[i + 1L] else ""
@@ -1099,39 +1100,44 @@ ojs_template_holes <- function(text) {
         while (i <= n && ch[i] != c && ch[i] != "\n") i <- i + if (ch[i] == "\\") 2L else 1L
         i <- i + 1L
       } else if (c == "`") {
-        i <- scan_template(i, tag_before(i))
+        r <- scan_template(i, tag_before(i))
+        i <- r$end
+        holes <- c(holes, r$holes)
       } else if (in_hole && c == "{") {
         depth <- depth + 1L
         i <- i + 1L
       } else if (in_hole && c == "}") {
-        if (depth == 0L) return(i)
+        if (depth == 0L) return(list(end = i, holes = holes))
         depth <- depth - 1L
         i <- i + 1L
       } else {
         i <- i + 1L
       }
     }
-    n + 1L
+    list(end = n + 1L, holes = holes)
   }
   scan_template <- function(i, tag) {
     j <- i + 1L
+    holes <- list()
     while (j <= n) {
       if (ch[j] == "\\") {
         j <- j + 2L
       } else if (ch[j] == "`") {
-        return(j + 1L)
+        return(list(end = j + 1L, holes = holes))
       } else if (ch[j] == "$" && j < n && ch[j + 1L] == "{") {
-        e <- scan_code(j + 2L, TRUE)
-        if (tag %in% c("md", "html")) holes[[length(holes) + 1L]] <<- c(j, min(e, n))
+        r <- scan_code(j + 2L, TRUE)
+        e <- r$end
+        # the holes of a nested template come before the one that holds them is added (as they did)
+        holes <- c(holes, r$holes)
+        if (tag %in% c("md", "html")) holes[[length(holes) + 1L]] <- c(j, min(e, n))
         j <- e + 1L
       } else {
         j <- j + 1L
       }
     }
-    n + 1L
+    list(end = n + 1L, holes = holes)
   }
-  scan_code(1L, FALSE)
-  holes
+  scan_code(1L, FALSE)$holes
 }
 
 lint_ojs_value <- function(src, ctx) {

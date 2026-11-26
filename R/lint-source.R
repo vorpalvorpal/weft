@@ -274,17 +274,19 @@ phrase_rows <- function(lit, chunk_label, file, config, ls) {
 # (file offsets of the characters that are prose), form ("scalar"/"block").
 source_pieces <- function(lines, ls, chunks, cr, front_ff) {
   le <- ls + nchar(lines) - 1
-  P <- list()
-  gid <- 0L
+  # the pieces so far (`P`) and the last group id given (`gid`), written only by add() and add_weft()
+  acc <- new.env(parent = emptyenv())
+  acc$P <- list()
+  acc$gid <- 0L
   add <- function(kind, name, start, end, by_row = FALSE, grp = NULL) {
     ok <- !is.na(start) & !is.na(end) & end >= start
     if (any(ok)) {
       k <- sum(ok)
-      g <- if (by_row) gid + seq_len(k) else if (!is.null(grp)) rep_len(grp, length(ok))[ok] else gid + 1L
-      if (is.null(grp)) gid <<- gid + (if (by_row) k else 1L)
-      P[[length(P) + 1L]] <<- data.frame(kind = kind, name = name, start = start[ok],
-                                         end = end[ok], grp = rep_len(g, k),
-                                         stringsAsFactors = FALSE)
+      g <- if (by_row) acc$gid + seq_len(k) else if (!is.null(grp)) rep_len(grp, length(ok))[ok] else acc$gid + 1L
+      if (is.null(grp)) acc$gid <- acc$gid + (if (by_row) k else 1L)
+      acc$P[[length(acc$P) + 1L]] <- data.frame(kind = kind, name = name, start = start[ok],
+                                                end = end[ok], grp = rep_len(g, k),
+                                                stringsAsFactors = FALSE)
     }
   }
   # the prose of the literals given to weft(): each literal one block, its escapes not prose
@@ -292,9 +294,9 @@ source_pieces <- function(lines, ls, chunks, cr, front_ff) {
     if (!nrow(lit)) return(invisible())
     ex <- literal_ranges(lit$start, lit$raw, grepl("^[rR]", lit$token))
     if (!nrow(ex)) return(invisible())
-    g0 <- gid
+    g0 <- acc$gid
     add("weft", NA_character_, ex$start, ex$end, grp = g0 + ex$idx)
-    gid <<- g0 + nrow(lit)
+    acc$gid <- g0 + nrow(lit)
   }
   # strip wrapping quotes of a one-line scalar: returns the ranges to keep
   value_range <- function(l, from_col) {
@@ -323,7 +325,7 @@ source_pieces <- function(lines, ls, chunks, cr, front_ff) {
   # continue it, the text of each from `from`, in its group
   add_scalar <- function(kind, name, l, col, last, from) {
     v <- value_range(l, col)
-    g0 <- gid + 1L
+    g0 <- acc$gid + 1L
     add(kind, name, v[1L], v[2L])
     if (last > l) {
       r <- (l + 1L):last
@@ -407,11 +409,11 @@ source_pieces <- function(lines, ls, chunks, cr, front_ff) {
     lit <- chunk_literals(rg, "phrase")
     if (nrow(lit)) add("phrase", NA_character_, lit$start, lit$start + nchar(lit$raw) - 1, by_row = TRUE)
   }
-  if (!length(P)) {
+  if (!length(acc$P)) {
     return(data.frame(kind = character(), name = character(), start = numeric(), end = numeric(),
                       grp = integer(), stringsAsFactors = FALSE))
   }
-  do.call(rbind, P)
+  do.call(rbind, acc$P)
 }
 
 # ---- the prose mask ------------------------------------------------------------------

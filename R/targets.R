@@ -176,8 +176,7 @@ reads_walker <- function(envir = globalenv(), keys = character()) {
       if (!is.null(l)) store <- l else sexpr <- args[[j]]
     }
     # an argument of the function being walked, given as the name: a reader
-    wrapper_param <- NULL
-    embraced <- FALSE
+    # unparam() gives list(name = the parameter or NULL, embraced = whether it was written {{ x }} or !!enquo(x))
     unparam <- function(e) {
       emb <- FALSE
       # {{ x }}, !!enquo(x), !!ensym(x) (bare or rlang::-qualified), and !!x
@@ -198,31 +197,41 @@ reads_walker <- function(envir = globalenv(), keys = character()) {
         }
       }
       if (is.symbol(e) && as.character(e) %in% st$params) {
-        if (emb) embraced <<- TRUE
-        as.character(e)
-      } else NULL
+        list(name = as.character(e), embraced = emb)
+      } else list(name = NULL, embraced = FALSE)
     }
+    wrapper_param <- NULL
+    embraced <- FALSE
     names_found <- character()
     if (!is.na(i)) {
       v <- args[[i]]
+      # one() gives list(name = the literal or symbol, or NULL; param = the parameter given as the name, or NULL)
       one <- function(e) {
         l <- lit_chr(e)
-        if (!is.null(l)) return(l)
-        pm <- unparam(e)
-        if (!is.null(pm)) {
-          wrapper_param <<- pm
-          return(NULL)
+        if (!is.null(l)) return(list(name = l, param = NULL, embraced = FALSE))
+        up <- unparam(e)
+        if (!is.null(up$name)) return(list(name = NULL, param = up$name, embraced = up$embraced))
+        if (!raw && is.symbol(e) && nzchar(as.character(e))) {
+          return(list(name = as.character(e), param = NULL, embraced = FALSE))
         }
-        if (!raw && is.symbol(e) && nzchar(as.character(e))) return(as.character(e))
-        NULL
+        list(name = NULL, param = NULL, embraced = FALSE)
       }
-      names_found <- if (is.call(v) && identical(v[[1L]], quote(c))) {
-        unlist(lapply(as.list(v)[-1L], one))
+      found <- if (is.call(v) && identical(v[[1L]], quote(c))) {
+        lapply(as.list(v)[-1L], one)
       } else {
-        one(v)
+        list(one(v))
       }
+      for (f in found) {
+        if (!is.null(f$param)) {
+          wrapper_param <- f$param
+          if (f$embraced) embraced <- TRUE
+        }
+      }
+      names_found <- unlist(lapply(found, `[[`, "name"))
     }
-    sp <- if (!is.null(sexpr)) unparam(sexpr) else NULL
+    up_s <- if (!is.null(sexpr)) unparam(sexpr) else NULL
+    sp <- up_s$name
+    if (!is.null(up_s) && up_s$embraced) embraced <- TRUE
     # a store held in a local of the reader cannot be worked out from outside it (rule 7.2.2)
     if (is.null(sp) && !is.null(sexpr) && length(st$locals) && any(all.vars(sexpr) %in% st$locals)) {
       sexpr <- quote(stop("the store is a local of the reader"))
