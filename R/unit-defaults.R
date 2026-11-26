@@ -602,8 +602,9 @@ units_is_text <- function(v) {
 units_table_rows <- function(tbl, where) {
   problems <- character()
   prob <- function(key, what) {
-    problems <<- c(problems, if (is.null(key)) sprintf("%s: units: %s (rule 9.1.7)", where, what)
-                   else sprintf("%s: units: `%s`: %s (rule 9.1.7)", where, key, what))
+    p <- if (is.null(key)) sprintf("%s: units: %s (rule 9.1.7)", where, what)
+         else sprintf("%s: units: `%s`: %s (rule 9.1.7)", where, key, what)
+    problems <<- c(problems, p) # <<- ok: collects into `problems` just above; ten calls
   }
   out <- list(problems = character(), rows = list(), falses = character())
   if (is.null(tbl)) return(out)
@@ -666,7 +667,8 @@ units_table_rows <- function(tbl, where) {
 units_entries <- function(rows, where, installed, project = FALSE) {
   problems <- character()
   prob <- function(key, what) {
-    problems <<- c(problems, sprintf("%s: units: `%s`: %s (rule 9.1.7)", where, key, what))
+    p <- sprintf("%s: units: `%s`: %s (rule 9.1.7)", where, key, what)
+    problems <<- c(problems, p) # <<- ok: collects into `problems` just above; seven calls
   }
   entries <- list()
   for (row in rows) {
@@ -740,7 +742,7 @@ read_units_tables <- function(tabs, mode, root = NULL) {
   tb <- lapply(tabs, function(t) units_table_rows(t$tbl, t$where))
   wheres <- vapply(tabs, function(t) t$where, "")
   probs <- list(tb[[1L]]$problems, tb[[2L]]$problems)
-  add <- function(t, what) probs[[t]] <<- c(probs[[t]], what)
+  add <- function(t, what) probs[[t]] <<- c(probs[[t]], what) # <<- ok: collects into `probs` just above
   prob <- function(t, key, what) add(t, sprintf("%s: units: `%s`: %s (rule 9.1.7)", wheres[t], key, what))
   # a `false` row removes a default row
   for (t in 1:2) {

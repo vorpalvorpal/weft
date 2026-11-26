@@ -186,8 +186,9 @@ decision_pointer_rows <- function(src) {
   parts <- list()
   add <- function(line, key, decision) {
     if (length(line)) {
-      parts[[length(parts) + 1L]] <<- data.frame(file = rep(src$file, length(line)), line = as.integer(line),
-                                                  key = key, decision = decision, stringsAsFactors = FALSE)
+      rows <- data.frame(file = rep(src$file, length(line)), line = as.integer(line), key = key,
+                         decision = decision, stringsAsFactors = FALSE)
+      parts[[length(parts) + 1L]] <<- rows # <<- ok: appends to `parts` just above; three calls
     }
   }
   r <- src$rows

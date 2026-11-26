@@ -329,31 +329,33 @@ ck_runs_always <- function(t, i) {
 # the names a tree assigns, each as many times as it is bound (a `for` counts two), outside function bodies
 ck_assigned_in <- function(t) {
   tk <- t$pd$token
-  out <- character()
+  # the names bound at node `i` and below, in visiting order
   walk <- function(i) {
-    if (tk[i] != "expr") return(invisible())
+    if (tk[i] != "expr") return(character())
     k <- t$kids[[i]]
-    if (length(k) && tk[k[1L]] %in% c("FUNCTION", "'\\\\'")) return(invisible())
+    if (length(k) && tk[k[1L]] %in% c("FUNCTION", "'\\\\'")) return(character())
+    found <- character()
     if (length(k) >= 3L && tk[k[1L]] == "FOR") {
       fc <- t$kids[[k[2L]]]
       sy <- fc[tk[fc] == "SYMBOL"]
-      if (length(sy)) out <<- c(out, rep(t$pd$text[sy[1L]], 2L))
-      for (kk in fc) if (tk[kk] == "expr") walk(kk)
+      if (length(sy)) found <- c(found, rep(t$pd$text[sy[1L]], 2L))
+      for (kk in fc) if (tk[kk] == "expr") found <- c(found, walk(kk))
     } else if (length(k) >= 3L) {
       s <- NA_character_
       if (length(k) == 3L && tk[k[2L]] %in% c("LEFT_ASSIGN", "EQ_ASSIGN")) s <- lead_symbol(t, k[1L])
       else if (length(k) == 3L && tk[k[2L]] == "RIGHT_ASSIGN") s <- lead_symbol(t, k[3L])
-      if (!is.na(s)) out <<- c(out, s)
+      if (!is.na(s)) found <- c(found, s)
       ci <- call_info(t, i)
       if (!is.null(ci) && is_fn(ci, "assign", "base") && length(ci$args)) {
         v <- str_value(t, ci$args[[1L]]$node)
-        if (!is.na(v)) out <<- c(out, v)
+        if (!is.na(v)) found <- c(found, v)
       }
     }
-    for (kk in k) if (tk[kk] == "expr") walk(kk)
-    invisible()
+    for (kk in k) if (tk[kk] == "expr") found <- c(found, walk(kk))
+    found
   }
-  for (r in t$roots) walk(r)
+  out <- character()
+  for (r in t$roots) out <- c(out, walk(r))
   out
 }
 
@@ -407,8 +409,9 @@ checks_read <- function(src) {
   pieces <- code_pieces(src)
   recs <- list()
   add <- function(off, role, level, text, always, filter, p) {
-    recs[[length(recs) + 1L]] <<- list(off = as.numeric(off), line = findInterval(off, src$line_start), role = role,
-                                       level = level, text = text, always = always, filter = filter, p = p)
+    rec <- list(off = as.numeric(off), line = findInterval(off, src$line_start), role = role,
+                level = level, text = text, always = always, filter = filter, p = p)
+    recs[[length(recs) + 1L]] <<- rec # <<- ok: appends to `recs` just above; five call sites stay one-liners
   }
   assigned <- character()
   for (p in pieces) {

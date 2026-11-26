@@ -243,21 +243,24 @@ dict_refs <- function(code) {
                   error = function(err) NULL)
   }
   if (is.null(e)) return(character())
-  out <- character()
+  # the entries named in `x` and the calls inside it
   walk <- function(x) {
-    if (!is.call(x)) return(invisible())
+    if (!is.call(x)) return(character())
+    found <- character()
     f <- x[[1L]]
     if (is.symbol(f) && as.character(f) %in% c("$", "[[") && length(x) >= 3L &&
         is.symbol(x[[2L]]) && as.character(x[[2L]]) %in% c("dict", "dict_local")) {
       key <- x[[3L]]
       key <- if (is.symbol(key)) as.character(key) else if (is.character(key)) key else NULL
       if (!is.null(key) && length(key) == 1L) {
-        out <<- c(out, paste0(as.character(x[[2L]]), "$", key))
+        found <- paste0(as.character(x[[2L]]), "$", key)
       }
     }
-    for (a in as.list(x)) if (!missing(a)) walk(a)
+    for (a in as.list(x)) if (!missing(a)) found <- c(found, walk(a))
+    found
   }
-  for (x in e) walk(x)
+  out <- character()
+  for (x in e) out <- c(out, walk(x))
   sort(unique(out), method = "radix")
 }
 
@@ -482,8 +485,9 @@ write_whole_file <- function(path, lines) {
     write_atomic(path, bytes, skip_same = TRUE)
     NULL
   }, warning = function(w) {
-    reason <<- sub("^cannot create dir '[^']*', reason '(.*)'$", "\\1",
-                   sub("^cannot open file '[^']*': ", "", conditionMessage(w)))
+    msg <- sub("^cannot create dir '[^']*', reason '(.*)'$", "\\1",
+               sub("^cannot open file '[^']*': ", "", conditionMessage(w)))
+    reason <<- msg # <<- ok: a warning handler keeps the reason in `reason`, set just above
     invokeRestart("muffleWarning")
   }), error = function(e) {
     m <- conditionMessage(e)

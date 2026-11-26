@@ -44,7 +44,9 @@ use_weft <- function(path = ".") {
   setup <- setup_plan(path, "auto")
   root <- setup$root
   steps <- list()
-  add <- function(fn, what, run) steps[[length(steps) + 1L]] <<- list(fn = fn, what = what, run = run)
+  add <- function(fn, what, run) {
+    steps[[length(steps) + 1L]] <<- list(fn = fn, what = what, run = run) # <<- ok: appends to `steps` just above
+  }
 
   # use_setup(), and the version line
   vline <- version_line_update(root, setup)
@@ -308,10 +310,10 @@ status <- function(path = ".") {
   rows <- list()
   nexts <- list()
   add <- function(part, state, detail, fn = NA_character_, purpose = NA_character_) {
-    rows[[length(rows) + 1L]] <<- data.frame(part = part, state = state, detail = detail,
-                                             stringsAsFactors = FALSE)
+    row <- data.frame(part = part, state = state, detail = detail, stringsAsFactors = FALSE)
+    rows[[length(rows) + 1L]] <<- row # <<- ok: appends to `rows` just above; about twenty calls
     if (state %in% c("missing", "outdated") && !is.na(fn)) {
-      nexts[[length(nexts) + 1L]] <<- sprintf("Next: run weft::%s() to %s.", fn, purpose)
+      nexts[[length(nexts) + 1L]] <<- sprintf("Next: run weft::%s() to %s.", fn, purpose) # <<- ok: as `rows`
     }
   }
   inst <- weft_version_string()

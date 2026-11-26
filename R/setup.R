@@ -137,9 +137,9 @@ setup_plan <- function(path, route) {
   }
   items <- list()
   add <- function(path, new, state, purpose, copy_from = NULL) {
-    items[[length(items) + 1L]] <<- plan_item(path, root, state, purpose, new = new,
-                                              eol = if (state == "new") "\n" else file_eol(path),
-                                              copy_from = copy_from)
+    item <- plan_item(path, root, state, purpose, new = new, eol = if (state == "new") "\n" else file_eol(path),
+                      copy_from = copy_from)
+    items[[length(items) + 1L]] <<- item # <<- ok: appends to `items` just above; seven calls
   }
   # a folder or a link where a file should be, or a file where a folder should be: refuse before anything is
   # written

@@ -114,9 +114,10 @@ verify <- function(files = NULL, since = NULL, static = FALSE, path = ".") {
   }
 
   parts <- data.frame(part = VERIFY_PARTS, status = "skipped", detail = "", stringsAsFactors = FALSE)
-  set_part <- function(part, status, detail) {
-    parts$status[parts$part == part] <<- status
-    parts$detail[parts$part == part] <<- detail
+  set_part <- function(parts, part, status, detail) {
+    parts$status[parts$part == part] <- status
+    parts$detail[parts$part == part] <- detail
+    parts
   }
   res <- list(errors = as_weft_findings(empty_plain_findings()), added = as_weft_findings(empty_plain_findings()),
               strict = as_weft_findings(empty_plain_findings()), names = as_weft_findings(empty_plain_findings()),
@@ -130,38 +131,38 @@ verify <- function(files = NULL, since = NULL, static = FALSE, path = ".") {
 
   # 1. lints
   if (!is.na(why("lints"))) {
-    set_part("lints", "skipped", paste0("skipped: ", why("lints")))
+    parts <- set_part(parts, "lints", "skipped", paste0("skipped: ", why("lints")))
   } else {
     li <- verify_lints(root, files_rel, cfg, gi, since_sha, have_base, c(docs, scripts))
     res[names(li$res)] <- li$res
     notes <- c(notes, li$notes)
     n <- nrow(res$errors) + li$added_n + nrow(res$strict) + nrow(res$names)
     reasons <- reasons + n
-    set_part("lints", if (n) "failed" else "ran", li$detail)
+    parts <- set_part(parts, "lints", if (n) "failed" else "ran", li$detail)
   }
 
   # 2. decisions
   if (!is.na(why("decisions"))) {
-    set_part("decisions", "skipped", paste0("skipped: ", why("decisions")))
+    parts <- set_part(parts, "decisions", "skipped", paste0("skipped: ", why("decisions")))
   } else {
     dp <- verify_document_pointers(root, docs)
     if (!file.exists(file.path(root, "dict.yml")) && !nrow(dp)) {
-      set_part("decisions", "skipped", "skipped: no decision pointers")
+      parts <- set_part(parts, "decisions", "skipped", "skipped: no decision pointers")
     } else {
       d <- verify_decisions(root, cfg, dp)
       res$decisions <- d$table
       res$decision_error <- d$error
       n <- sum(d$table$resolved %in% FALSE) + length(d$error)
       reasons <- reasons + n
-      set_part("decisions", if (n) "failed" else "ran", d$detail)
+      parts <- set_part(parts, "decisions", if (n) "failed" else "ran", d$detail)
     }
   }
 
   # 3. render
   if (!is.na(why("render"))) {
-    set_part("render", "skipped", paste0("skipped: ", why("render")))
+    parts <- set_part(parts, "render", "skipped", paste0("skipped: ", why("render")))
   } else if (!length(docs)) {
-    set_part("render", "skipped", "skipped: no documents")
+    parts <- set_part(parts, "render", "skipped", "skipped: no documents")
   } else {
     rr <- verify_render(root, docs, files_rel, cfg, all_docs)
     notes <- c(notes, rr$notes)
@@ -172,12 +173,12 @@ verify <- function(files = NULL, since = NULL, static = FALSE, path = ".") {
     res$log <- rr$log
     n <- nrow(rr$knit) + sum(rr$output$level == "fail") + length(rr$unexecuted) + length(rr$unfresh) + (rr$status != 0L)
     reasons <- reasons + n
-    set_part("render", if (n) "failed" else "ran", rr$detail)
+    parts <- set_part(parts, "render", if (n) "failed" else "ran", rr$detail)
   }
 
   # 4. ledger
   if (!is.na(why("ledger"))) {
-    set_part("ledger", "skipped", paste0("skipped: ", why("ledger")))
+    parts <- set_part(parts, "ledger", "skipped", paste0("skipped: ", why("ledger")))
     if (identical(why("ledger"), "ledger: false in _weft.yml")) {
       notes <- c(notes, "ledger: false in _weft.yml, so no ledger is kept and none is checked (rule 7.2.3)")
     }
@@ -187,7 +188,7 @@ verify <- function(files = NULL, since = NULL, static = FALSE, path = ".") {
     notes <- c(notes, lg$notes)
     n <- length(unique(paste(lg$stale$ledger, lg$stale$output)))
     reasons <- reasons + n
-    set_part("ledger", if (n) "failed" else "ran", lg$detail)
+    parts <- set_part(parts, "ledger", if (n) "failed" else "ran", lg$detail)
   }
 
   out <- c(list(ok = reasons == 0L, parts = parts), res[c("errors", "added", "strict", "names", "removed", "tier2",
@@ -493,7 +494,9 @@ verify_report_lines <- function(x) {
   lines <- sprintf("weft verify: %s", if (x$ok) "passed" else "failed")
   lines <- c(lines, sprintf("  %-10s %s", x$parts$part, x$parts$detail))
   if (length(x$notes)) lines <- c(lines, paste0("note: ", x$notes))
-  sec <- function(head, body) if (length(body)) lines <<- c(lines, "", head, body)
+  sec <- function(head, body) {
+    if (length(body)) lines <<- c(lines, "", head, body) # <<- ok: appends to `lines` just above; 12 calls
+  }
   fl <- function(df) if (nrow(df)) gate_finding_lines(df) else character()
   sec("Construct errors", fl(x$errors))
   sec(sprintf("Findings added since %s", short), fl(x$added))

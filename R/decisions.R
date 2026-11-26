@@ -136,18 +136,19 @@ decisions_github <- function(ptr, route, root, fetch) {
   num <- grepl("^[1-9][0-9]{0,9}$", ptr)
   num[num] <- as.numeric(ptr[num]) <= .Machine$integer.max
   if (!any(num)) return(list(resolved = resolved, detail = detail))
+  # the result when no pointer could be checked: the issue numbers marked NA with the reason
   fail <- function(msg) {
-    resolved[num] <<- NA
-    detail[num] <<- paste0("could not check: ", msg)
+    resolved[num] <- NA
+    detail[num] <- paste0("could not check: ", msg)
+    list(resolved = resolved, detail = detail)
   }
-  gone <- function() list(resolved = resolved, detail = detail)
   # 1. the repository
   none <- function(why) sprintf(
     "no GitHub repository (%s); set decisions: github:<owner>/<repo> in _weft.yml", why)
   if (!is.null(route$owner)) {
     repo <- c(owner = route$owner, repo = route$repo)
   } else if (!nzchar(git_path())) {
-    fail(none("git is not installed")); return(gone())
+    return(fail(none("git is not installed")))
   } else {
     # the remote of a repository that is the project's own, not of one that holds it
     top <- git_lines(root, c("rev-parse", "--show-toplevel"))
@@ -155,16 +156,16 @@ decisions_github <- function(ptr, route, root, fetch) {
       top <- normalizePath(top[1L], mustWork = FALSE)
       here <- normalizePath(root, mustWork = FALSE)
       if (!identical(top, here) && !startsWith(top, paste0(sub("/+$", "", here), "/"))) {
-        fail(none("the git repository above the project belongs to another project")); return(gone())
+        return(fail(none("the git repository above the project belongs to another project")))
       }
     }
     url <- git_lines(root, c("remote", "get-url", "origin"))
     if (!length(url)) {
-      fail(none("no git remote `origin`")); return(gone())
+      return(fail(none("no git remote `origin`")))
     }
     repo <- parse_github_remote(url[1L])
     if (is.null(repo)) {
-      fail(none("the remote `origin` is not on github.com")); return(gone())
+      return(fail(none("the remote `origin` is not on github.com")))
     }
   }
   o <- repo[["owner"]]; r <- repo[["repo"]]
@@ -218,7 +219,7 @@ decisions_github <- function(ptr, route, root, fetch) {
   # 3, 4. the repository, then each number
   a <- call(base)
   if (!identical(a$status, 200L)) {
-    fail(refused(a$status, a$error, TRUE)); return(gone())
+    return(fail(refused(a$status, a$error, TRUE)))
   }
   for (k in which(num)) {
     a <- call(paste0(base, "/issues/", ptr[k]))

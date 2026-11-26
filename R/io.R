@@ -300,20 +300,22 @@ project_doc_paths <- function(root, use = c("lint", "anchors", "setup"), pattern
 # walked and a symbolic link by one of those names is not followed (K15). Dot-files are never listed.
 project_files_under <- function(root, pattern, use = c("lint", "anchors", "setup")) {
   use <- match.arg(use)
-  out <- character()
+  # the matching files in the folder `rel` and below: each subfolder's first, then the folder's own
   walk <- function(rel) {
     dir <- if (nzchar(rel)) file.path(root, rel) else root
     ents <- list.files(dir, all.files = FALSE, no.. = TRUE)
-    if (!length(ents)) return(invisible())
+    if (!length(ents)) return(character())
+    found <- character()
     isd <- dir.exists(file.path(dir, ents))
     for (e in ents[isd]) {
       if (e %in% DOC_VENDORED_DIRS || e %in% DOC_QUARTO_DIRS || (use != "anchors" && startsWith(e, "_"))) next
-      walk(if (nzchar(rel)) paste0(rel, "/", e) else e)
+      found <- c(found, walk(if (nzchar(rel)) paste0(rel, "/", e) else e))
     }
     f <- ents[!isd & grepl(pattern, ents)]
-    if (length(f)) out <<- c(out, if (nzchar(rel)) paste0(rel, "/", f) else f)
+    if (length(f)) found <- c(found, if (nzchar(rel)) paste0(rel, "/", f) else f)
+    found
   }
-  walk("")
+  out <- walk("")
   if (!length(out)) return(character())
   out[doc_path_ok(out, use)]
 }

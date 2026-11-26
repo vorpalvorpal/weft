@@ -103,33 +103,28 @@ make_evaluate_hook <- function(prev) {
     km <- args$keep_message
     if (!is.null(kw) && !is.na(kw)) args$keep_warning <- TRUE
     if (!is.null(km) && !is.na(km)) args$keep_message <- TRUE
-    mine <- list()
     n0 <- length(s$failures)
     l0 <- length(s$ledger)
-    note <- function(class, cond) {
-      mine[[length(mine) + 1L]] <<- list(class = class, text = conditionMessage(cond))
-    }
-    py_warnings <- function() {
-      for (m in guest_drain_conditions()) mine[[length(mine) + 1L]] <<- m
-    }
+    # one condition as the log keeps it
+    note <- function(class, cond) list(class = class, text = conditionMessage(cond))
     res <- tryCatch(
       do.call(prev, c(list(code, envir), args)),
       error = function(e) {
-        note("error", e)
-        py_warnings()
+        mine <- c(list(note("error", e)), unname(guest_drain_conditions()))
         record_chunk_conditions(s, label, mine, opts, lrows = ledger_since(s, l0))
         stop(wrap_collected_error(s, e))
       }
     )
+    mine <- list()
     for (el in res) {
       if (inherits(el, "condition")) {
         cl <- if (inherits(el, "error")) "error" else
           if (inherits(el, "warning")) "warning" else
             if (inherits(el, "message")) "message" else NA_character_
-        if (!is.na(cl)) note(cl, el)
+        if (!is.na(cl)) mine[[length(mine) + 1L]] <- note(cl, el)
       }
     }
-    py_warnings()
+    mine <- c(mine, unname(guest_drain_conditions()))
     record_chunk_tables(s, label, opts, res)
     fails <- if (length(s$failures) > n0) s$failures[(n0 + 1L):length(s$failures)] else list()
     record_chunk_conditions(s, label, mine, opts, fails, ledger_since(s, l0))

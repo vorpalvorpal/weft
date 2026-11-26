@@ -793,18 +793,18 @@ report_files <- function(t) {
 document_children <- function(lines) {
   out <- character()
   unresolved <- FALSE
-  strs <- function(txt) {
-    v <- tryCatch(suppressWarnings(suppressMessages(eval(parse(text = txt, keep.source = FALSE), baseenv()))),
-                  error = function(e) NULL)
-    if (is.character(v)) v else {
-      unresolved <<- TRUE
-      character()
-    }
+  # the value of a `child` option written as R code, or NULL when it does not evaluate
+  value_of <- function(txt) {
+    tryCatch(suppressWarnings(suppressMessages(eval(parse(text = txt, keep.source = FALSE), baseenv()))),
+             error = function(e) NULL)
   }
   lines <- tryCatch(dequote_chunks(lines), error = function(e) lines)
   for (ch in tryCatch(find_chunks(lines), error = function(e) list())) {
     o <- tryCatch(parse_header(ch$header)$opts$child, error = function(e) NULL)
-    if (!is.null(o)) out <- c(out, strs(o$text))
+    if (!is.null(o)) {
+      v <- value_of(o$text)
+      if (is.character(v)) out <- c(out, v) else unresolved <- TRUE
+    }
     body <- lines[seq_len(max(0L, min(ch$close, length(lines) + 1L) - 1L - ch$open)) + ch$open]
     hit <- regmatches(body, regexec("^\\s*#\\|\\s*child:\\s*(.+?)\\s*$", body))
     for (h in hit) {
@@ -1034,7 +1034,8 @@ chapter_reads <- function(s) {
   }
   tg$abs <- if (nrow(tg)) vapply(ifelse(is.na(tg$store), default_store, tg$store), abs_of, "") else character()
   tg$rel <- if (nrow(tg)) vapply(tg$abs, function(a) rel_path(root, a), "") else character()
-  metas <- list()
+  # the metadata of each store, read once: FALSE when it cannot be read
+  metas <- new.env(parent = emptyenv())
   meta_of <- function(abs) {
     if (!installed) return(NULL)
     if (!is.null(metas[[abs]])) return(metas[[abs]])
@@ -1043,7 +1044,7 @@ chapter_reads <- function(s) {
         store = abs, fields = c("type", "data", "warnings", "error", "parent")),
         stringsAsFactors = FALSE), error = function(e) NULL)
     }
-    metas[[abs]] <<- if (is.null(m)) FALSE else m
+    metas[[abs]] <- if (is.null(m)) FALSE else m
     metas[[abs]]
   }
   tg_h <- list()

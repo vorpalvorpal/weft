@@ -141,7 +141,7 @@ gate_sizes <- function(g, pj) {
   mark <- function(s) {
     e <- s$entries
     b <- e$content & !is.na(sz[e$blob]) & sz[e$blob] > GATE_MAX_BYTES
-    if (any(b)) big <<- c(big, gate_top_path(s$prefix, e$rel[b]))
+    if (any(b)) big <<- c(big, gate_top_path(s$prefix, e$rel[b])) # <<- ok: a callback that also collects `big`
     s$entries$big <- b
     s
   }

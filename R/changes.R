@@ -154,7 +154,7 @@ read_side <- function(root, path, commit = NULL) {
   what <- if (is.null(commit)) file.path(root, path) else paste0(substr(commit, 1L, 7L), ":", path)
   note <- NA_character_
   x <- tryCatch(read_ledger(file = what, lines = lines), weft_ledger_error = function(e) {
-    note <<- conditionMessage(e)
+    note <<- conditionMessage(e) # <<- ok: an error handler keeps the message in `note`, set just above
     read_ledger(file = what, lines = lines, lenient = TRUE)
   })
   header <- attr(x, "header")
@@ -348,7 +348,10 @@ sgn <- function(x) as.numeric(sign(x))
 structural_reasons <- function(kind, arm_b, arm_a, b, a, keys, tb, ta, ub = NA_character_, ua = NA_character_) {
   r <- character()
   place <- integer()
-  add <- function(txt, i) { r <<- c(r, txt); place <<- c(place, i) }
+  add <- function(txt, i) {
+    r <<- c(r, txt) # <<- ok: collects into `r` just above; six calls
+    place <<- c(place, i) # <<- ok: as `r`
+  }
   differs <- !(identical(arm_b, arm_a) || (is.na(arm_b) && is.na(arm_a)))
   if (!is.na(kind) && kind %in% c("n", "if", "sign", "list") && differs) {
     add(sprintf("arm %s -> %s", if (is.na(arm_b)) "none" else arm_b,
