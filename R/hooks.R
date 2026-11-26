@@ -457,7 +457,14 @@ finish_knit <- function() {
     if (nrow(wr)) message(format_warnings(wr))
     s$warnings_reported <- TRUE
   }
-  if (!is.null(s)) s$finished <- TRUE
+  if (!is.null(s)) {
+    s$finished <- TRUE
+    # parked code left unresolved keeps no frame alive after the knit
+    s$parked <- lapply(s$parked, function(p) {
+      p$envir <- NULL
+      p
+    })
+  }
   weft_env$config <- NULL
   weft_env$inline <- NULL
   if (length(weft_env$outer)) {

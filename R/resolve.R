@@ -1534,5 +1534,7 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
       }
     }
   }
+  # the parked code is resolved: its environment, a caller's frame, is let go (the code is kept)
+  for (i in spans$idx) s$parked[[i]]$envir <- NULL
   out
 }
