@@ -247,7 +247,7 @@ dict_glossary <- function(dict = NULL, values = TRUE, sort = TRUE) {
   if (is.null(weft_env$config)) {
     root <- find_project_root(getwd())
     if (file.exists(file.path(root, "_weft.yml"))) {
-      cfg <- tryCatch(read_config(root), error = function(e) NULL)
+      cfg <- tryCatch(read_config(root, explicit = FALSE), error = function(e) NULL)
       if (!is.null(cfg)) {
         weft_env$config <- cfg
         on.exit(weft_env$config <- NULL, add = TRUE)
