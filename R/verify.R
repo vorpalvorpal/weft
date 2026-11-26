@@ -221,7 +221,7 @@ verify_config <- function(root, has_file) {
   front <- list()
   if (!has_file) {
     d <- lint_files_under(root)
-    if (length(d) == 1L) front <- doc_front(file.path(root, d))
+    if (length(d) == 1L) front <- read_front_matter(file.path(root, d))
   }
   # read as YAML only: read_config() installs the unit tables and writes the units cache in the user's
   # cache folder (review 4, #3), and verify() has no use for units

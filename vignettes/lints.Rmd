@@ -202,6 +202,7 @@ heading's words change.
 | `tar-cache` | a chunk that reads a target and has `cache: true` |
 | `file-link` | a link or image to a file that is not there |
 | `config-place` | a `weft:` key in `_quarto.yml`, or a project setting in a document |
+| `front-matter-quarto` | a `---` block in a `.qmd` that Quarto reads as front matter and Pandoc does not: text directly above it, or inside a `~~~` fence |
 | `read` | a file that is not UTF-8 |
 
 ## Python, Julia and Observable

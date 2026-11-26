@@ -63,6 +63,7 @@ lint_rule_table_build <- function() {
     r("tar-cache", "5.8.7", 1, "file", "A chunk that reads a target and caches."),
     r("config-place", "5.8.8", 1, "project", "A project setting in a place that is not the project's."),
     r("engine", "5.8.9", 1, "project", "A document with constructs that is not knitr's."),
+    r("front-matter-quarto", "5.8.10", 1, "file", "A `---` block Quarto reads as front matter and Pandoc does not."),
     r("figure", "5.9.1", 1, "file", "A figure with no label, caption or alt text."),
     r("table-caption", "5.9.1", 1, "file", "A table with no caption."),
     r("guest-inline", "5.11.1", 1, "file", "Inline code in another language, which knitr does not run."),
@@ -123,6 +124,7 @@ lint_rule_funs <- function() {
     `tar-cache` = lint_tar_cache,
     `config-place` = lint_config_place,
     `engine` = lint_engine,
+    `front-matter-quarto` = lint_front_matter_quarto,
     `figure` = lint_figure,
     `table-caption` = lint_table_caption,
     `guest-inline` = lint_guest_inline,
@@ -359,14 +361,16 @@ settings_root <- function(root, rel) {
   if (nzchar(s)) file.path(root, s) else root
 }
 
-# The front matter of a file, read cheaply (for its `weft:` settings). `text` is
-# the file's text when the caller has read it already (NULL: read it here).
-doc_front <- function(path, text = NULL) {
-  if (is_script_path(path)) return(list())
+# The front matter of a document file (rule 2.1.6), for every reader of its own fields: the knit (its
+# `weft:` settings, `lang` and `dict_local`), the lints, verify(), checks() and arms(). The file is read as
+# source text, not through `rmarkdown::metadata`, which holds the first block only; its fields are those of
+# doc_front_lines(). `text` is the file's text when the caller has read it already (NULL: read it here).
+# A script, no path, and a file that is not text have none.
+read_front_matter <- function(path, text = NULL) {
+  if (is.null(path) || is_script_path(path)) return(list())
   if (is.null(text)) text <- read_source_text_or_null(path)
-  if (is.null(text) || !nzchar(text)) return(list())
-  lines <- strsplit(text, "\n", fixed = TRUE)[[1L]]
-  merge_front(meta_blocks_yaml(lines, metadata_blocks(lines)))
+  if (is.null(text)) return(list())
+  doc_front_lines(split_source_lines(text))
 }
 
 # The metadata blocks `mb` of `lines`, each with its `open` and `close` lines and its `yaml` (list() when it
@@ -407,7 +411,7 @@ lint_open <- function(root, rel) {
     # settings first need it, after `_weft.yml`, as before
     delayedAssign("text", read_source_text_or_null(path))
   }
-  cfg <- lint_config(settings_root(root, rel), doc_front(path, text))
+  cfg <- lint_config(settings_root(root, rel), read_front_matter(path, text))
   lint_read(path, root, cfg, bytes, text)
 }
 

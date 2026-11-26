@@ -982,6 +982,54 @@ engine_message <- function(f, src) {
     hint = "Add `engine: knitr` to its front matter.")
 }
 
+# A `---` block of a .qmd that Quarto reads as front matter and Pandoc does not (rule 5.8.10). Quarto's reader
+# drops HTML comments and backtick fences, then takes any `---` line whose next line is not blank, up to the
+# next `---` or `...` line; Pandoc, and so weft, wants a blank line above the `---` and skips a `~~~` fence
+# too. A candidate is reported when it is a YAML mapping, at its `---` line: inside a `~~~` fence, or with
+# text directly above it. A setext underline is followed by a blank line, so it opens no candidate.
+lint_front_matter_quarto <- function(src, ctx) {
+  if (!identical(tolower(src$ext), "qmd")) return(new_findings())
+  lines <- src$lines
+  n <- length(lines)
+  inmeta <- logical(n)
+  for (m in src$meta) inmeta[m$open:m$close] <- TRUE
+  dash <- grepl("^---[ \t\r]*$", lines) & !inmeta
+  if (!any(dash)) return(new_findings())
+  blank <- !nzchar(trim_ws(lines))
+  # the lines Quarto drops before it looks: HTML comments and the inside of backtick fences
+  hidden <- logical(n)
+  com <- gregexpr("<!--[\\s\\S]*?-->", src$text, perl = TRUE)[[1L]]
+  if (com[1L] > 0L) {
+    for (q in seq_along(com)) {
+      at <- src_line_of(src, c(com[q], com[q] + attr(com, "match.length")[q] - 1L))
+      hidden[at[1L]:at[2L]] <- TRUE
+    }
+  }
+  fb <- fence_blocks(lines, inmeta)
+  tilde <- grepl("^[ \t>]*~", lines[fb$open])
+  inside <- function(k, f) any(fb$open[f] < k & fb$close[f] > k)
+  closer <- grepl("^(---|\\.\\.\\.)[ \t\r]*$", lines)
+  out <- list()
+  last <- 0L
+  for (k in which(dash)) {
+    if (k <= last || k >= n || hidden[k] || blank[k + 1L] || inside(k, !tilde)) next
+    j <- which(closer & seq_len(n) > k)[1L]
+    if (is.na(j) || j < k + 2L || !is_yaml_mapping(lines[(k + 1L):(j - 1L)])) next
+    last <- j
+    fenced <- inside(k, tilde)
+    if (!fenced && (k == 1L || blank[k - 1L])) next
+    pos <- src$line_start[k]
+    out[[length(out) + 1L]] <- finding_at(
+      src, pos, pos + 2L, "front-matter-quarto", "---",
+      paste0("Quarto reads this block as front matter but Pandoc does not; ",
+             if (fenced) "move it out of the `~~~` fence" else "put a blank line above it", " (rule 5.8.10)."),
+      if (fenced) "If it is an example, not metadata, fence it with backticks, which Quarto skips as well."
+      else "Without the blank line Pandoc reads the line above as a heading and the block as text, and so does weft.",
+      context = "front-matter")
+  }
+  bind_findings(out)
+}
+
 # ---- guest languages (5.11.1, 5.11.2) and Observable (5.11.4) ---------------------------------------------
 
 # Does knitr knit this document: an .Rmd; a .qmd marked `engine: knitr`, or with an executed {r} chunk and no
@@ -1434,7 +1482,7 @@ changes_tier2 <- function(root, commit, files = NULL) {
   for (file in unique(f$file)) {
     d <- f[f$file == file, , drop = FALSE]
     cw <- d$rule == "claim-word"
-    cap <- tryCatch(lint_config(root, doc_front(file.path(root, file)))$claim_cap,
+    cap <- tryCatch(lint_config(root, read_front_matter(file.path(root, file)))$claim_cap,
                     error = function(e) 20L)
     if (is.null(cap) || !is.numeric(cap)) cap <- 20L
     if (sum(cw) > cap) {

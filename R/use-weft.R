@@ -434,14 +434,12 @@ print.weft_status <- function(x, ...) {
 
 doc_files <- function(root) project_doc_paths(root, "setup")
 
-# the front-matter lines of a document (character() when it has none)
-use_doc_front <- function(lines) front_block(lines)
-
 # does a .qmd need `engine: knitr`: the rule of use_setup() (qmd_needs_engine()), on the parsed front
-# matter. Front matter that does not parse is not something use_setup() can fix, so it is not flagged.
+# block, where Quarto reads `engine:` and `jupyter:`. Front matter that does not parse is not something
+# use_setup() can fix, so it is not flagged.
 qmd_lacks_engine <- function(lines) {
-  fm <- use_doc_front(lines)
-  body <- if (length(fm)) lines[-seq_len(length(fm) + 2L)] else lines
+  fm <- front_block(lines)
+  body <- if (length(fm)) lines[-seq_len(metadata_blocks(lines)$close[1L])] else lines
   y <- tryCatch(fm_parse(fm), error = function(e) NULL)
   if (is.null(y) || (length(fm) && !is.list(y))) return(FALSE)
   qmd_needs_engine(names(y), body)
@@ -453,8 +451,9 @@ status_activation <- function(root) {
     any(grepl("weft::weft_setup\\s*\\(", sub("#.*$", "", read_source_lines(rp))))
   docs <- doc_files(root)
   texts <- lapply(file.path(root, docs), function(p) tryCatch(read_source_lines(p), error = function(e) character()))
+  # the route is a `knitr:` key, which Quarto reads from the front block alone
   front <- length(docs) > 0L &&
-    all(vapply(texts, function(x) any(grepl("weft::weft_setup", use_doc_front(x), fixed = TRUE)), NA))
+    all(vapply(texts, function(x) any(grepl("weft::weft_setup", front_block(x), fixed = TRUE)), NA))
   if (!rprofile && !front) {
     return(list(state = "missing", detail = "no .Rprofile line and no front-matter route"))
   }

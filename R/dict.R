@@ -781,11 +781,17 @@ dict_register_unit <- function(unit) {
 # ---- dict_local (4.3) ------------------------------------------------------
 
 # The document's front-matter `weft: dict_local:` as a local `weft_dict`, or
-# NULL when it has none. The front matter is parsed again here so that `yes`
-# and `no` stay text.
+# NULL when it has none. The `weft:` that is in force is that of the last
+# metadata block with a top-level `weft:` key (rule 2.1.6), so the entries are
+# read from that block. Its lines are parsed again here so that `yes` and `no`
+# stay text, and so that a block YAML cannot read is reported.
 read_dict_local <- function(path) {
-  fl <- front_matter_lines(path)
-  if (is.null(fl)) return(NULL)
+  lines <- tryCatch(read_view_lines(path), error = function(e) character())
+  ff <- front_fields(lines)
+  b <- ff$block[ff$field == "weft"]
+  if (!length(b)) return(NULL)
+  mb <- metadata_blocks(lines)[max(b), ]
+  fl <- lines[(mb$open + 1L):(mb$close - 1L)]
   at <- which(grepl("^\\s*dict_local\\s*:", fl))[1L]
   # the lines of the dictionary: those after `dict_local:` that are indented
   # more than it
@@ -801,7 +807,7 @@ read_dict_local <- function(path) {
   y <- dict_parse(prep$lines)
   raw <- if (is.list(y) && is.list(y$weft)) y$weft$dict_local else NULL
   if (is.null(raw)) return(NULL)
-  build_dict(raw, path, "local", lines = fl, first = first, offset = 1L, prep = prep)
+  build_dict(raw, path, "local", lines = fl, first = first, offset = mb$open, prep = prep)
 }
 
 # Assign `dict` and `dict_local` into the knit's environment and the state

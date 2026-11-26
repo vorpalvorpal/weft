@@ -2091,12 +2091,9 @@ document_names_from <- function(lines, file = NA_character_, config = NULL) {
     }, error = function(e) NULL)
   }
   if (any(grepl("names_from", lines, fixed = TRUE))) {
-    fm <- tryCatch(front_block(lines), error = function(e) character())
-    if (length(fm)) {
-      y <- tryCatch(yaml_read_text(paste(fm, collapse = "\n")), error = function(e) NULL)
-      d <- if (is.list(y) && is.list(y$weft)) ok(y$weft$names_from)
-      if (!is.null(d)) v <- d
-    }
+    w <- doc_front_lines(lines)$weft
+    d <- if (is.list(w)) ok(w$names_from)
+    if (!is.null(d)) v <- d
   }
   v
 }

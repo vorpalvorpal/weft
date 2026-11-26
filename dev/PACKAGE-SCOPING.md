@@ -1585,12 +1585,38 @@ the top level. A child document (`knitr::knit_child()`, the `child` chunk
 option) shares its parent's records, and its constructs are scanned from its
 own file.
 
-**2.1.6** The document's own front matter is read from `rmarkdown::metadata`,
-under Quarto and under rmarkdown. Under Quarto that object does not hold what
-`_quarto.yml` or `_metadata.yml` set. When weft needs a project-level `lang`
-or `bibliography`, it reads Quarto's merged metadata from the JSON file named
-by the environment variable `QUARTO_EXECUTE_INFO`. Where that variable is not
-set it calls `quarto::quarto_inspect()` on the source file, once per document.
+**2.1.6** The document's own front matter is read from the source file, by
+one rule for every reader: the knit (its `weft:` settings, `lang` and
+`dict_local`), the lints, `verify()`, `checks()`, `status()` and the Python
+module. It is not read from `rmarkdown::metadata`, which holds the first block
+only. The rule is Pandoc's, which Quarto follows for its own options:
+
+1. The front matter is every metadata block of the document, merged in order,
+   in a `.qmd` and an `.Rmd` alike.
+2. A block opens with a line that is exactly `---` (trailing white space
+   allowed, no indent), at the top of the file (only blank lines above it) or
+   after a blank line. The next line is not blank, so `---` followed by a blank
+   line is a rule. The block closes at the next `---` or `...` line, and its
+   content is a YAML mapping. A `---` inside a backtick or tilde fence, an HTML
+   comment or indented code opens nothing.
+3. When two blocks set one top-level key, the later block wins and its value
+   replaces the whole earlier value; nothing is merged inside a key, not even
+   inside `weft:` (`weft: {strict: true, a: 1}` then `weft: {b: 2}` gives
+   `weft: {b: 2}`).
+4. `engine:`, `knitr:` and `jupyter:` are read from the first block alone (the
+   front block: the first metadata block, with only blank lines above it), as
+   Quarto reads them. So the front-matter route of 9.2.1 is a `knitr:` key in
+   that block. (Not yet so for the lints: the `engine`, `tar-cache` and
+   `above-setup` rules still read these keys from the merged front matter.)
+
+Quarto reads two more blocks than Pandoc, a `---` block with text directly
+above it and one inside a `~~~` fence; weft follows Pandoc, and the lint
+`front-matter-quarto` reports each (5.8 rule 10). Under Quarto the front matter
+does not hold what `_quarto.yml` or `_metadata.yml` set. When weft needs a
+project-level `lang` or `bibliography`, it reads Quarto's merged metadata from
+the JSON file named by the environment variable `QUARTO_EXECUTE_INFO`. Where
+that variable is not set it calls `quarto::quarto_inspect()` on the source
+file, once per document.
 
 **2.1.7** Installing the hooks leaves a plain `knitr::knit()` call producing
 the output it produces without them. knitr sets its markdown output hooks
@@ -5325,6 +5351,7 @@ nothing, and no finding says so. Without the setting nothing changes.
 | 7 | `tar-cache` | a chunk that reads a pipeline target (`tar_read()`, `tar_load()`) does not have `cache: true` | 1 |
 | 8 | `config-place` | no `weft:` key in `_quarto.yml` or `_metadata.yml` (9.1.1); where `_weft.yml` exists, no `draft` and no part switched off in a document's front matter (9.1.4) | 1 |
 | 9 | `engine` | a `.qmd` that holds a construct, and is rendered on its own rather than included or knit as a child, has `engine: knitr` in its own front matter (9.2.8), or holds only named values and spans in the grammar of 1.12.4 and has the resolver installed | 1 |
+| 10 | `front-matter-quarto` | in a `.qmd`, no `---` block that Quarto reads as front matter and Pandoc does not (2.1.6): one with text directly above its `---` line, and one inside a `~~~` fence | 1 |
 
 - Rule 1: `section-anchor` skips a heading inside a callout or a
   `.panel-tabset` div, which is not a section, and reads a setext underline
@@ -5377,6 +5404,14 @@ nothing, and no finding says so. Without the setting nothing changes.
   values, and the filter weft.lua is not installed: run use_quarto() (rule
   5.8.9)." A document is the filter's, for this rule, when its source lines say
   so (2.13.13).
+
+- Rule 10: a candidate is what Quarto's reader takes after it drops HTML
+  comments and backtick fences: a `---` line whose next line is not blank, up
+  to the next `---` or `...` line, holding a YAML mapping. A setext heading
+  underline is followed by a blank line, so it is no candidate. The finding is
+  at the `---` line: "Quarto reads this block as front matter but Pandoc does
+  not; put a blank line above it (rule 5.8.10)." or "...; move it out of the
+  `~~~` fence (rule 5.8.10)."
 
 ### 5.9 Figures and tables
 
@@ -6332,8 +6367,10 @@ variable, not through the text of the command.
 ### 9.1 Configuration
 
 **9.1.1** Project configuration is `_weft.yml` at the project root. A
-document overrides it with a top-level `weft:` key in its front matter.
-weft merges the two setting by setting, except as 9.1.4 says. A `weft:` key
+document overrides it with a top-level `weft:` key in its front matter
+(2.1.6: in any metadata block, and a later block's `weft:` replaces an
+earlier one's whole). weft merges the two setting by setting, except as 9.1.4
+says. A `weft:` key
 in `_quarto.yml` or `_metadata.yml` is an error found from the source (5.8
 rule 8), and its message names `_weft.yml`.
 

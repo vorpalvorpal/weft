@@ -7,9 +7,14 @@ kept: a kernel's environment can go stale, and the files cannot. Standard librar
              column 1 with `chunk_claims`, optional spaces or tabs, then `:`. The value is the rest
              of the line, a `#` comment that follows white space removed, trimmed, and one pair of
              surrounding quotes removed.
-  document   when `source` ends .qmd or .md: its front matter (from a first line of `---` to the next
-             `---` or `...`), the key `chunk_claims` of its `weft:` mapping, in block or flow form.
-             The document's value, when it has one, wins over _weft.yml.
+  document   when `source` ends .qmd or .md: its front matter, the key `chunk_claims` of its `weft:`
+             mapping, in block or flow form. The front matter is every metadata block, as Pandoc and
+             weft's R side read them (rule 2.1.6 of dev/PACKAGE-SCOPING.md): a line that is exactly
+             `---` at the top (only blank lines above) or after a blank line, a next line that is not
+             blank, closed at the next `---` or `...` line, holding a mapping, and not inside a fence
+             or an HTML comment. A later block's `weft:` replaces an earlier one's whole, so the value
+             is read from the last block with a top-level `weft:` key. The document's value, when it
+             has one, wins over _weft.yml.
 
 The result is "collect" exactly when the value that applies is `collect`; anything else, an absent
 key, `Collect`, `true` or an empty value, is "stop".
@@ -143,18 +148,72 @@ def _strip_comment(s):
     return s[:m.start()] if m else s
 
 
+_FENCE = _re.compile(r"^[ \t>]*(`{3,}|~{3,})")
+_OPEN = _re.compile(r"^---[ \t]*$")
+_CLOSE = _re.compile(r"^(---|\.\.\.)[ \t]*$")
+_COMMENT_OPEN = _re.compile(r"^ {0,3}<!--")
+_MAP_KEY = _re.compile(r"^[A-Za-z_\"'][^:]*:([ \t]|$)")
+_WEFT_KEY = _re.compile(r"^weft[ \t]*:")
+
+
+def _is_mapping(inner):
+    """Whether the lines of a candidate block read as a YAML mapping: its first line that is not blank and
+    not a comment is `key:` or opens a flow mapping. (The R side parses the YAML; this module has no
+    parser, and a block of plain text or a list is what it has to tell apart.)"""
+    for line in inner:
+        t = line.strip(" \t")
+        if not t or t.startswith("#"):
+            continue
+        return bool(_MAP_KEY.match(line)) or t.startswith("{")
+    return False
+
+
+def _blocks(lines):
+    """The inner lines of each metadata block of a document, in order (see the module's note)."""
+    out = []
+    n = len(lines)
+    k = 0
+    while k < n:
+        line = lines[k]
+        m = _FENCE.match(line)
+        if m:
+            close = _re.compile(r"^[ \t>]*" + _re.escape(m.group(1)[0]) + "{" + str(len(m.group(1))) +
+                                r",}[ \t]*$")
+            j = k + 1
+            while j < n and not close.match(lines[j]):
+                j += 1
+            k = j + 1
+            continue
+        if _COMMENT_OPEN.match(line):
+            # the comment ends at the first `-->` after its `<!--`; one that never ends hides nothing
+            end = k if "-->" in line.split("<!--", 1)[1] else next(
+                (j for j in range(k + 1, n) if "-->" in lines[j]), None)
+            k = k + 1 if end is None else end + 1
+            continue
+        if _OPEN.match(line) and (k == 0 or not lines[k - 1].strip()) and k + 1 < n and lines[k + 1].strip():
+            j = k + 1
+            while j < n and not _CLOSE.match(lines[j]):
+                j += 1
+            if j < n and _is_mapping(lines[k + 1:j]):
+                out.append(lines[k + 1:j])
+                k = j + 1
+                continue
+        k += 1
+    return out
+
+
 def _front_value(source):
     lines = _lines(source)
-    if not lines or lines[0].rstrip(" \t") != "---":
+    if not lines:
         return None
-    end = None
-    for i in range(1, len(lines)):
-        if lines[i].rstrip(" \t") in ("---", "..."):
-            end = i
-            break
-    if end is None:
+    weft = [b for b in _blocks(lines) if any(_WEFT_KEY.match(line) for line in b)]
+    if not weft:
         return None
-    front = lines[1:end]
+    return _weft_value(weft[-1])
+
+
+def _weft_value(front):
+    """`chunk_claims` of the `weft:` mapping in the lines `front` of one block, or None."""
     for i, line in enumerate(front):
         m = _re.match(r"^weft[ \t]*:(.*)$", line)
         if not m:

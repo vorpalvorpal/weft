@@ -357,24 +357,6 @@ ensure_knit <- function() {
   s
 }
 
-# The lines of the document's own front matter (9.1.1, 2.1.6): the YAML
-# between the first `---` line and its close, or NULL.
-front_matter_lines <- function(path) {
-  if (is.null(path)) return(NULL)
-  lines <- tryCatch(read_view_lines(path), error = function(e) character())
-  if (!length(lines) || !grepl("^---[ \t]*$", lines[1L])) return(NULL)
-  end <- which(grepl("^(---|\\.\\.\\.)[ \t]*$", lines[-1L]))[1L]
-  if (is.na(end) || end < 2L) return(NULL)
-  lines[2L:end]
-}
-
-read_front_matter <- function(path) {
-  fl <- front_matter_lines(path)
-  if (is.null(fl)) return(list())
-  y <- tryCatch(yaml_read_text(fl), error = function(e) list())
-  if (is.list(y)) y else list()
-}
-
 # Constructs the scanner finds in the front matter and in caption options
 # that cannot be resolved are construct errors, found when the knit is
 # initialised (1.10.3, 1.10.4, 1.10.7, 1.10.11, 2.3.5): the knit stops at the
@@ -405,6 +387,9 @@ document_lang <- function(front, path, s = NULL) {
 }
 
 init_knit <- function() {
+  # the file's skeleton (its metadata blocks first) is read once for the front matter, the local
+  # dictionary and the file's state
+  local_doc_memo()
   path <- knit_input_path()
   front <- read_front_matter(path)
   root <- if (!is.null(path)) find_project_root(path) else getwd()
@@ -425,9 +410,7 @@ init_knit <- function() {
   init_dicts(s, root, path)
   weft_env$config <- cfg
   weft_env$state <- s
-  # the file's state first: the values lists of the knitted file are taken from its scan (E7), and the
-  # file's skeleton is read once for both
-  local_doc_memo()
+  # the file's state first: the values lists of the knitted file are taken from its scan (E7)
   F <- if (!is.null(path)) current_file_state(s)
   # the values the session holds for the document's names, before it renders (E2 BN11)
   tryCatch(values_hold(s), error = function(e) NULL)

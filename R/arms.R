@@ -88,7 +88,7 @@ arms_one <- function(path, offset = 0L) {
   script <- is_script_path(path)
   # the configuration and the language are the knit's: the project's classes
   # are known, and the language is Quarto's merged metadata (3.7.1)
-  front <- if (script) list() else read_front_matter(path)
+  front <- read_front_matter(path)
   cfg <- read_config(find_project_root(path), front$weft, doc = path, explicit = FALSE)
   rows <- if (script) {
     # a script is read for its weft() strings, with no `scripts_skip` (C15); one that does not parse lists nothing

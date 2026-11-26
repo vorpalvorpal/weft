@@ -41,10 +41,14 @@ doc_memo <- function(kind, lines, compute) {
 
 # ---- metadata blocks ---------------------------------------------------------
 
-# The metadata blocks of a document, as the line numbers of the delimiters.
-# Like Pandoc, a block opens with a `---` line at the start or after a blank
-# line, followed by a line that is not blank, and closes at the next `---` or
-# `...` line. Fenced blocks are left alone.
+# The metadata blocks of a document, as the line numbers of the delimiters: the
+# one reading of a document's front matter (rule 2.1.6). Like Pandoc, a block
+# opens with a line that is exactly `---` (trailing white space allowed, no
+# indent) at the top of the file (only blank lines above) or after a blank line,
+# followed by a line that is not blank, closes at the next `---` or `...` line,
+# and holds a YAML mapping. A block inside a backtick or tilde fence, or inside
+# an HTML comment that starts a line, is not one; an indented `---` is not one
+# either.
 metadata_blocks <- function(lines) doc_memo("metadata_blocks", lines, metadata_blocks_)
 
 metadata_blocks_ <- function(lines) {
@@ -52,8 +56,11 @@ metadata_blocks_ <- function(lines) {
   is_blank <- function(l) !nzchar(trim_ws(l))
   open <- integer()
   close <- integer()
-  # only a fence line or a `---` line can matter: the rest are skipped, in one pass
-  cand <- which(grepl("^[ \t>]*(`{3,}|~{3,})", lines) | grepl("^---[ \t\r]*$", lines))
+  # only a fence line, a line that opens an HTML comment or a `---` line can matter: the rest are skipped,
+  # in one pass
+  opens_comment <- grepl("^ {0,3}<!--", lines)
+  cand <- which(grepl("^[ \t>]*(`{3,}|~{3,})", lines) | opens_comment | grepl("^---[ \t\r]*$", lines))
+  ends_comment <- which(grepl("-->", lines, fixed = TRUE))
   # the first line after `k` that closes the fence `fence`, or n + 1: a closing line is a fence line, so
   # only the candidates are tried (E2)
   next_close <- function(fence, k) {
@@ -73,6 +80,13 @@ metadata_blocks_ <- function(lines) {
       k <- next_close(fence, k) + 1L
       next
     }
+    if (opens_comment[k]) {
+      # the comment ends at the first `-->` after its `<!--`; one that never ends hides nothing
+      same <- grepl("-->", sub("^.*?<!--", "", l, perl = TRUE), fixed = TRUE)
+      end <- if (same) k else ends_comment[ends_comment > k][1L]
+      k <- if (is.na(end)) k + 1L else end + 1L
+      next
+    }
     if (grepl("^---[ \t\r]*$", l) && (k == 1L || is_blank(lines[k - 1L])) &&
         k < n && !is_blank(lines[k + 1L])) {
       j <- k + 1L
@@ -89,13 +103,34 @@ metadata_blocks_ <- function(lines) {
   data.frame(open = open, close = close)
 }
 
-# The lines of the front block: the first metadata block, when it opens on the
-# first line of the document, without its delimiters; character() when there is
-# none. One reading for every caller that wants the document's own fields.
+# The lines of the front block, without its delimiters: the first metadata block,
+# when only blank lines stand above it; character() when there is none. It is
+# for the keys Quarto reads from that block alone, `engine:`, `knitr:` and
+# `jupyter:` (rule 2.1.6). The document's own fields are every block's, merged:
+# doc_front_lines().
 front_block <- function(lines) {
   mb <- metadata_blocks(lines)
-  if (!nrow(mb) || mb$open[1L] != 1L) return(character())
-  lines[seq_len(mb$close[1L] - 1L)[-1L]]
+  if (!nrow(mb)) return(character())
+  above <- lines[seq_len(mb$open[1L] - 1L)]
+  if (any(nzchar(trim_ws(above)))) return(character())
+  lines[(mb$open[1L] + 1L):(mb$close[1L] - 1L)]
+}
+
+# The front block read as YAML (list() when there is none, or it does not parse): where weft reads the
+# keys `engine:`, `knitr:` and `jupyter:`, which Quarto honours in that block only (rule 2.1.6).
+front_block_yaml <- function(lines) {
+  doc_memo("front_block_yaml", lines, function(l) {
+    fm <- front_block(l)
+    y <- if (length(fm)) yaml_text(fm) else NULL
+    if (is.list(y)) y else list()
+  })
+}
+
+# The front matter of a document from its lines (rule 2.1.6): the fields of every
+# metadata block, merged in order, a later block's top-level key replacing the
+# whole value of an earlier one's (merge_front()).
+doc_front_lines <- function(lines) {
+  doc_memo("doc_front", lines, function(l) merge_front(meta_blocks_yaml(l, metadata_blocks(l))))
 }
 
 # Whether the lines of a candidate metadata block are a YAML mapping, as Pandoc
@@ -190,15 +225,13 @@ project_type <- function(path) {
 }
 
 # The chunk options the document sets for every chunk: `knitr: opts_chunk:`,
-# then `execute:` over it (the first metadata block). Option names are as
-# written; a dot and a hyphen are the same name.
+# read from the front block alone as Quarto reads `knitr:`, then `execute:`
+# over it, read from the front matter as a whole. Option names are as written;
+# a dot and a hyphen are the same name.
 doc_execute <- function(lines) {
-  fm <- front_block(lines)
-  if (!length(fm)) return(list())
-  y <- tryCatch(yaml_read_text(fm), error = function(e) NULL)
-  if (!is.list(y)) return(list())
-  oc <- if (is.list(y$knitr)) y$knitr$opts_chunk else NULL
-  ex <- y$execute
+  kn <- front_block_yaml(lines)$knitr
+  oc <- if (is.list(kn)) kn$opts_chunk else NULL
+  ex <- doc_front_lines(lines)$execute
   out <- if (is.list(oc)) oc else list()
   if (is.list(ex)) for (n in names(ex)) out[[n]] <- ex[[n]]
   out
