@@ -1605,9 +1605,11 @@ only. The rule is Pandoc's, which Quarto follows for its own options:
    `weft: {b: 2}`).
 4. `engine:`, `knitr:` and `jupyter:` are read from the first block alone (the
    front block: the first metadata block, with only blank lines above it), as
-   Quarto reads them. So the front-matter route of 9.2.1 is a `knitr:` key in
-   that block. (Not yet so for the lints: the `engine`, `tar-cache` and
-   `above-setup` rules still read these keys from the merged front matter.)
+   Quarto reads them: by the knit's scanner, `status()` and the lints (the
+   `engine`, `tar-cache` and `above-setup` rules among them). So the
+   front-matter route of 9.2.1 is a `knitr:` key in that block, and an
+   `engine:` or `knitr:` in a later block counts for nothing. Every other key,
+   `execute:` among them, comes from the merged front matter (item 1).
 
 Quarto reads two more blocks than Pandoc, a `---` block with text directly
 above it and one inside a `~~~` fence; weft follows Pandoc, and the lint

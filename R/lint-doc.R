@@ -893,7 +893,7 @@ lint_engine <- function(ctx) {
     rw <- src$rows
     held <- !rw$kind %in% c("bare", "link", "literal")
     if (!nrow(rw) || !any(held)) next
-    eng <- src$front$engine
+    eng <- src_first_block(src)$engine
     if (is.character(eng) && length(eng) == 1L && identical(tolower(eng), "knitr")) next
     if (is.null(inc)) inc <- project_included(ctx)
     if (f %in% inc) next
@@ -938,10 +938,10 @@ resolver_installed <- function(ctx, src) {
   cache$quarto_filters
 }
 
-# The message and hint of the `engine` lint, by case (rule 5.8.9): 1, another engine named in the front
-# matter; 2, Python chunks and no executed R chunk; 3, Julia chunks and no executed R chunk; 4, the rest.
+# The message and hint of the `engine` lint, by case (rule 5.8.9): 1, another engine named in the first
+# metadata block; 2, Python chunks and no executed R chunk; 3, Julia chunks and no executed R chunk; 4, the rest.
 engine_message <- function(f, src) {
-  front <- src$front
+  front <- src_first_block(src)
   key <- function(nm) {
     v <- front[[nm]]
     if (is.character(v) && length(v) == 1L) paste0(nm, ": ", v) else nm
@@ -1033,12 +1033,13 @@ lint_front_matter_quarto <- function(src, ctx) {
 # ---- guest languages (5.11.1, 5.11.2) and Observable (5.11.4) ---------------------------------------------
 
 # Does knitr knit this document: an .Rmd; a .qmd marked `engine: knitr`, or with an executed {r} chunk and no
-# `engine:` or `jupyter:` key.
+# `engine:` or `jupyter:` key (each read from the first metadata block, rule 2.1.6).
 dl_knitr_doc <- function(src) {
   if (is_rmd(src)) return(TRUE)
-  eng <- src$front$engine
+  first <- src_first_block(src)
+  eng <- first$engine
   if (!is.null(eng)) return(is.character(eng) && length(eng) == 1L && identical(tolower(eng), "knitr"))
-  if (!is.null(src$front$jupyter)) return(FALSE)
+  if (!is.null(first$jupyter)) return(FALSE)
   ch <- src$chunks
   any(tolower(ch$engine) == "r" & (is.na(ch$eval) | ch$eval))
 }

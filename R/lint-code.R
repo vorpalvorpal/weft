@@ -977,7 +977,8 @@ lint_tar_cache <- function(src, ctx) {
   if (!length(pcs)) return(new_findings())
   by_chunk <- list()
   for (p in pcs) by_chunk[[as.character(p$chunk)]] <- p
-  doc_v <- yaml_cache(src$front)
+  # `execute:` from the front matter as a whole, `knitr:` from the first block alone (rule 2.1.6)
+  doc_v <- yaml_cache(list(execute = src$front$execute, knitr = src_first_block(src)$knitr))
   file_v <- NULL
   state <- NA
   out <- list()
@@ -1154,7 +1155,7 @@ lint_above_setup <- function(src, ctx) {
     any(grepl("(^|[^A-Za-z0-9_.])weft_setup[ \t]*\\(", code, perl = TRUE))
   }, NA)
   if (!any(calls)) return(new_findings())
-  fm <- if (is.list(src$front)) src$front$knitr else NULL
+  fm <- src_first_block(src)$knitr
   if (is.list(fm) && is.list(fm$opts_knit) && !is.null(fm$opts_knit$weft)) return(new_findings())
   rp <- file.path(ctx$root, ".Rprofile")
   if (file.exists(rp)) {

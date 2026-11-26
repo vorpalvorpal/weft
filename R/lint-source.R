@@ -1062,6 +1062,11 @@ source_assemble <- function(rel, path, ext, cfg, text, lines, ls, inmeta, infenc
     cache = new.env(parent = emptyenv())), class = "weft_source")
 }
 
+# The first metadata block of a source, read as YAML (list() when there is none): where the lints read
+# `engine:`, `knitr:` and `jupyter:`, which Quarto honours in that block alone (rule 2.1.6). Every other
+# key comes from the front matter as a whole, `src$front`.
+src_first_block <- function(src) front_block_yaml(src$lines)
+
 le_of <- function(lines, ls, i) ls[i] + nchar(lines[i]) - 1
 
 # ---- sentences (L12) -----------------------------------------------------------------------------
