@@ -150,8 +150,8 @@ test_that("CS3: count_constructs() counts it as a value", {
 })
 
 test_that("CS3: deleting such a value is a removal", {
-  d <- g_scenario(list("ch1.qmd" = c(G_ENGINE[-1], "", "Fit `f(`r x`)` here.")),
-                  list("ch1.qmd" = c(G_ENGINE[-1], "", "Fit `f()` here.")))
+  d <- g_scenario(list("ch1.qmd" = c(G_ENGINE, "Fit `f(`r x`)` here.")),
+                  list("ch1.qmd" = c(G_ENGINE, "Fit `f()` here.")))
   res <- g_gate(d)
   expect_false(res$ok)
   expect_identical(res$n_removed, 1L)
@@ -159,8 +159,8 @@ test_that("CS3: deleting such a value is a removal", {
 })
 
 test_that("CS3: adding such a value removes nothing and adds one to the count", {
-  d <- g_scenario(list("ch1.qmd" = c(G_ENGINE[-1], "", "Fit `f()` here.")),
-                  list("ch1.qmd" = c(G_ENGINE[-1], "", "Fit `f(`r x`)` here.")))
+  d <- g_scenario(list("ch1.qmd" = c(G_ENGINE, "Fit `f()` here.")),
+                  list("ch1.qmd" = c(G_ENGINE, "Fit `f(`r x`)` here.")))
   res <- g_gate(d)
   expect_identical(max(0, res$n_removed), 0)
   expect_true(res$ok)
@@ -169,8 +169,8 @@ test_that("CS3: adding such a value removes nothing and adds one to the count", 
 })
 
 test_that("CS3: a code span with no inline R stays outside the count (control)", {
-  d <- g_scenario(list("ch1.qmd" = c(G_ENGINE[-1], "", "Fit `f(x)` here.")),
-                  list("ch1.qmd" = c(G_ENGINE[-1], "", "Fit here.")))
+  d <- g_scenario(list("ch1.qmd" = c(G_ENGINE, "Fit `f(x)` here.")),
+                  list("ch1.qmd" = c(G_ENGINE, "Fit here.")))
   res <- g_gate(d)
   expect_identical(max(0, res$n_removed), 0)
   expect_true(res$ok)
@@ -323,13 +323,13 @@ test_that("CS5: the gate counts classed inline R inside a code span as a value, 
   expect_identical(nrow(x), 1L)
   expect_identical(x$kind, "value")
   expect_identical(x$line, 1L)
-  rm <- g_gate(g_scenario(list("ch1.qmd" = c(G_ENGINE[-1], "", "Fit `f(`r x`{.num})` here.")),
-                          list("ch1.qmd" = c(G_ENGINE[-1], "", "Fit `f()` here."))))
+  rm <- g_gate(g_scenario(list("ch1.qmd" = c(G_ENGINE, "Fit `f(`r x`{.num})` here.")),
+                          list("ch1.qmd" = c(G_ENGINE, "Fit `f()` here."))))
   expect_false(rm$ok)
   expect_identical(rm$n_removed, 1L)
   expect_identical(rm$removed$kind, "value")
-  add <- g_gate(g_scenario(list("ch1.qmd" = c(G_ENGINE[-1], "", "Fit `f()` here.")),
-                           list("ch1.qmd" = c(G_ENGINE[-1], "", "Fit `f(`r x`{.num})` here."))))
+  add <- g_gate(g_scenario(list("ch1.qmd" = c(G_ENGINE, "Fit `f()` here.")),
+                           list("ch1.qmd" = c(G_ENGINE, "Fit `f(`r x`{.num})` here."))))
   expect_identical(max(0, add$n_removed), 0)
   expect_true(add$ok)
 })
@@ -464,13 +464,13 @@ test_that("CS7: the gate counts inline R in a fenced block as a value, adding an
   expect_identical(x$line, 4L)
   none <- weft:::count_constructs(read_src(c("Fit.", "", "```text", "a b", "```"), ext = "Rmd"))
   expect_identical(nrow(none), 0L)
-  rm <- g_gate(g_scenario(list("ch1.qmd" = c(G_ENGINE[-1], "", doc)),
-                          list("ch1.qmd" = c(G_ENGINE[-1], "", "Fit.", "", "```text", "a b", "```"))))
+  rm <- g_gate(g_scenario(list("ch1.qmd" = c(G_ENGINE, doc)),
+                          list("ch1.qmd" = c(G_ENGINE, "Fit.", "", "```text", "a b", "```"))))
   expect_false(rm$ok)
   expect_identical(rm$n_removed, 1L)
   expect_identical(rm$removed$kind, "value")
-  add <- g_gate(g_scenario(list("ch1.qmd" = c(G_ENGINE[-1], "", "Fit.", "", "```text", "a b", "```")),
-                           list("ch1.qmd" = c(G_ENGINE[-1], "", doc))))
+  add <- g_gate(g_scenario(list("ch1.qmd" = c(G_ENGINE, "Fit.", "", "```text", "a b", "```")),
+                           list("ch1.qmd" = c(G_ENGINE, doc))))
   expect_identical(max(0, add$n_removed), 0)
   expect_true(add$ok)
 })
@@ -629,13 +629,13 @@ test_that("CS8: the gate counts inline R in a comment as a value, adding and rem
   expect_identical(x$line, 3L)
   none <- weft:::count_constructs(read_src(c("Fit.", "", "<!-- a b -->"), ext = "Rmd"))
   expect_identical(nrow(none), 0L)
-  rm <- g_gate(g_scenario(list("ch1.qmd" = c(G_ENGINE[-1], "", doc)),
-                          list("ch1.qmd" = c(G_ENGINE[-1], "", "Fit.", "", "<!-- a b -->"))))
+  rm <- g_gate(g_scenario(list("ch1.qmd" = c(G_ENGINE, doc)),
+                          list("ch1.qmd" = c(G_ENGINE, "Fit.", "", "<!-- a b -->"))))
   expect_false(rm$ok)
   expect_identical(rm$n_removed, 1L)
   expect_identical(rm$removed$kind, "value")
-  add <- g_gate(g_scenario(list("ch1.qmd" = c(G_ENGINE[-1], "", "Fit.", "", "<!-- a b -->")),
-                           list("ch1.qmd" = c(G_ENGINE[-1], "", doc))))
+  add <- g_gate(g_scenario(list("ch1.qmd" = c(G_ENGINE, "Fit.", "", "<!-- a b -->")),
+                           list("ch1.qmd" = c(G_ENGINE, doc))))
   expect_identical(max(0, add$n_removed), 0)
   expect_true(add$ok)
 })

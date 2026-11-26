@@ -119,7 +119,7 @@ test_that("N59: .Rmd documents count the same way as .qmd", {
 # ---- the gate: removing a guest claim needs the trailer, adding one does not ----------------------------
 
 gate_doc <- function(code, engine, more = character()) {
-  c("Intro paragraph.", "", c3_chunk(code, engine = engine), more, G_ENGINE)
+  c(G_ENGINE, "Intro paragraph.", "", c3_chunk(code, engine = engine), more)
 }
 
 gate_py <- function(code) gate_doc(code, "python")
@@ -209,19 +209,18 @@ test_that("N59: an @claim in a julia comment line costs nothing when removed", {
 })
 
 test_that("N59: a guest claim moved to another chunk of the same file removes nothing", {
-  before <- c("Intro paragraph.", "", c3_chunk(c("n = 12", "claim(n, \"> 10\")"), engine = "python"), "",
-              c3_chunk("m = 1", engine = "python"), G_ENGINE)
-  after <- c("Intro paragraph.", "", c3_chunk(c("n = 12"), engine = "python"), "",
-             c3_chunk(c("m = 1", "claim(m, \"> 0\")"), engine = "python"), G_ENGINE)
+  before <- c(G_ENGINE, "Intro paragraph.", "", c3_chunk(c("n = 12", "claim(n, \"> 10\")"), engine = "python"), "",
+              c3_chunk("m = 1", engine = "python"))
+  after <- c(G_ENGINE, "Intro paragraph.", "", c3_chunk(c("n = 12"), engine = "python"), "",
+             c3_chunk(c("m = 1", "claim(m, \"> 0\")"), engine = "python"))
   d <- g_scenario(list("ch1.qmd" = before), list("ch1.qmd" = after))
   expect_identical(removed_6k(g_gate(d)), 0)
 })
 
 test_that("N59: setting eval: false on a guest chunk that holds a claim is a removal (the claim no longer runs)", {
   d <- g_scenario(list("ch1.qmd" = gate_py("claim(n, \"> 10\")")),
-                  list("ch1.qmd" = c("Intro paragraph.", "",
-                                     c3_chunk("claim(n, \"> 10\")", "#| eval: false", engine = "python"),
-                                     G_ENGINE)))
+                  list("ch1.qmd" = c(G_ENGINE, "Intro paragraph.", "",
+                                     c3_chunk("claim(n, \"> 10\")", "#| eval: false", engine = "python"))))
   expect_identical(g_gate(d)$n_removed, 1L)
 })
 

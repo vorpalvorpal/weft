@@ -225,7 +225,7 @@ test_that("4a G18: a bad _weft.yml at HEAD means findings are not compared, with
 
 test_that("4a G20: the report, section by section, as the design shows it", {
   d <- g_scenario(list("book/ch1.qmd" = G_PROSE, "book/ch2.qmd" = G_PROSE, "book/ch3.qmd" = G_PROSE),
-                  list("book/ch1.qmd" = c(g_bad_doc(), G_ENGINE),
+                  list("book/ch1.qmd" = c(G_ENGINE, g_bad_doc()),
                        "book/ch2.qmd" = g_num_doc("45%"),
                        "book/ch3.qmd" = c(G_PROSE, "", "", "Flow rose by 37% in May.")),
                   weft = "book")
@@ -294,7 +294,7 @@ test_that("4a G20: one added finding: the header names HEAD", {
 })
 
 test_that("4a G20: sections absent when empty: a construct error alone prints no 'added' section", {
-  d <- g_scenario(list("ch1.qmd" = G_PROSE), list("ch1.qmd" = c(g_bad_doc(), G_ENGINE)))
+  d <- g_scenario(list("ch1.qmd" = G_PROSE), list("ch1.qmd" = c(G_ENGINE, g_bad_doc())))
   rep <- g_report(g_gate(d))
   expect_false(any(grepl("findings? added that HEAD did not hold", rep)))
   expect_false(any(grepl("weft constructs? removed", rep)))

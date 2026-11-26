@@ -130,8 +130,8 @@ test_that("N147: removing a hand-written weft-values block, or a values-file blo
 })
 
 test_that("N147: a named value in a knitr document counts as a value there too, and its removal needs the trailer", {
-  before <- c("Intro paragraph.", "", "The `depth`{.num} metres.", "", "```{r}", "depth <- 1", "```", G_ENGINE)
-  after <- c("Intro paragraph.", "", "The metres.", "", "```{r}", "depth <- 1", "```", G_ENGINE)
+  before <- c(G_ENGINE, "Intro paragraph.", "", "The `depth`{.num} metres.", "", "```{r}", "depth <- 1", "```")
+  after <- c(G_ENGINE, "Intro paragraph.", "", "The metres.", "", "```{r}", "depth <- 1", "```")
   d <- g_scenario(list("ch1.qmd" = before), list("ch1.qmd" = after))
   res <- g_gate(d)
   expect_false(res$ok)

@@ -11,7 +11,7 @@
 #
 # Keeping the documents free of unrelated findings: the gate judges the findings an edit ADDS, and every
 # edit keeps the manuscript's text apart from the constructs it changes, so none is added; the manuscript
-# has no typed numerals, and G_ENGINE is appended so that the `engine` finding does not fire. The document
+# has no typed numerals, and G_ENGINE leads it so that the `engine` finding does not fire. The document
 # is held in one file, ch1.qmd.
 
 ge <- new.env(parent = globalenv())
@@ -37,8 +37,8 @@ for (id in names(ge$EDITS)) local({
   e <- ge$EDITS[[id]]
   test_that(paste0("4a edits ", id, ": ", e$desc), {
     skip_if_no_git()
-    before <- c(ge$render_doc(ge$D0, 72), G_ENGINE)
-    after <- c(ge$render_doc(e$f(ge$D0), e$width, e$hash_safe), G_ENGINE)
+    before <- c(G_ENGINE, ge$render_doc(ge$D0, 72))
+    after <- c(G_ENGINE, ge$render_doc(e$f(ge$D0), e$width, e$hash_safe))
     cb <- ge_cc(before)
     ca <- ge_cc(after)
     tb <- ge_tot(cb)

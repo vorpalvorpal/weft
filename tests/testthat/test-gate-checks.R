@@ -414,8 +414,8 @@ for (id in names(gk$EDITS)) local({
   e <- gk$EDITS[[id]]
   test_that(paste0("7j N139 ", id, ": ok, n_removed and the trailer wanted are the construct count's; res$checks is there"), {
     skip_if_no_git()
-    before <- c(gk$render_doc(gk$D0, 72), G_ENGINE)
-    after <- c(gk$render_doc(e$f(gk$D0), e$width, e$hash_safe), G_ENGINE)
+    before <- c(G_ENGINE, gk$render_doc(gk$D0, 72))
+    after <- c(G_ENGINE, gk$render_doc(e$f(gk$D0), e$width, e$hash_safe))
     d <- g_scenario(list("ch1.qmd" = before), list("ch1.qmd" = after))
     res <- g_gate(d)
     expect_s3_class(res$checks, "data.frame")

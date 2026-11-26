@@ -258,8 +258,8 @@ test_that("review-4 #6: a document outside the render list is still linted: its 
 
 # ---- #7: nested projects ----------------------------------------------------------------------------------------
 
-r4_edit_before <- c("Intro paragraph.", "", "Flow rose by `r x`{.num} in March.", G_ENGINE)
-r4_edit_after <- c("Intro paragraph.", "", "Flow rose by 45% in March.", G_ENGINE)
+r4_edit_before <- c(G_ENGINE, "Intro paragraph.", "", "Flow rose by `r x`{.num} in March.")
+r4_edit_after <- c(G_ENGINE, "Intro paragraph.", "", "Flow rose by 45% in March.")
 
 test_that("review-4 #7: a document of a nested project is judged by the nested project only: one finding, one removal", {
   d <- g_scenario(list("sub/x.qmd" = r4_edit_before), list("sub/x.qmd" = r4_edit_after), weft = c(".", "sub"))
@@ -412,8 +412,8 @@ test_that("review-4 #11: a foreign hook that is not executable is left as it is 
 
 test_that("review-4 #12: verify() counts the excess of a key, not the instances it lists", {
   v4_env()
-  p <- v4_proj(list("a.qmd" = c("We saw `r x` and 45% today.", G_ENGINE)), git = TRUE)
-  g_write(p$top, "a.qmd", c("We saw 45% and 45% today.", G_ENGINE))
+  p <- v4_proj(list("a.qmd" = c(G_ENGINE, "We saw `r x` and 45% today.")), git = TRUE)
+  g_write(p$top, "a.qmd", c(G_ENGINE, "We saw 45% and 45% today."))
   r <- v4_verify(p$root, static = TRUE)
   expect_s3_class(r$err, "weft_verify_error")
   expect_match(v4_detail(r$res, "lints"), "\\b1 added")
@@ -578,8 +578,8 @@ R4_CLAIM_CHUNK <- c("```{r chk-a}", "claim(n_sites, . > 10)", "```")
 R4_NO_CLAIM <- c("```{r chk-a}", "x <- 1", "```")
 
 test_that("review-4 Q1: removing a claim() and adding a value needs Weft-Removed: 1", {
-  before <- c(R4_CLAIM_CHUNK, "", "The reading is `r a1`{.num} metres.", G_ENGINE)
-  after <- c(R4_NO_CLAIM, "", "The reading is `r a1`{.num} metres.", "", "Also `r a2`{.num} here.", G_ENGINE)
+  before <- c(G_ENGINE, R4_CLAIM_CHUNK, "", "The reading is `r a1`{.num} metres.")
+  after <- c(G_ENGINE, R4_NO_CLAIM, "", "The reading is `r a1`{.num} metres.", "", "Also `r a2`{.num} here.")
   d <- g_scenario(list("ch1.qmd" = before), list("ch1.qmd" = after))
   res <- g_gate(d)
   expect_false(res$ok)
@@ -591,8 +591,8 @@ test_that("review-4 Q1: removing a claim() and adding a value needs Weft-Removed
 test_that("review-4 Q1: removing two claims and adding three values needs Weft-Removed: 2", {
   chunks <- function(n) unlist(lapply(seq_len(n), function(i) c(sprintf("```{r chk-%d}", i),
                                                                 sprintf("claim(v%d, . > %d)", i, i), "```", "")))
-  before <- c(chunks(3), G_ENGINE)
-  after <- c(chunks(1), g_vals(c("w1", "w2", "w3")), G_ENGINE)
+  before <- c(G_ENGINE, chunks(3))
+  after <- c(G_ENGINE, chunks(1), g_vals(c("w1", "w2", "w3")))
   d <- g_scenario(list("ch1.qmd" = before), list("ch1.qmd" = after))
   res <- g_gate(d)
   expect_false(res$ok)
@@ -601,16 +601,16 @@ test_that("review-4 Q1: removing two claims and adding three values needs Weft-R
 })
 
 test_that("review-4 Q1: removing a value and adding a value of the same kind needs no trailer (neighbour guard)", {
-  d <- g_scenario(list("ch1.qmd" = c(g_vals(c("a1", "a2", "a3")), G_ENGINE)),
-                  list("ch1.qmd" = c(g_vals(c("a1", "a2", "b9")), G_ENGINE)))
+  d <- g_scenario(list("ch1.qmd" = c(G_ENGINE, g_vals(c("a1", "a2", "a3")))),
+                  list("ch1.qmd" = c(G_ENGINE, g_vals(c("a1", "a2", "b9")))))
   res <- g_gate(d)
   expect_identical(max(0, res$n_removed), 0)
   expect_true(res$ok)
 })
 
 test_that("review-4 Q1: the count sums over projects: one removes a value, another adds one, N is 1", {
-  d <- g_scenario(list("a/x.qmd" = c(g_vals(c("a1", "a2")), G_ENGINE), "b/y.qmd" = c(g_vals("b1"), G_ENGINE)),
-                  list("a/x.qmd" = c(g_vals("a1"), G_ENGINE), "b/y.qmd" = c(g_vals(c("b1", "b2")), G_ENGINE)),
+  d <- g_scenario(list("a/x.qmd" = c(G_ENGINE, g_vals(c("a1", "a2"))), "b/y.qmd" = c(G_ENGINE, g_vals("b1"))),
+                  list("a/x.qmd" = c(G_ENGINE, g_vals("a1")), "b/y.qmd" = c(G_ENGINE, g_vals(c("b1", "b2")))),
                   weft = c("a", "b"))
   res <- g_gate(d)
   expect_identical(res$n_removed, 1L)
@@ -622,8 +622,8 @@ R4_SPAN <- "We monitored [a site | # sites]{n=\"n_sites\"} here."
 R4_VALUE <- "We monitored `r n_sites`{.num} sites."
 
 test_that("review-4 Q1: removing a claim() and adding a span needs Weft-Removed: 1", {
-  d <- g_scenario(list("ch1.qmd" = c(R4_CLAIM_CHUNK, G_ENGINE)),
-                  list("ch1.qmd" = c(R4_NO_CLAIM, "", R4_SPAN, G_ENGINE)))
+  d <- g_scenario(list("ch1.qmd" = c(G_ENGINE, R4_CLAIM_CHUNK)),
+                  list("ch1.qmd" = c(G_ENGINE, R4_NO_CLAIM, "", R4_SPAN)))
   res <- g_gate(d)
   expect_false(res$ok)
   expect_identical(res$n_removed, 1L)
@@ -631,15 +631,15 @@ test_that("review-4 Q1: removing a claim() and adding a span needs Weft-Removed:
 })
 
 test_that("review-4 Q1: removing a value and adding a span needs no trailer (values and spans count together)", {
-  d <- g_scenario(list("ch1.qmd" = c(R4_VALUE, G_ENGINE)), list("ch1.qmd" = c(R4_SPAN, G_ENGINE)))
+  d <- g_scenario(list("ch1.qmd" = c(G_ENGINE, R4_VALUE)), list("ch1.qmd" = c(G_ENGINE, R4_SPAN)))
   res <- g_gate(d)
   expect_identical(max(0, res$n_removed), 0)
   expect_true(res$ok)
 })
 
 test_that("review-4 Q1: removing a span and adding a claim needs Weft-Removed: 1", {
-  d <- g_scenario(list("ch1.qmd" = c(R4_SPAN, G_ENGINE)),
-                  list("ch1.qmd" = c(R4_CLAIM_CHUNK, G_ENGINE)))
+  d <- g_scenario(list("ch1.qmd" = c(G_ENGINE, R4_SPAN)),
+                  list("ch1.qmd" = c(G_ENGINE, R4_CLAIM_CHUNK)))
   res <- g_gate(d)
   expect_false(res$ok)
   expect_identical(res$n_removed, 1L)
@@ -745,9 +745,9 @@ test_that("review-4 Q5: construct errors in such a project still fail (neighbour
 # ---- Q7: _weft.yml unreadable at HEAD ------------------------------------------------------------------------------------------------------
 
 test_that("review-4 Q7: with _weft.yml unreadable at HEAD, a commit that removes a construct still needs the trailer", {
-  d <- g_scenario(list("ch1.qmd" = c(g_vals(c("a1", "a2")), G_ENGINE),
+  d <- g_scenario(list("ch1.qmd" = c(G_ENGINE, g_vals(c("a1", "a2"))),
                        "_weft.yml" = c("draft: false", "label_words: [Station")),
-                  list("ch1.qmd" = c(g_vals("a1"), G_ENGINE), "_weft.yml" = "draft: false"))
+                  list("ch1.qmd" = c(G_ENGINE, g_vals("a1")), "_weft.yml" = "draft: false"))
   res <- g_gate(d)
   expect_false(res$ok)
   expect_identical(res$n_removed, 1L)

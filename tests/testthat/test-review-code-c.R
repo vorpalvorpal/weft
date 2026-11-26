@@ -11,9 +11,9 @@ sys.source(test_path("_gate", "manuscript.R"), envir = rcc_ge)
 sys.source(test_path("_gate", "edits.R"), envir = rcc_ge)
 
 # a document that holds one `numeral` finding when `Site` is not a label word, and none when it is
-RCC_SITE_DOC <- c("Intro words.", "", "Site 3 was wet.", G_ENGINE)
-RCC_SITE2_DOC <- c("Intro words.", "", "Site 3 was wet.", "", "Site 4 was dry.", G_ENGINE)
-RCC_QUIET_DOC <- c("Intro words.", "", "Nothing numeric here.", G_ENGINE)
+RCC_SITE_DOC <- c(G_ENGINE, "Intro words.", "", "Site 3 was wet.")
+RCC_SITE2_DOC <- c(G_ENGINE, "Intro words.", "", "Site 3 was wet.", "", "Site 4 was dry.")
+RCC_QUIET_DOC <- c(G_ENGINE, "Intro words.", "", "Nothing numeric here.")
 
 rcc_numeral <- function(root, ...) lints(root, rules = "numeral", tier = 1:2, ...)
 
@@ -21,8 +21,8 @@ rcc_numeral <- function(root, ...) lints(root, rules = "numeral", tier = 1:2, ..
 
 test_that("review-code-c #1: a deleted claim() with an added value is a removal in verify(), as the gate says", {
   v4_env()
-  before <- c("```{r chk}", "claim(x, . > 0)", "```", "", "Some words here.", G_ENGINE)
-  after <- c("```{r chk}", "x <- 1", "```", "", "Some words `r x`{.num} here.", G_ENGINE)
+  before <- c(G_ENGINE, "```{r chk}", "claim(x, . > 0)", "```", "", "Some words here.")
+  after <- c(G_ENGINE, "```{r chk}", "x <- 1", "```", "", "Some words `r x`{.num} here.")
   dir <- g_scenario(list("a.qmd" = before), list("a.qmd" = after))
   base <- g_head(dir)
   gate_res <- g_gate(dir)
@@ -41,8 +41,8 @@ test_that("review-code-c #1: a deleted claim() with an added value is a removal 
 test_that("review-code-c #1: a claim edited in place is not a removal, in the gate or in verify()", {
   # neighbour: the edit that a net count and the claims-apart count agree on
   v4_env()
-  before <- c("```{r chk}", "claim(x, . > 0)", "```", "", "Some words here.", G_ENGINE)
-  after <- c("```{r chk}", "claim(x, . > 1)", "```", "", "Some words here.", G_ENGINE)
+  before <- c(G_ENGINE, "```{r chk}", "claim(x, . > 0)", "```", "", "Some words here.")
+  after <- c(G_ENGINE, "```{r chk}", "claim(x, . > 1)", "```", "", "Some words here.")
   dir <- g_scenario(list("a.qmd" = before), list("a.qmd" = after))
   base <- g_head(dir)
   expect_identical(g_gate(dir)$n_removed, 0L)
@@ -58,8 +58,8 @@ for (id in rcc_agree_ids) local({
   e <- rcc_ge$EDITS[[id]]
   test_that(paste0("review-code-c #1: gate n_removed equals verify() removed for edit ", id), {
     v4_env()
-    before <- c(rcc_ge$render_doc(rcc_ge$D0, 72), G_ENGINE)
-    after <- c(rcc_ge$render_doc(e$f(rcc_ge$D0), e$width, e$hash_safe), G_ENGINE)
+    before <- c(G_ENGINE, rcc_ge$render_doc(rcc_ge$D0, 72))
+    after <- c(G_ENGINE, rcc_ge$render_doc(e$f(rcc_ge$D0), e$width, e$hash_safe))
     dir <- g_scenario(list("ch1.qmd" = before), list("ch1.qmd" = after))
     base <- g_head(dir)
     n <- g_gate(dir)$n_removed
@@ -96,7 +96,7 @@ test_that("review-code-c #2: a label word of the nested project is not a finding
 })
 
 test_that("review-code-c #2: a setting that differs (numeral_years) decides by the inner _weft.yml", {
-  yr <- c("Intro words.", "", "Rain fell in 2019.", G_ENGINE)
+  yr <- c(G_ENGINE, "Intro words.", "", "Rain fell in 2019.")
   root <- lint_proj(list("sub/_weft.yml" = "numeral_years: false", "sub/x.qmd" = yr, "top.qmd" = yr),
                     weft_yml = "numeral_years: true")
   x <- rcc_numeral(root)
@@ -185,7 +185,7 @@ test_that("review-code-c #4: with the default option nothing is evaluated either
 # ---- #5: config-place flags every project-only setting -------------------------------------------------------
 
 rcc_cp <- function(key, value = "true", weft_yml = "draft: false") {
-  doc <- c("---", "title: T", "weft:", paste0("  ", key, ": ", value), "---", "", "Words.", G_ENGINE)
+  doc <- c("---", "title: T", "engine: knitr", "weft:", paste0("  ", key, ": ", value), "---", "", "Words.")
   lint_fixture(list("a.qmd" = doc), rules = "config-place", weft_yml = weft_yml)
 }
 
@@ -200,8 +200,8 @@ test_that("review-code-c #5: draft and decisions are still flagged, and each of 
   # neighbour guard for draft and decisions (pass today)
   expect_identical(rcc_cp("draft")$text, "draft")
   expect_identical(rcc_cp("decisions")$text, "decisions")
-  doc <- c("---", "title: T", "weft:", "  verify_skip: [render]", "  draft: true", "  decisions: true", "---", "",
-           "Words.", G_ENGINE)
+  doc <- c("---", "title: T", "engine: knitr", "weft:", "  verify_skip: [render]", "  draft: true", "  decisions: true",
+           "---", "", "Words.")
   x <- lint_fixture(list("a.qmd" = doc), rules = "config-place", weft_yml = "draft: false")
   expect_setequal(x$text, c("verify_skip", "draft", "decisions"))
   expect_identical(nrow(x), 3L)

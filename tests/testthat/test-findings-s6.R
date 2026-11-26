@@ -273,7 +273,7 @@ test_that("F2: an inline R claim in prose is unaffected by a chunk's eval option
 })
 
 f2_doc <- function(engine, pipe = character(), claim = TRUE, extra = character()) {
-  c("Intro paragraph.", "", f2_chunk(engine, pipe = c("#| label: c1", pipe), claim = claim), extra, G_ENGINE)
+  c(G_ENGINE, "Intro paragraph.", "", f2_chunk(engine, pipe = c("#| label: c1", pipe), claim = claim), extra)
 }
 
 test_that("F2: turning eval off on an R chunk that holds a claim is a removal, as for a Python chunk", {
