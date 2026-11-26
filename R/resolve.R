@@ -595,119 +595,6 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
     fill_template(tmpl, hash, as.list(outs), vapply(items, governed, NA, R = R))
   }
 
-  # ---- resolve_markup(): bare and formatted values ---------------------------------------
-
-  # A bare value: the row `k`, or with `k` NA the parked span `idx` at `start` that lies in no
-  # row, at `line_info`.
-  render_bare <- function(rc, k, idx = NULL, line_info = NULL, start = NULL) {
-    R <- rc$R
-    s <- rc$s
-    st <- if (is.null(start)) R$start[k] else start
-    if (is.null(idx)) idx <- rc$spans$idx[match(st, rc$spans$start)]
-    p <- s$parked[[idx]]
-    label <- sprintf("`r %s`", p$code)
-    rc$bare_aux <- list(raw = NA_real_, unit = NA_character_, failed = NA_character_)
-    # a bare value ahead of every construct in its block was evaluated when
-    # knitr parked it, so that an error there names its own line (1.1.8)
-    ev <- p$result %||% eval_expr(rc, k, p$code, label, p$envir, stock = TRUE,
-                                  line_info = line_info)
-    if (!is.null(p$result)) s$parked[[idx]]$result <- NULL
-    li <- if (is.null(line_info)) list(file = R$file[k], line = R$line[k]) else line_info
-    if (!ev$ok) {
-      e <- ev$error
-      if (inherits(e, c("weft_no_value", "weft_value_error")) && !is.na(k)) {
-        return(fail_from_error(rc, k, e, label))
-      }
-      if (rc$strict && inherits(e, "weft_claim_failed")) rethrow(rc, k, e)
-      stop(e)
-    }
-    if (!is.null(ev$aux)) {
-      rc$bare_aux$raw <- ledger_raw(ev$aux$value)
-      rc$bare_aux$unit <- ledger_unit(ev$aux$value)
-    }
-    if (is_unit_quantity(ev$quantity) && !ev$claim_failed) {
-      unit_note(rc, bare_quantity_message(label, ev$quantity), li$file, li$line, label)
-    }
-    if (ev$claim_failed) {
-      rc$bare_aux$failed <- "failed claim"
-      paste0(ev$value, resolve_marker(rc, "failed claim", li$line))
-    } else {
-      bare_missing_note(rc, ev, label, li, if (is.null(line_info)) R$line_view[k] else (line_info$view %||% NA_integer_))
-      ev$value
-    }
-  }
-
-  # A bare value with no weft class that prints a missing or non-finite value is a warned check: the
-  # reader would see "NA" in the sentence. It is raised after the evaluation, outside the handlers
-  # that keep a chunk's conditions out of the document, so it reaches the caller as well as the
-  # warnings table and the condition log. `bare_missing: false` turns it off.
-  bare_missing_note <- function(rc, ev, label, li, view) {
-    if (!isTRUE(rc$cfg$bare_missing %||% TRUE)) return(invisible(NULL))
-    # knitr prints Inf as an entity in Markdown output; the reader sees the infinity sign
-    txt <- trim_ws(paste(ev$value, collapse = ""))
-    if (txt %in% c("&infin;", "-&infin;")) txt <- sub("&infin;", "Inf", txt, fixed = TRUE)
-    if (!(txt %in% c("NA", "NaN", "Inf", "-Inf"))) return(invisible(NULL))
-    if (any(grepl("^weft_", class(ev$aux$value)))) return(invisible(NULL))
-    msg <- sprintf("%s is a bare value that prints %s; it will read as %s in the text", label, txt, txt)
-    if (!rc$strict) {
-      s <- rc$s
-      add_warning(s, "bare missing value", file = li$file, line = li$line, expr = label, detail = msg,
-                  chunk = rc$chunk_label, option = NA_character_)
-      wh <- ledger_where(s, rc$F, li$file, view, rc$chunk_label)
-      log_condition(s, sprintf("%s:%d", li$file, li$line), "warning", msg, file = li$file,
-                    line = li$line, from = "prose", lsource = where_label(wh))
-    }
-    weft_warn(paste0("weft: ", msg), class = "weft_bare_missing_warning")
-    invisible(NULL)
-  }
-
-  render_value <- function(rc, k) {
-    R <- rc$R
-    s <- rc$s
-    cc <- split_classes(R$classes[[k]], R$keys[[k]], rc$owned, rc$cfg$formatters)
-    expr <- unwrap_quarto(R$expr[k])
-    msg <- lang_check(s$lang, R$kind[k], R$expr[k], cc$own, cc$keys)
-    if (!is.null(msg)) return(construct_fail(rc, k, msg))
-    idx <- rc$spans$idx[match(R$start[k], rc$spans$start)]
-    label <- sprintf("`r %s`", expr)
-    ev <- eval_expr(rc, k, expr, label, s$parked[[idx]]$envir)
-    if (!ev$ok) return(fail_from_error(rc, k, ev$error, label))
-    value_finish(rc, k, cc, label, ev$value, ev$claim_failed)
-  }
-
-  # The value `v` of the value construct at row `k`, printed with the classes `cc` (an R value, and a
-  # named value R read, print alike: BN3).
-  value_finish <- function(rc, k, cc, label, v, claim_failed) {
-    R <- rc$R
-    cfg <- rc$cfg
-    rc$L_raw[k] <- ledger_raw(v)
-    rc$L_unit[k] <- ledger_unit(v)
-    reg <- cfg$formatters
-    # `.a` applies to numbers and number words only (1.4.5): a number it
-    # meets is printed as `.num` prints it
-    has_fmt <- any(!is.na(class_group(cc$own, reg))) || ".no" %in% cc$own ||
-      ".a" %in% cc$own || ".plus" %in% cc$own ||
-      any(c("digits", "sigfig", "unit", "trunc", "label") %in% names(cc$keys)) ||
-      (length(cc$own) > 0L && inherits(v, "units"))   # a text class acts on a quantity with its unit (4.4.2)
-    own <- cc$own
-    res <- tryCatch({
-      if (has_fmt) {
-        rr <- apply_formatters(v, own, as.list(cc$keys), cfg, join = ", ",
-                               on_zero = zero_note(rc, k, label), on_pick = pick_note(rc, k),
-                               target = if (nzchar(R$tex[k])) "tex" else "markdown")
-        rc$L_rel[k] <- ledger_rel(rr)
-        if (length(attr(rr, "unit_suffix")) && !nzchar(R$tex[k])) rc$L_rec[[as.character(k)]] <- rr
-        paste(as.character(rr), collapse = "")
-      } else {
-        apply_text_classes(stock_print(v), setdiff(cc$own, attr(v, "text_classes")), cfg,
-                           symbol = isTRUE(attr(v, "is_symbol")), keys = cc$keys)
-      }
-    }, error = function(e) e)
-    if (inherits(res, "error")) return(fail_from_error(rc, k, res, label))
-    register_id(rc, k, v, cc)
-    finish_construct(rc, k, res, cc, claim_failed, text_classes = FALSE)
-  }
-
   # ---- resolve_markup(): named values (E2 BN1 to BN7) ------------------------------------
 
   # Left as written for the filter (BN5): its id, if any, is the filter's (BN10).
@@ -1530,6 +1417,119 @@ finish_construct <- function(rc, k, text, cc, claim_failed, text_classes = TRUE)
     text <- paste0(text, resolve_marker(rc, "failed claim", rc$R$line[k]))
   }
   text
+}
+
+# ---- resolve_markup(): bare and formatted values ---------------------------------------
+
+# A bare value: the row `k`, or with `k` NA the parked span `idx` at `start` that lies in no
+# row, at `line_info`.
+render_bare <- function(rc, k, idx = NULL, line_info = NULL, start = NULL) {
+  R <- rc$R
+  s <- rc$s
+  st <- if (is.null(start)) R$start[k] else start
+  if (is.null(idx)) idx <- rc$spans$idx[match(st, rc$spans$start)]
+  p <- s$parked[[idx]]
+  label <- sprintf("`r %s`", p$code)
+  rc$bare_aux <- list(raw = NA_real_, unit = NA_character_, failed = NA_character_)
+  # a bare value ahead of every construct in its block was evaluated when
+  # knitr parked it, so that an error there names its own line (1.1.8)
+  ev <- p$result %||% eval_expr(rc, k, p$code, label, p$envir, stock = TRUE,
+                                line_info = line_info)
+  if (!is.null(p$result)) s$parked[[idx]]$result <- NULL
+  li <- if (is.null(line_info)) list(file = R$file[k], line = R$line[k]) else line_info
+  if (!ev$ok) {
+    e <- ev$error
+    if (inherits(e, c("weft_no_value", "weft_value_error")) && !is.na(k)) {
+      return(fail_from_error(rc, k, e, label))
+    }
+    if (rc$strict && inherits(e, "weft_claim_failed")) rethrow(rc, k, e)
+    stop(e)
+  }
+  if (!is.null(ev$aux)) {
+    rc$bare_aux$raw <- ledger_raw(ev$aux$value)
+    rc$bare_aux$unit <- ledger_unit(ev$aux$value)
+  }
+  if (is_unit_quantity(ev$quantity) && !ev$claim_failed) {
+    unit_note(rc, bare_quantity_message(label, ev$quantity), li$file, li$line, label)
+  }
+  if (ev$claim_failed) {
+    rc$bare_aux$failed <- "failed claim"
+    paste0(ev$value, resolve_marker(rc, "failed claim", li$line))
+  } else {
+    bare_missing_note(rc, ev, label, li, if (is.null(line_info)) R$line_view[k] else (line_info$view %||% NA_integer_))
+    ev$value
+  }
+}
+
+# A bare value with no weft class that prints a missing or non-finite value is a warned check: the
+# reader would see "NA" in the sentence. It is raised after the evaluation, outside the handlers
+# that keep a chunk's conditions out of the document, so it reaches the caller as well as the
+# warnings table and the condition log. `bare_missing: false` turns it off.
+bare_missing_note <- function(rc, ev, label, li, view) {
+  if (!isTRUE(rc$cfg$bare_missing %||% TRUE)) return(invisible(NULL))
+  # knitr prints Inf as an entity in Markdown output; the reader sees the infinity sign
+  txt <- trim_ws(paste(ev$value, collapse = ""))
+  if (txt %in% c("&infin;", "-&infin;")) txt <- sub("&infin;", "Inf", txt, fixed = TRUE)
+  if (!(txt %in% c("NA", "NaN", "Inf", "-Inf"))) return(invisible(NULL))
+  if (any(grepl("^weft_", class(ev$aux$value)))) return(invisible(NULL))
+  msg <- sprintf("%s is a bare value that prints %s; it will read as %s in the text", label, txt, txt)
+  if (!rc$strict) {
+    s <- rc$s
+    add_warning(s, "bare missing value", file = li$file, line = li$line, expr = label, detail = msg,
+                chunk = rc$chunk_label, option = NA_character_)
+    wh <- ledger_where(s, rc$F, li$file, view, rc$chunk_label)
+    log_condition(s, sprintf("%s:%d", li$file, li$line), "warning", msg, file = li$file,
+                  line = li$line, from = "prose", lsource = where_label(wh))
+  }
+  weft_warn(paste0("weft: ", msg), class = "weft_bare_missing_warning")
+  invisible(NULL)
+}
+
+render_value <- function(rc, k) {
+  R <- rc$R
+  s <- rc$s
+  cc <- split_classes(R$classes[[k]], R$keys[[k]], rc$owned, rc$cfg$formatters)
+  expr <- unwrap_quarto(R$expr[k])
+  msg <- lang_check(s$lang, R$kind[k], R$expr[k], cc$own, cc$keys)
+  if (!is.null(msg)) return(construct_fail(rc, k, msg))
+  idx <- rc$spans$idx[match(R$start[k], rc$spans$start)]
+  label <- sprintf("`r %s`", expr)
+  ev <- eval_expr(rc, k, expr, label, s$parked[[idx]]$envir)
+  if (!ev$ok) return(fail_from_error(rc, k, ev$error, label))
+  value_finish(rc, k, cc, label, ev$value, ev$claim_failed)
+}
+
+# The value `v` of the value construct at row `k`, printed with the classes `cc` (an R value, and a
+# named value R read, print alike: BN3).
+value_finish <- function(rc, k, cc, label, v, claim_failed) {
+  R <- rc$R
+  cfg <- rc$cfg
+  rc$L_raw[k] <- ledger_raw(v)
+  rc$L_unit[k] <- ledger_unit(v)
+  reg <- cfg$formatters
+  # `.a` applies to numbers and number words only (1.4.5): a number it
+  # meets is printed as `.num` prints it
+  has_fmt <- any(!is.na(class_group(cc$own, reg))) || ".no" %in% cc$own ||
+    ".a" %in% cc$own || ".plus" %in% cc$own ||
+    any(c("digits", "sigfig", "unit", "trunc", "label") %in% names(cc$keys)) ||
+    (length(cc$own) > 0L && inherits(v, "units"))   # a text class acts on a quantity with its unit (4.4.2)
+  own <- cc$own
+  res <- tryCatch({
+    if (has_fmt) {
+      rr <- apply_formatters(v, own, as.list(cc$keys), cfg, join = ", ",
+                             on_zero = zero_note(rc, k, label), on_pick = pick_note(rc, k),
+                             target = if (nzchar(R$tex[k])) "tex" else "markdown")
+      rc$L_rel[k] <- ledger_rel(rr)
+      if (length(attr(rr, "unit_suffix")) && !nzchar(R$tex[k])) rc$L_rec[[as.character(k)]] <- rr
+      paste(as.character(rr), collapse = "")
+    } else {
+      apply_text_classes(stock_print(v), setdiff(cc$own, attr(v, "text_classes")), cfg,
+                         symbol = isTRUE(attr(v, "is_symbol")), keys = cc$keys)
+    }
+  }, error = function(e) e)
+  if (inherits(res, "error")) return(fail_from_error(rc, k, res, label))
+  register_id(rc, k, v, cc)
+  finish_construct(rc, k, res, cc, claim_failed, text_classes = FALSE)
 }
 
 # ---- resolve_markup(): ids and back-references (1.7) ----------------------------------
