@@ -3055,7 +3055,10 @@ function Pandoc(doc)
   end
   local lang = doc.meta.lang
   S.lang = lang ~= nil and pandoc.utils.stringify(lang) or nil
-  S.src = path and lines_lib.new(path) or nil
+  -- includes are followed as Quarto expands them: against the document's folder, a leading / against the
+  -- Quarto project root (the include rules I1 to I6)
+  local qroot = S.main_dir and (config.find_upward(S.main_dir, "_quarto.yml") or config.find_upward(S.main_dir, "_quarto.yaml"))
+  S.src = path and lines_lib.new(path, S.main_dir, qroot and normpath(dir_of(normpath(qroot))) or S.main_dir) or nil
   for _, p in ipairs(problems) do
     record(S.fails, "construct error", { shown = p.key .. ": " .. p.value, idx = nil, chunk = nil },
            string.format("%s: `%s: %s` is not a %s; the default is used (rule 9.1.6).", p.file, p.key, p.value, p.what))

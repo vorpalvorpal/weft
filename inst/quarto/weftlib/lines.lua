@@ -1,13 +1,16 @@
 -- weftlib/lines.lua: the line of a construct, by text search in the source (dev/design-6.md N89, D21).
 --
 --   local lines = dofile("weftlib/lines.lua")
---   local L = lines.new(path)          -- nil when the file cannot be read
+--   local L = lines.new(path, main_dir, root)  -- nil when the file cannot be read; main_dir is the
+--                                      -- document's folder (absolute), root the Quarto project root
 --   file, line = L:find(needle, ok)    -- the next occurrence after the previous one of the same
 --                                      -- needle; ok(text, start) may reject a match; nil if none
+--   lines.include_targets(lines, main_dir, root, in_included)  -- line -> path of each include
 --
 -- The searchable text is the source with each `{{< include F >}}` line replaced by F's searchable
--- text (relative to the including file, recursively, at most 8 deep), with fenced code blocks
+-- text, as Quarto expands it (the include rules I1 to I6, below), with fenced code blocks
 -- blanked except their lines that start `#|` (and the body of a {=latex} or {=tex} fence), and HTML comments blanked, line structure kept.
+-- A file included inside a fence or a comment is blanked whole: Quarto puts its text there.
 -- No side effect on load.
 
 local M = {}
@@ -25,13 +28,6 @@ local function dir_of(path)
   local d = path:gsub("[/\\]+[^/\\]*$", "")
   if d == path then return "." end
   return d
-end
-
-local function join(dir, rel)
-  if rel:sub(1, 1) == "/" or rel:match("^%a:[/\\]") then return rel end
-  local p = dir .. "/" .. rel
-  p = p:gsub("/%./", "/"):gsub("^%./", "")
-  return p
 end
 
 -- the lines of a text with fenced code and comments blanked
@@ -64,29 +60,191 @@ local function masked_lines(text)
   return out
 end
 
-local function expand(path, depth, parts, files, seen_files)
+-- ---- Quarto's {{< include >}} (the include rules I1 to I6, Quarto 1.11.9) ---------------------------
+-- The Lua twin of R's include_targets() (R/include.R): a line is an include only when the whole line
+-- is the shortcode, one space inside each bracket (I1); `include` is lowercase in the main document,
+-- any case in an included file (I2); the path is the first positional parameter (I3); every path, at
+-- any depth, resolves against the MAIN document's folder, a leading / against the Quarto project root
+-- (I4); fences, cells and comments do not hide an include, a cell of the main document holding
+-- ```{shortcodes=false} does (I5); no depth limit, and a file is not expanded inside itself (I6).
+
+local function trim(s) return (s:gsub("^%s+", ""):gsub("%s+$", "")) end
+
+local function normpath(p)
+  p = p:gsub("\\", "/")
+  local lead = p:match("^%a:/") or (p:sub(1, 1) == "/" and "/" or "")
+  local out = {}
+  for seg in p:sub(#lead + 1):gmatch("[^/]+") do
+    if seg == "." then
+      -- nothing
+    elseif seg == ".." then
+      if #out > 0 and out[#out] ~= ".." then out[#out] = nil elseif lead == "" then out[#out + 1] = seg end
+    else
+      out[#out + 1] = seg
+    end
+  end
+  local r = lead .. table.concat(out, "/")
+  if r == "" then return "." end
+  return r
+end
+
+-- the name and positional parameters of a line that is a block shortcode (I1), or nil
+local function block_shortcode(line)
+  local rest = line:match("^%s*{{< (.*)$")
+  if not rest then return nil end
+  rest = rest:gsub("%s+$", "")
+  if #rest < 5 or rest:sub(-4) ~= " >}}" then return nil end
+  local cap = rest:sub(1, -5)
+  if cap:sub(1, 2) == "/*" or cap:sub(-2) == "*/" then return nil end
+  local name = cap:match("^/?[%w_]+")
+  if not name then return nil end
+  local params = {}
+  local r = trim(cap:sub(#name + 1))
+  while #r > 0 do
+    local hit = r:match('^[%w_%-]+="[^"]*"') or r:match("^[%w_%-]+='[^']*'") or r:match("^[%w_%-]+=[^\"'%s]+")
+    if not hit then
+      hit = r:match("^[^\"'%s]+")
+      if hit then
+        params[#params + 1] = hit
+      else
+        hit = r:match('^"[^"]*"') or r:match("^'[^']*'")
+        if not hit then return nil end
+        params[#params + 1] = hit:sub(2, -2)
+      end
+    end
+    r = trim(r:sub(#hit + 1))
+  end
+  return name, params
+end
+
+-- an executable cell's opening fence, as breakQuartoMd reads it: its backticks, or nil
+local function cell_start(line)
+  local ticks, inner = line:match("^%s*(```+)%s*{(.*)}%s*$")
+  if not ticks then return nil end
+  local lang = inner:match("^[=%a][=%w%._]*")
+  if not lang then return nil end
+  local more = inner:sub(#lang + 1)
+  if more ~= "" and not more:match("^ *[ ,]") then return nil end
+  return ticks
+end
+
+-- which lines of the main document sit in a cell Quarto does not expand includes in (I5): the cells
+-- are breakQuartoMd's, and a cell whose text holds ```{shortcodes=false} is skipped
+local function skipped_lines(lines)
+  local n, skip = #lines, {}
+  local any = false
+  for i = 1, n do if lines[i]:find("shortcodes", 1, true) then any = true end end
+  if not any then return skip end
+  local buf = {}
+  local function flush(force)
+    if #buf > 0 or force then
+      local parts = {}
+      for j, k in ipairs(buf) do parts[j] = lines[k] end
+      if table.concat(parts, "\n"):find("```%s*{%s*shortcodes%s*=%s*false%s*}") then
+        for _, k in ipairs(buf) do skip[k] = true end
+      end
+    end
+    buf = {}
+  end
+  local function blank(k) return k >= 1 and k <= n and lines[k]:match("^%s*$") ~= nil end
+  local function yaml_delim(k, skip_hr)
+    if not lines[k]:match("^%-%-%-%s*$") then return false end
+    return not (skip_hr and k > 1 and blank(k - 1) and k < n and blank(k + 1))
+  end
+  local in_yaml, in_cell, in_code = false, false, 0
+  for k = 1, n do
+    local line = lines[k]
+    local plain = not in_cell and in_code == 0 and not in_yaml
+    local close = line:match("^%s*(```+)%s*$")
+    if in_code == 0 and not in_cell and yaml_delim(k, not in_yaml) then
+      if in_yaml then
+        buf[#buf + 1] = k; flush(); in_yaml = false
+      else
+        flush(); buf[#buf + 1] = k; in_yaml = true
+      end
+    elseif plain and block_shortcode(line) then
+      flush(); buf[#buf + 1] = k; flush()
+    elseif plain and cell_start(line) then
+      flush(); in_cell = true; in_code = #cell_start(line); buf[#buf + 1] = k
+    elseif in_code > 0 and close and #close == in_code then
+      buf[#buf + 1] = k
+      if in_cell then in_cell = false; flush(true) end
+      in_code = 0
+    elseif in_code == 0 and line:sub(1, 3) == "```" then
+      local first = line:match("^[^ ]*")
+      in_code = select(2, first:gsub("`", ""))
+      buf[#buf + 1] = k
+    else
+      buf[#buf + 1] = k
+    end
+  end
+  flush()
+  return skip
+end
+
+-- The includes of one file's lines (I1 to I5): a table from line number to the path the include
+-- resolves to (normalised; the file may not exist). main_dir is the MAIN document's folder, root the
+-- Quarto project root, in_included whether these lines are an included file's.
+function M.include_targets(lines, main_dir, root, in_included)
+  local out = {}
+  local skip = in_included and {} or skipped_lines(lines)
+  for k, line in ipairs(lines) do
+    if not skip[k] and line:find("{{< ", 1, true) then
+      local name, params = block_shortcode(line)
+      if name and #params > 0 then
+        if in_included then name = name:lower() end
+        if name == "include" then
+          local p = params[1]:gsub("\\", "/")
+          if p:sub(1, 1) == "/" then
+            p = root:gsub("/+$", "") .. p
+          elseif not p:match("^%a:/") then
+            p = main_dir .. "/" .. p
+          end
+          out[k] = normpath(p)
+        end
+      end
+    end
+  end
+  return out
+end
+
+-- the lines of a text, as masked_lines() splits them
+local function raw_lines(text)
+  local out, n = {}, 0
+  for line in (text .. "\n"):gmatch("(.-)\r?\n") do n = n + 1; out[n] = line end
+  if n > 0 and out[n] == "" and text:sub(-1) == "\n" then out[n] = nil end
+  return out
+end
+
+local function expand(path, key, ctx, stack, blank, in_included, parts, files)
   local text = read_file(path)
   if not text then return false end
   local idx = #files + 1
   files[idx] = path
   local masked = masked_lines(text)
+  local raw = raw_lines(text)
+  local incs = M.include_targets(raw, ctx.main_dir, ctx.root, in_included)
+  stack[key] = true
   for i = 1, #masked do
     local line = masked[i]
-    local inc = line:match("^[ \t\r\n]*{{<[ \t\r\n]*include[ \t\r\n]+([^ \t\r\n]+)[ \t\r\n]*>}}[ \t\r\n]*$")
+    local target = incs[i]
     local done = false
-    if inc and depth < 8 then
-      local target = join(dir_of(path), inc)
-      done = expand(target, depth + 1, parts, files, seen_files)
+    if target and not stack[target] then
+      done = expand(target, target, ctx, stack, blank or line ~= raw[i], true, parts, files)
     end
-    if not done then parts[#parts + 1] = { idx, i, line } end
+    if not done then parts[#parts + 1] = { idx, i, blank and "" or line } end
   end
+  stack[key] = nil
   return true
 end
 
-function M.new(path)
+function M.new(path, main_dir, root)
   if not path then return nil end
+  main_dir = main_dir or dir_of(path)
+  local ctx = { main_dir = normpath(main_dir), root = normpath(root or main_dir) }
+  local key = path:sub(1, 1) == "/" and normpath(path) or (ctx.main_dir .. "/" .. (path:match("([^/\\]*)$")))
   local parts, files = {}, {}
-  if not expand(path, 0, parts, files) then return nil end
+  if not expand(path, normpath(key), ctx, {}, false, false, parts, files) then return nil end
   local buf, starts, pos = {}, {}, 1
   for i, p in ipairs(parts) do
     starts[i] = pos
