@@ -298,7 +298,8 @@ local function is_mapping(inner)
   return false
 end
 
--- The inner lines of each metadata block of a document, in order (the rule in the note at the top).
+-- The inner lines of each metadata block of a document, in order (the rule in the note at the top); each
+-- array's field `open` is the line number of its opening `---`.
 local function metadata_blocks(lines)
   local out, n, k = {}, #lines, 1
   while k <= n do
@@ -332,7 +333,7 @@ local function metadata_blocks(lines)
           j = j + 1
         end
         if j <= n then
-          local inner = {}
+          local inner = { open = k }
           for q = k + 1, j - 1 do inner[#inner + 1] = lines[q] end
           if is_mapping(inner) then
             out[#out + 1] = inner
@@ -465,7 +466,9 @@ end
 
 -- Is the source a document the knitr hooks resolve (N14, N92)? The rule of R/scan-contexts.R:
 -- filter_resolves(): an .Rmd is knitr's; a .qmd with `engine: knitr`, or with an executed {r} chunk and no
--- `engine:` or `jupyter:` key; and the intermediate `.knit.md` of rmarkdown.
+-- `engine:` or `jupyter:` key; and the intermediate `.knit.md` of rmarkdown. `engine:` and `jupyter:` are
+-- read from the front block alone, as Quarto reads them (rule 2.1.6): the first metadata block, when only
+-- blank lines stand above it.
 function M.source_is_knitr(path, text)
   if not path then return false end
   local low = path:lower()
@@ -473,24 +476,23 @@ function M.source_is_knitr(path, text)
   if not low:match("%.qmd$") or not text then return false end
   local lines = {}
   for l in (text .. "\n"):gmatch("(.-)\r?\n") do lines[#lines + 1] = l end
-  if lines[1] and lines[1]:match("^%-%-%-[ \t\r\n]*$") then
-    local fm, closed = {}, false
-    for i = 2, #lines do
-      if lines[i]:match("^%-%-%-[ \t\r\n]*$") or lines[i]:match("^%.%.%.[ \t\r\n]*$") then closed = true; break end
-      fm[#fm + 1] = lines[i]
+  local fm = metadata_blocks(lines)[1]
+  if fm then
+    for q = 1, fm.open - 1 do
+      if not blank(lines[q]) then fm = nil; break end
     end
-    if closed then
-      for _, l in ipairs(fm) do
-        local v = l:match("^engine[ \t\r\n]*:(.*)$")
-        if v then
-          v = v:gsub("[ \t\r\n]+#.*$", ""):gsub("^[ \t\r\n]+", ""):gsub("[ \t\r\n]+$", "")
-          v = v:gsub("^[\"']", ""):gsub("[\"']$", "")
-          return v:lower() == "knitr"
-        end
+  end
+  if fm then
+    for _, l in ipairs(fm) do
+      local v = l:match("^engine[ \t\r\n]*:(.*)$")
+      if v then
+        v = v:gsub("[ \t\r\n]+#.*$", ""):gsub("^[ \t\r\n]+", ""):gsub("[ \t\r\n]+$", "")
+        v = v:gsub("^[\"']", ""):gsub("[\"']$", "")
+        return v:lower() == "knitr"
       end
-      for _, l in ipairs(fm) do
-        if l:match("^jupyter[ \t\r\n]*:") then return false end
-      end
+    end
+    for _, l in ipairs(fm) do
+      if l:match("^jupyter[ \t\r\n]*:") then return false end
     end
   end
   for i, l in ipairs(lines) do
