@@ -79,6 +79,11 @@
   gives it too, and
   [`checks()`](https://vorpalvorpal.github.io/weft/reference/checks.md)
   still words it as before.
+- In the plain form, `\` (a backslash and a space) is a no-break space,
+  as Pandoc reads it in the markdown form; it used to stay as `\`. A
+  [`weft()`](https://vorpalvorpal.github.io/weft/reference/weft.md)
+  string in a `!expr` caption of a chunk inside a block quote is now
+  read by the lints, as it is outside one.
 - [`print()`](https://rdrr.io/r/base/print.html) of a `weft` object
   draws emphasis in a console that supports it (italic, bold, and
   failure markers in bold red); `format(x, target = "ansi")` gives that
