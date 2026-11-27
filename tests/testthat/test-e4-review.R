@@ -151,7 +151,8 @@ test_that("K9: checks() notes a script that does not parse", {
   root <- lint_proj(list("R/a.R" = "weft(\"[ok]{if='n > 3'}\""), weft_yml = "draft: false")
   x <- checks(root)
   notes <- k_clean(attr(x, "notes"))
-  expect_true(any(grepl("`R/a.R` does not parse as R", notes, fixed = TRUE)))
+  expect_true(any(grepl("`R/a.R` does not parse as R, so its weft() strings and claim() calls were not read.",
+                        notes, fixed = TRUE)))
 })
 
 # ---- K13: the gate does not take skipped or weft-free scripts as documents ---------------------------------

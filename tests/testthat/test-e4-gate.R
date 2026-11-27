@@ -51,11 +51,11 @@ test_that("T13 C17/D3: a script under tests/ with a typed numeral added passes",
   expect_identical(nrow(res$added), 0L)
 })
 
-test_that("T13 D13: removing a claim() from a script's code passes", {
+test_that("T13 D13 (lifted by SC4, script-claims T1): removing a claim() from a script's code now fails", {
   d <- g_scenario(list("a.qmd" = E4G_DOC, "R/a.R" = "claim(n, . > 10)"), list("R/a.R" = "x <- 1"))
   res <- g_gate(d)
-  expect_true(res$ok)
-  expect_identical(res$n_removed, 0L)
+  expect_false(res$ok)
+  expect_identical(res$n_removed, 1L)
 })
 
 test_that("T13 C17: skipping a script with scripts_skip in the new _weft.yml removes its constructs", {

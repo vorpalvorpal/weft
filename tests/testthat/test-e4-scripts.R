@@ -132,7 +132,7 @@ test_that("T6 C13/D11: document-only rules give nothing on a script", {
   expect_false("above-setup" %in% y$rule)
 })
 
-test_that("T6 C16: a claim() in a script's code, outside a literal, is read by no rule", {
+test_that("T6 C16 (renamed, SC8 T35): a claim() in a script's code that is not inert gives no finding", {
   x <- e4_one(c("claim(n, . > 10)", "weft(\"plain words\")"), tier = 1:2)
   expect_identical(nrow(x), 0L)
 })
@@ -196,7 +196,7 @@ test_that("T7 C4/M2: a script that does not parse gives no finding, and lints() 
   f <- lints(root, tier = 1:2)
   expect_identical(nrow(f), 0L)
   notes <- e4_clean(attr(f, "notes"))
-  expect_true(any(grepl("`R/a.R` does not parse as R, so its weft() strings were not read.", notes, fixed = TRUE)))
+  expect_true(any(grepl("`R/a.R` does not parse as R, so its weft() strings and claim() calls were not read.", notes, fixed = TRUE)))
 })
 
 # ---- T8: the files argument --------------------------------------------------------------------------------
@@ -272,10 +272,10 @@ test_that("T14 C15: checks() lists a guard inside a weft() literal of a script, 
   expect_true("R/a.R" %in% x$file)
 })
 
-test_that("T14 C15/D13: a claim() in a script's code outside a literal is not listed by checks()", {
+test_that("T14 C15 (D13 lifted, SC7 T28): a claim() in a script's code outside a literal is listed by checks()", {
   root <- lint_proj(list("R/a.R" = c("claim(n, . > 10)", "weft(\"plain\")")), weft_yml = "draft: false")
   x <- checks(root)
-  expect_false("R/a.R" %in% x$file)
+  expect_true("R/a.R" %in% x$file)
 })
 
 test_that("T14 C15: changes() lists a tier-2 finding on a line added to a script", {
