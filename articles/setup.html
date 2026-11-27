@@ -142,8 +142,10 @@ scripts, entries in <code>_quarto.yml</code>
 <td><code><a href="../reference/use_agent_docs.html">use_agent_docs()</a></code></td>
 <td>always</td>
 <td>a block in <code>AGENTS.md</code> and the weft skill, in
-<code>.agents/skills</code> (<code>skills = c("agents", "claude")</code>
-adds <code>.claude/skills</code>, which Claude Code reads)</td>
+<code>.agents/skills</code>, and in <code>.claude/skills</code> (which
+Claude Code reads) when the project has a <code>.claude</code> folder,
+<code>CLAUDE.md</code> or <code>CLAUDE.local.md</code>
+</td>
 </tr>
 </tbody>
 </table>
@@ -432,10 +434,12 @@ github.com.</p>
 weft project. It appends a block to <code>AGENTS.md</code>, creating the
 file if needed, and writes a skill to <code>.agents/skills/weft/</code>.
 Claude Code reads <code>.claude/skills/</code> and not
-<code>.agents/skills/</code>, so Claude Code users call
-<code>use_agent_docs(skills = c("agents", "claude"))</code> (or install
-the plugin: <code>/plugin marketplace add vorpalvorpal/weft</code>). If
-the project has a <code>CLAUDE.md</code> that does not include
+<code>.agents/skills/</code>, so the default
+<code>skills = "auto"</code> also writes <code>.claude/skills</code>
+when the project has a <code>.claude</code> folder, a
+<code>CLAUDE.md</code> or a <code>CLAUDE.local.md</code> (or install the
+plugin: <code>/plugin marketplace add vorpalvorpal/weft</code>). If the
+project has a <code>CLAUDE.md</code> that does not include
 <code>AGENTS.md</code>, it says so:</p>
 <pre class="text"><code>Claude Code reads CLAUDE.md: add the line @AGENTS.md to it, or move the block there.</code></pre>
 <p><code><a href="../articles/agents.html">vignette("agents", package = "weft")</a></code> describes what the

@@ -269,16 +269,21 @@ into each:</p>
 </tr>
 </tbody>
 </table>
-<p>The default is <code>"agents"</code>, which writes
-<code>.agents/skills</code> alone. <strong>Claude Code reads
-<code>.claude/skills/</code> and not
-<code>.agents/skills/</code></strong>, so Claude Code users pass
-<code>skills = c("agents", "claude")</code>, or install the plugin with
+<p>The default is <code>"auto"</code>, which writes
+<code>.agents/skills</code>, and also <code>.claude/skills</code> when
+the project root holds a <code>.claude</code> folder, a
+<code>CLAUDE.md</code> or a <code>CLAUDE.local.md</code>. <strong>Claude
+Code reads <code>.claude/skills/</code> and not
+<code>.agents/skills/</code></strong>, hence the trigger; the call’s
+first lines name the file or folder that chose it. Only the project root
+is looked at. <code>skills = "agents"</code> writes
+<code>.agents/skills</code> alone, <code>c("auto", "gemini")</code> adds
+a folder, and you can instead install the plugin with
 <code>/plugin marketplace add vorpalvorpal/weft</code>. A
-<code>.claude/skills/weft</code> copy that an earlier weft wrote is left
-as it is by the default call; the closing message says that it was not
-updated and gives that call to update it, and <code><a href="../reference/status.html">status()</a></code>
-names it. That Codex, opencode and Cursor read
+<code>.claude/skills/weft</code> copy that an earlier weft wrote, in a
+project the default does not write it for, is left as it is; the closing
+message says that it was not updated and gives the call to update it,
+and <code><a href="../reference/status.html">status()</a></code> names it. That Codex, opencode and Cursor read
 <code>.agents/skills</code> is reported by secondary sources; it was not
 checked against the vendors’ documents. A folder of your own is a path
 such as <code>"tools/skills"</code>; an absolute path or one with

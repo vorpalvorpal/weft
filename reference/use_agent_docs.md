@@ -9,7 +9,7 @@ to make a render pass, a commit that removes constructs carries the
 ## Usage
 
 ``` r
-use_agent_docs(path = ".", overwrite = FALSE, skills = "agents")
+use_agent_docs(path = ".", overwrite = FALSE, skills = "auto")
 ```
 
 ## Arguments
@@ -25,12 +25,16 @@ use_agent_docs(path = ".", overwrite = FALSE, skills = "agents")
 - skills:
 
   The skills folders to write into: a character vector of preset names
-  or folders relative to the project root. The default, `"agents"`,
-  writes `.agents/skills` alone. Claude Code reads `.claude/skills` and
-  not `.agents/skills`, so Claude Code users pass
-  `skills = c("agents", "claude")`, or install the plugin with
-  `/plugin marketplace add vorpalvorpal/weft`. The presets are `agents`
-  (`.agents/skills`), `claude` (`.claude/skills`), `codex`
+  or folders relative to the project root. The default, `"auto"`, writes
+  `.agents/skills`, and also `.claude/skills` when the project root
+  holds a `.claude` folder, a `CLAUDE.md` or a `CLAUDE.local.md` (Claude
+  Code reads `.claude/skills` and not `.agents/skills`); only the
+  project root is looked at, and the call's first lines say which file
+  or folder chose `.claude/skills`. `"auto"` may be combined with other
+  items, as in `c("auto", "gemini")`. `skills = "agents"` writes
+  `.agents/skills` alone. You can also install the plugin with
+  `/plugin marketplace add vorpalvorpal/weft`. The other presets are
+  `agents` (`.agents/skills`), `claude` (`.claude/skills`), `codex`
   (`.agents/skills`), `gemini` (`.gemini/skills`), `opencode`
   (`.opencode/skills`), `kimi` (`.kimi-code/skills`) and `cursor`
   (`.cursor/skills`). An item with a `/` or starting with `.` is a

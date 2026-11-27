@@ -22,7 +22,7 @@ runs every installer in order, from one plan:
 | [`use_dictionary()`](https://vorpalvorpal.github.io/weft/reference/use_dictionary.md) | always | `dict.yml` and its schema |
 | [`use_hooks()`](https://vorpalvorpal.github.io/weft/reference/use_hooks.md) | in a git work tree | the `commit-msg` hook |
 | [`use_ci()`](https://vorpalvorpal.github.io/weft/reference/use_ci.md) | when `origin` is on github.com | a GitHub Actions workflow |
-| [`use_agent_docs()`](https://vorpalvorpal.github.io/weft/reference/use_agent_docs.md) | always | a block in `AGENTS.md` and the weft skill, in `.agents/skills` (`skills = c("agents", "claude")` adds `.claude/skills`, which Claude Code reads) |
+| [`use_agent_docs()`](https://vorpalvorpal.github.io/weft/reference/use_agent_docs.md) | always | a block in `AGENTS.md` and the weft skill, in `.agents/skills`, and in `.claude/skills` (which Claude Code reads) when the project has a `.claude` folder, `CLAUDE.md` or `CLAUDE.local.md` |
 
 It prints the plan, then writes. In a Quarto website with a GitHub
 remote:
@@ -349,8 +349,9 @@ left its base. It needs `origin` to be on github.com.
 tells a coding agent the rules of a weft project. It appends a block to
 `AGENTS.md`, creating the file if needed, and writes a skill to
 `.agents/skills/weft/`. Claude Code reads `.claude/skills/` and not
-`.agents/skills/`, so Claude Code users call
-`use_agent_docs(skills = c("agents", "claude"))` (or install the plugin:
+`.agents/skills/`, so the default `skills = "auto"` also writes
+`.claude/skills` when the project has a `.claude` folder, a `CLAUDE.md`
+or a `CLAUDE.local.md` (or install the plugin:
 `/plugin marketplace add vorpalvorpal/weft`). If the project has a
 `CLAUDE.md` that does not include `AGENTS.md`, it says so:
 
