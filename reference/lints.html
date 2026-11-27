@@ -3,11 +3,19 @@
 construct errors and other problems the rules of lint_rules() find.
 Nothing in a document is run. A Jupyter notebook (.ipynb) is read as the
 document its cells make, its markdown cells prose and its code cells chunks,
-and a finding in it is placed at its line and column in the JSON file."><meta property="og:description" content="Reads .qmd and .Rmd documents as text and returns the typed numbers,
+and a finding in it is placed at its line and column in the JSON file. A
+percent script (a .py file with a # %% [markdown] or # %% [raw] cell,
+the ones Quarto renders) is read the same way, and a finding in it is placed
+at its line and column in the .py file; any other .py file is code, and
+is not read."><meta property="og:description" content="Reads .qmd and .Rmd documents as text and returns the typed numbers,
 construct errors and other problems the rules of lint_rules() find.
 Nothing in a document is run. A Jupyter notebook (.ipynb) is read as the
 document its cells make, its markdown cells prose and its code cells chunks,
-and a finding in it is placed at its line and column in the JSON file."></head><body>
+and a finding in it is placed at its line and column in the JSON file. A
+percent script (a .py file with a # %% [markdown] or # %% [raw] cell,
+the ones Quarto renders) is read the same way, and a finding in it is placed
+at its line and column in the .py file; any other .py file is code, and
+is not read."></head><body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
 
 
@@ -67,7 +75,11 @@ and a finding in it is placed at its line and column in the JSON file."></head><
 construct errors and other problems the rules of <code><a href="lint_rules.html">lint_rules()</a></code> find.
 Nothing in a document is run. A Jupyter notebook (<code>.ipynb</code>) is read as the
 document its cells make, its markdown cells prose and its code cells chunks,
-and a finding in it is placed at its line and column in the JSON file.</p>
+and a finding in it is placed at its line and column in the JSON file. A
+percent script (a <code>.py</code> file with a <code># %% [markdown]</code> or <code># %% [raw]</code> cell,
+the ones Quarto renders) is read the same way, and a finding in it is placed
+at its line and column in the <code>.py</code> file; any other <code>.py</code> file is code, and
+is not read.</p>
     </div>
 
     <div class="section level2">

@@ -6,7 +6,10 @@ construct errors and other problems the rules of
 find. Nothing in a document is run. A Jupyter notebook (`.ipynb`) is
 read as the document its cells make, its markdown cells prose and its
 code cells chunks, and a finding in it is placed at its line and column
-in the JSON file.
+in the JSON file. A percent script (a `.py` file with a
+`# %% [markdown]` or `# %% [raw]` cell, the ones Quarto renders) is read
+the same way, and a finding in it is placed at its line and column in
+the `.py` file; any other `.py` file is code, and is not read.
 
 ## Usage
 

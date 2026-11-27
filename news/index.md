@@ -2,6 +2,41 @@
 
 ## weft (development version)
 
+- **Behaviour change:** the commit gate,
+  [`verify()`](https://vorpalvorpal.github.io/weft/reference/verify.md),
+  [`checks()`](https://vorpalvorpal.github.io/weft/reference/checks.md)
+  and
+  [`status()`](https://vorpalvorpal.github.io/weft/reference/status.md)
+  now read Jupyter notebooks and percent scripts, as
+  [`lints()`](https://vorpalvorpal.github.io/weft/reference/lints.md)
+  does (rule 2.1.6 P7). A notebook is an `.ipynb` that Quarto lists
+  (none in a `.` folder, such as `.ipynb_checkpoints`, or a `_` folder,
+  such as `_freeze`); a percent script is a `.py` with a
+  `# %% [markdown]` or `# %% [raw]` line, the test Quarto makes, so a
+  `.py` with only code cells, and an ordinary module, are still code.
+  [`lints()`](https://vorpalvorpal.github.io/weft/reference/lints.md)
+  now reads percent scripts too: markdown cells are prose with the `#`
+  taken off, code cells Python chunks, and a finding is placed at its
+  line and column in the `.py` file. The gate judges a staged notebook
+  or percent script as it judges a `.qmd`, with its findings, checks and
+  removed constructs at the notebook’s JSON lines or the script’s own
+  lines, and it reads a `.py` only when it is staged (which `.py` blobs
+  are percent scripts is kept in its cache).
+  [`checks()`](https://vorpalvorpal.github.io/weft/reference/checks.md)
+  lists their checks at those lines.
+  [`verify()`](https://vorpalvorpal.github.io/weft/reference/verify.md)
+  lints them and renders them exactly as `quarto render` of the project
+  would: a notebook as stored, not executed, unless its front matter
+  says `execute: enabled: true`; a percent script executed, unless
+  `execute: enabled: false` or a `_freeze` entry says not; a failed
+  Python
+  [`claim()`](https://vorpalvorpal.github.io/weft/reference/claim.md) in
+  either is placed at the line of its call.
+  [`status()`](https://vorpalvorpal.github.io/weft/reference/status.md)
+  shows its `python` row for a project with a notebook or a percent
+  script, and
+  [`use_quarto()`](https://vorpalvorpal.github.io/weft/reference/use_quarto.md)
+  names the Python package for one.
 - **Behaviour change:** one fence finder now reads a document’s chunks,
   fences and metadata blocks for the lints, the scanner, the
   front-matter readers and the knit’s readers alike, so they no longer

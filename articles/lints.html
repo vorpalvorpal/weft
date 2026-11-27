@@ -399,7 +399,26 @@ finding is placed in the JSON file: at the line of the JSON string that
 holds the source line, and at the column of the character in that line,
 with escapes counted as written. A finding about something weft adds to
 a cell, such as a fence, is placed at the cell’s <code>"source"</code>
-key. Percent scripts are not read.</p>
+key.</p>
+<p>Percent scripts are read the same way: a <code>.py</code> file with a
+<code># %% [markdown]</code> or <code># %% [raw]</code> cell, which is
+how Quarto decides that a <code>.py</code> is a document. Its markdown
+cells are prose with the <code>#</code> taken off, its code cells Python
+chunks, and a finding is placed at its line and column in the
+<code>.py</code> file. A <code>.py</code> with only code cells, or an
+ordinary module, is code and is not read. Notebooks in
+<code>.ipynb_checkpoints</code> or <code>_freeze</code> are not read
+either.</p>
+<p>The other surfaces read the same documents. The commit gate judges a
+staged notebook or percent script as it judges a <code>.qmd</code>,
+<code><a href="../reference/checks.html">checks()</a></code> lists its checks, and <code><a href="../reference/verify.html">verify()</a></code> lints
+and renders it, with every row at the line of the file (the JSON line of
+a notebook). <code><a href="../reference/verify.html">verify()</a></code> renders a notebook as
+<code>quarto render</code> does, as stored and not executed unless its
+front matter says <code>execute: enabled: true</code>, and executes a
+percent script unless <code>execute: enabled: false</code> or
+<code>_freeze</code> says not. <code><a href="../reference/status.html">status()</a></code> shows its
+<code>python</code> row when the project holds either.</p>
 </div>
 <div class="section level2">
 <h2 id="construct-errors">Construct errors<a class="anchor" aria-label="anchor" href="#construct-errors"></a>
