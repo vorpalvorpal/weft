@@ -56,7 +56,7 @@ writeLines(c(
   "[No site | One site | # sites]{n=n_high} read high."
 ), file.path(dir, "survey.Rmd"))
 status(dir)
-#> weft status: /tmp/Rtmp6XQiu1/weft-example1a264166b08
+#> weft status: /tmp/RtmpZoXuvZ/weft-example1a0f2a8ffd59
 #>   setup        ok        _weft.yml does not record a weft version (not recorded; installed: 0.1.0)
 #>   activation   missing   no .Rprofile line and no front-matter route
 #>   quarto       n/a       not a Quarto project
