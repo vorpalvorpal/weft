@@ -96,7 +96,7 @@ writeLines(c(
   "[No site | One site | # sites]{n=n_high} read high."
 ), file.path(dir, "survey.Rmd"))
 use_agent_docs(dir)
-#> weft will write, under /tmp/RtmpQvvKJD/weft-example1a0629e9b69b:
+#> weft will write, under /tmp/RtmpaPo4pq/weft-example1a10566097cd:
 #>   AGENTS.md  (new: the weft rules for coding agents)
 #>   .agents/skills/weft/SKILL.md  (new: the weft skill for coding agents)
 #>   .agents/skills/weft/references/reports.md  (new: the weft skill for coding agents)
