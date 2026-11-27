@@ -333,3 +333,72 @@ test_that("notebooks status: control, an ordinary .py, a code-only script and no
                         ".ipynb_checkpoints/nb-checkpoint.ipynb" = nb$lines, "_freeze/nb/copy.ipynb" = nb$lines))
   expect_false(has_python_row(st))
 })
+
+# ---- verify(), render part (real Quarto and Jupyter; each render costs seconds) --------------------------------
+# verify() renders an .ipynb or a percent .py exactly as `quarto render` of the project would: a notebook as
+# stored (not executed) unless its front matter says `execute: enabled: true`; a percent script executed through
+# Jupyter unless `execute: enabled: false` (or a _freeze entry) says not. Claims in a Python document are
+# `claim()` calls in code cells (a markdown cell holds no claim), found by the file line of the call.
+
+nbs_marker_code <- function(...) nbs_code("open('MARKER', 'w').write('ran')", ...)
+
+nbs_render_project <- function(files, env = parent.frame()) {
+  skip_if_no_jupyter()
+  v4_env(libs = TRUE, env = env)
+  scratch <- withr::local_tempdir(.local_envir = env)
+  for (d in c("data", "runtime", "ipython")) dir.create(file.path(scratch, d))
+  withr::local_envvar(QUARTO_PYTHON = jupyter_python(), PYTHONPATH = py_lib_6e(), PYTHONDONTWRITEBYTECODE = "1",
+                      JUPYTER_DATA_DIR = file.path(scratch, "data"), JUPYTER_RUNTIME_DIR = file.path(scratch, "runtime"),
+                      IPYTHONDIR = file.path(scratch, "ipython"), .local_envir = env)
+  dir <- normalizePath(withr::local_tempdir(.local_envir = env), winslash = "/")
+  writeLines(c("project:", "  type: default", "format: html"), file.path(dir, "_quarto.yml"))
+  put_files(dir, c(files, list("_weft.yml" = "draft: false")))
+  suppressMessages(utils::capture.output(weft::use_quarto(dir)))
+  dir
+}
+nbs_marker <- function(dir) file.exists(file.path(dir, "MARKER"))
+
+test_that("notebooks verify render: an .ipynb with no outputs is rendered as stored, as quarto render does, and not executed", {
+  skip_if_no_quarto()
+  nb <- nbs_ipynb(list(nbs_md("# Title", "", "Prose."), nbs_marker_code()))
+  dir <- nbs_render_project(list("nb.ipynb" = nb$lines))
+  r <- v4_verify(dir)
+  expect_false(nbs_marker(dir), label = "verify() did not execute the notebook")
+  expect_null(r$err, label = if (!is.null(r$err)) conditionMessage(r$err) else "no error")
+  x <- qm_render(dir)
+  expect_identical(x$status, 0L, label = x$log)
+  expect_false(nbs_marker(dir), label = "quarto render did not execute it either")
+})
+
+NBS_FAIL_CODE <- c("from weft import claim", "n = 7", "claim(n, '> 10')")
+
+test_that("notebooks verify render: a percent .py is executed, and a failing claim is reported at its own file line", {
+  skip_if_no_quarto()
+  py <- nbs_py(list(nbs_md("# Title"), nbs_marker_code(), nbs_code(NBS_FAIL_CODE)))
+  dir <- nbs_render_project(list("script.py" = py$lines))
+  r <- v4_verify(dir)
+  expect_true(nbs_marker(dir), label = "the script was executed")
+  expect_false(is.null(r$err), label = "verify() raised")
+  k <- as.data.frame(unclass(r$res$knit), stringsAsFactors = FALSE)
+  k <- k[k$file == "script.py", , drop = FALSE]
+  expect_identical(k$line, py$at(3L, 3L))
+})
+
+test_that("notebooks verify render: a percent .py with execute: enabled: false in its front-matter cell is not executed", {
+  skip_if_no_quarto()
+  py <- nbs_py(list(nbs_raw("---", "execute:", "  enabled: false", "---"), nbs_md("# Title"),
+                    nbs_marker_code(), nbs_code(NBS_FAIL_CODE)))
+  dir <- nbs_render_project(list("script.py" = py$lines))
+  r <- v4_verify(dir)
+  expect_false(nbs_marker(dir), label = "the script was not executed")
+  k <- if (is.null(r$res$knit)) data.frame(file = character()) else as.data.frame(unclass(r$res$knit))
+  expect_false("script.py" %in% k$file)
+})
+
+test_that("notebooks verify render: an .ipynb with execute: enabled: true is executed", {
+  skip_if_no_quarto()
+  nb <- nbs_ipynb(list(nbs_raw("---", "execute:", "  enabled: true", "---"), nbs_md("# Title"), nbs_marker_code()))
+  dir <- nbs_render_project(list("nb.ipynb" = nb$lines))
+  r <- v4_verify(dir)
+  expect_true(nbs_marker(dir), label = "the notebook was executed")
+})
