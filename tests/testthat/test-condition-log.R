@@ -167,24 +167,6 @@ test_that("2d D16: a 3,000-character message is cut to 999 characters and an ell
   expect_true(endsWith(c[[1]]$normalised, "\u2026"))
 })
 
-# ---- the chunk cache ---------------------------------------------------------------------------
-
-test_that("2d D15 + D22: a warning replayed from the chunk cache keeps its line on the cached render", {
-  skip_if_not(rmarkdown::pandoc_available(), "pandoc is not available")
-  dir <- withr::local_tempdir()
-  doc <- c("```{r warn-cached, cache=TRUE}", "cat('ran\\n', file = 'ran.txt', append = TRUE)",
-           "warning('Cached 5 rows')", "```", "", "Text `r 1`.")
-  r1 <- d2_render(doc, dir = dir, format = "md")
-  expect_false(r1$failed, label = r1$message)
-  p <- d2_path(dir, conditions = TRUE)
-  b <- d2_bytes(p)
-  expect_length(d2_pick(d2_entries(p), source = "warn-cached", class = "warning"), 1L)
-  r2 <- d2_render(doc, dir = dir, format = "md")
-  expect_false(r2$failed, label = r2$message)
-  expect_length(readLines(file.path(dir, "ran.txt")), 1L)
-  expect_identical(d2_bytes(p), b)
-})
-
 # ---- D19: new conditions --------------------------------------------------------------------------
 
 test_that("2d D19: in a repository with the log committed, a render adding warnings reports them since HEAD; a render with only committed ones is silent", {

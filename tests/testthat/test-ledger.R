@@ -618,7 +618,7 @@ test_that("2d D10 + D13: knit_child(text =) in a loop gives occurrences 1 to 3 i
 
 # ---- D22: the chunk cache -----------------------------------------------------------------------
 
-test_that("2d D22: a render served from the chunk cache writes byte-identical files, and stores the rows with the cache", {
+test_that("2d D22 + D15 (folded from test-condition-log.R): a render served from the chunk cache writes byte-identical files, keeps the warning's row, and stores the rows with the cache", {
   skip_if_not(rmarkdown::pandoc_available(), "pandoc is not available")
   dir <- withr::local_tempdir()
   doc <- c("## Cached", "",
@@ -631,6 +631,8 @@ test_that("2d D22: a render served from the chunk cache writes byte-identical fi
   expect_false(r1$failed, label = r1$message)
   expect_true(any(vapply(d2_ledger(r1), function(z) identical(z$context, "weft"), NA)))
   b1 <- list(d2_bytes(d2_path(dir)), d2_bytes(d2_path(dir, conditions = TRUE)))
+  # D15: the chunk's warning is one row of the conditions log, under the chunk's label
+  expect_length(d2_pick(d2_entries(d2_path(dir, conditions = TRUE)), source = "make", class = "warning"), 1L)
   r2 <- d2_render(doc, code = "wcv <- 7", dir = dir, format = "md")
   expect_false(r2$failed, label = r2$message)
   expect_length(readLines(file.path(dir, "ran.txt")), 1L)
