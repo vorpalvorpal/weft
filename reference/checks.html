@@ -113,8 +113,9 @@ and <code>repeated</code>, and the attribute <code>notes</code>. Printing it sho
     </div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
-    <p>The <code>.R</code> scripts of the project are read too, for the guards and the <code><a href="claim.html">claim()</a></code> calls inside the values of
-the literal strings they pass to <code><a href="weft.html">weft()</a></code> (see <code><a href="lints.html">lints()</a></code>); a <code><a href="claim.html">claim()</a></code> in a script's code is not read.</p>
+    <p>The <code>.R</code> scripts of the project are read too: the guards and the <code><a href="claim.html">claim()</a></code> calls inside the values of the
+literal strings they pass to <code><a href="weft.html">weft()</a></code> (see <code><a href="lints.html">lints()</a></code>), and every <code><a href="claim.html">claim()</a></code> in a script's code. A claim
+inside a function definition is listed under <code>not read</code>, since its names are the function's.</p>
 <p>A value is <em>flagged</em> when two of its checks compare it with the same other operand under operators that
 differ only in strictness (<code>operators</code>), or with different literals in one direction (<code>literals</code>). The
 report hints at checks made in <code>repeats</code> places or more with the same condition: check once, where the

@@ -66,19 +66,22 @@ columns `file`, `line`, `col`, `end_line`, `rule`, `tier`, `spec`,
 
 ## Details
 
-The `.R` and `.r` files of the project (its scripts) are read too, but
-only for the literal strings they pass to
-[`weft()`](https://vorpalvorpal.github.io/weft/reference/weft.md): in a
-script, `weft("We found 12 sites")` is prose like any other and its `12`
-is a finding, placed at its line and column in the script. A call is
-`weft(...)`, `weft::weft(...)` or `weft:::weft(...)`, or the right-hand
-side of a pipe; the argument read is the one R matches to `x`, a string
-literal (a raw string too) or the literal elements of a
-[`c()`](https://rdrr.io/r/base/c.html). The code around the call is not
-read, and neither are
+The `.R` and `.r` files of the project (its scripts) are read too, for
+the literal strings they pass to
+[`weft()`](https://vorpalvorpal.github.io/weft/reference/weft.md) and
+for their
 [`claim()`](https://vorpalvorpal.github.io/weft/reference/claim.md)
-calls, phrases or strings given to other functions. The rules that read
-scripts are those with `scripts` `TRUE` in
+calls: in a script, `weft("We found 12 sites")` is prose like any other
+and its `12` is a finding, placed at its line and column in the script.
+A call is `weft(...)`, `weft::weft(...)` or `weft:::weft(...)`, or the
+right-hand side of a pipe; the argument read is the one R matches to
+`x`, a string literal (a raw string too) or the literal elements of a
+[`c()`](https://rdrr.io/r/base/c.html). Of the rest of a script's code
+only its
+[`claim()`](https://vorpalvorpal.github.io/weft/reference/claim.md)
+calls are read, by `inert-check` alone; phrases and strings given to
+other functions are not. The rules that read scripts are those with
+`scripts` `TRUE` in
 [`lint_rules()`](https://vorpalvorpal.github.io/weft/reference/lint_rules.md);
 the project rules read documents only. A script is left out when it is
 in a folder whose name starts with `.` or `_`, or in `renv`, `packrat`,
@@ -88,6 +91,7 @@ of the `_weft.yml` nearest to it: a list of folder or file names, or
 paths from that folder, with no wildcards. Its default is `[tests]`,
 `[]` reads every script, and a list that is given replaces the default,
 so keep `tests` in it. A skipped or excluded script named in `files` or
-as `path` gives a note. A script whose bytes do not hold `weft` is not
-read, one that is not valid UTF-8 gives the `read` finding, and one that
+as `path` gives a note. A script whose bytes hold neither `weft` nor a
+`claim(` call is not read; one that is not valid UTF-8 gives the `read`
+finding when its bytes hold `weft` and is otherwise not read; one that
 does not parse as R gives a note and no findings.

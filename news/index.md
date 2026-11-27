@@ -2,6 +2,28 @@
 
 ## weft (development version)
 
+- **Behaviour change:** the commit gate now counts every
+  [`claim()`](https://vorpalvorpal.github.io/weft/reference/claim.md),
+  [`weft::claim()`](https://vorpalvorpal.github.io/weft/reference/claim.md)
+  and `weft:::claim()` call in a script’s code (in a function body, a
+  target’s command, a lambda, a pipe or a loop), in the same claims
+  total as the documents’ (rule 3.11). Deleting such a claim, deleting
+  or skipping the script that holds it, or staging a script that no
+  longer parses is a removal that needs `Weft-Removed: N`; moving a
+  claim between a chunk and a script, or between scripts, removes
+  nothing. A staged script that does not parse is named in a gate note.
+  A script is now opened when its bytes hold `weft` or a `claim(` call,
+  so the usual `R/` file of a targets project is read; one that is not
+  valid UTF-8 gives the `read` finding only when its bytes hold `weft`.
+  [`checks()`](https://vorpalvorpal.github.io/weft/reference/checks.md)
+  lists script claims (a claim inside a function definition under
+  `not read`), `inert-check` reads them (context `script`), and
+  [`verify()`](https://vorpalvorpal.github.io/weft/reference/verify.md)
+  lists their removal and checks their literal `decision` pointers. The
+  note for a script that does not parse now reads “… so its weft()
+  strings and claim() calls were not read.”
+  [`claim()`](https://vorpalvorpal.github.io/weft/reference/claim.md)
+  itself is unchanged and writes nothing.
 - **Behaviour change:** the knit (its settings under `weft:`, `lang`,
   and the `dict_local` named in front matter),
   [`arms()`](https://vorpalvorpal.github.io/weft/reference/arms.md) and

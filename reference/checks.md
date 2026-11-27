@@ -53,13 +53,15 @@ check is not readable), `text`, `always`, `rebound`, `flag` and
 
 ## Details
 
-The `.R` scripts of the project are read too, for the guards and the
+The `.R` scripts of the project are read too: the guards and the
 [`claim()`](https://vorpalvorpal.github.io/weft/reference/claim.md)
 calls inside the values of the literal strings they pass to
 [`weft()`](https://vorpalvorpal.github.io/weft/reference/weft.md) (see
-[`lints()`](https://vorpalvorpal.github.io/weft/reference/lints.md)); a
+[`lints()`](https://vorpalvorpal.github.io/weft/reference/lints.md)),
+and every
 [`claim()`](https://vorpalvorpal.github.io/weft/reference/claim.md) in a
-script's code is not read.
+script's code. A claim inside a function definition is listed under
+`not read`, since its names are the function's.
 
 A value is *flagged* when two of its checks compare it with the same
 other operand under operators that differ only in strictness

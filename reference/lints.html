@@ -126,13 +126,15 @@ with columns <code>file</code>, <code>line</code>, <code>col</code>, <code>end_l
     </div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
-    <p>The <code>.R</code> and <code>.r</code> files of the project (its scripts) are read too, but only
-for the literal strings they pass to <code><a href="weft.html">weft()</a></code>: in a script, <code>weft("We found 12 sites")</code> is prose like any other and its <code>12</code> is a finding, placed at its
-line and column in the script. A call is <code>weft(...)</code>, <code>weft::weft(...)</code> or
-<code>weft:::weft(...)</code>, or the right-hand side of a pipe; the argument read is the
-one R matches to <code>x</code>, a string literal (a raw string too) or the literal
-elements of a <code><a href="https://rdrr.io/r/base/c.html" class="external-link">c()</a></code>. The code around the call is not read, and neither are
-<code><a href="claim.html">claim()</a></code> calls, phrases or strings given to other functions. The rules that
+    <p>The <code>.R</code> and <code>.r</code> files of the project (its scripts) are read too, for the
+literal strings they pass to <code><a href="weft.html">weft()</a></code> and for their <code><a href="claim.html">claim()</a></code> calls: in a
+script, <code>weft("We found 12 sites")</code> is prose like any other and its <code>12</code> is a
+finding, placed at its line and column in the script. A call is <code>weft(...)</code>,
+<code>weft::weft(...)</code> or <code>weft:::weft(...)</code>, or the right-hand side of a pipe; the
+argument read is the one R matches to <code>x</code>, a string literal (a raw string
+too) or the literal elements of a <code><a href="https://rdrr.io/r/base/c.html" class="external-link">c()</a></code>. Of the rest of a script's code only
+its <code><a href="claim.html">claim()</a></code> calls are read, by <code>inert-check</code> alone; phrases and strings
+given to other functions are not. The rules that
 read scripts are those with <code>scripts</code> <code>TRUE</code> in <code><a href="lint_rules.html">lint_rules()</a></code>; the project
 rules read documents only. A script is left out when it is in a folder
 whose name starts with <code>.</code> or <code>_</code>, or in <code>renv</code>, <code>packrat</code>, <code>node_modules</code>,
@@ -141,9 +143,10 @@ whose name starts with <code>.</code> or <code>_</code>, or in <code>renv</code>
 to it: a list of folder or file names, or paths from that folder, with no
 wildcards. Its default is <code>[tests]</code>, <code>[]</code> reads every script, and a list that
 is given replaces the default, so keep <code>tests</code> in it. A skipped or excluded
-script named in <code>files</code> or as <code>path</code> gives a note. A script whose bytes do not hold <code>weft</code>
-is not read, one that is not valid UTF-8 gives the <code>read</code> finding, and one
-that does not parse as R gives a note and no findings.</p>
+script named in <code>files</code> or as <code>path</code> gives a note. A script whose bytes hold
+neither <code>weft</code> nor a <code>claim(</code> call is not read; one that is not valid UTF-8
+gives the <code>read</code> finding when its bytes hold <code>weft</code> and is otherwise not
+read; one that does not parse as R gives a note and no findings.</p>
     </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

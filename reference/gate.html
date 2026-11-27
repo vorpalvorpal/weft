@@ -4,14 +4,20 @@ commit will hold) with HEAD for every project of the repository, a project
 being a folder that holds _weft.yml, and fails the commit on a construct
 error in a changed document, on a tier-1 finding that HEAD did not hold, and
 on weft constructs removed when the message does not say so with a
-Weft-Removed: N trailer (rules 6.1 to 6.3). It reads git only and changes
-nothing in the repository; its cache lives under the git directory."><meta property="og:description" content="gate() is what the commit-msg hook runs. It compares the index (what the
+Weft-Removed: N trailer (rules 6.1 to 6.3). The constructs counted are
+those of the documents and every claim() call in a script's code (rule
+3.11.3), in one total per project, so a claim moved between a document and a
+script removes nothing. It reads git only and changes nothing in the
+repository; its cache lives under the git directory."><meta property="og:description" content="gate() is what the commit-msg hook runs. It compares the index (what the
 commit will hold) with HEAD for every project of the repository, a project
 being a folder that holds _weft.yml, and fails the commit on a construct
 error in a changed document, on a tier-1 finding that HEAD did not hold, and
 on weft constructs removed when the message does not say so with a
-Weft-Removed: N trailer (rules 6.1 to 6.3). It reads git only and changes
-nothing in the repository; its cache lives under the git directory."></head><body>
+Weft-Removed: N trailer (rules 6.1 to 6.3). The constructs counted are
+those of the documents and every claim() call in a script's code (rule
+3.11.3), in one total per project, so a claim moved between a document and a
+script removes nothing. It reads git only and changes nothing in the
+repository; its cache lives under the git directory."></head><body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
 
 
@@ -72,8 +78,11 @@ commit will hold) with <code>HEAD</code> for every project of the repository, a 
 being a folder that holds <code>_weft.yml</code>, and fails the commit on a construct
 error in a changed document, on a tier-1 finding that <code>HEAD</code> did not hold, and
 on weft constructs removed when the message does not say so with a
-<code>Weft-Removed: N</code> trailer (rules 6.1 to 6.3). It reads git only and changes
-nothing in the repository; its cache lives under the git directory.</p>
+<code>Weft-Removed: N</code> trailer (rules 6.1 to 6.3). The constructs counted are
+those of the documents and every <code><a href="claim.html">claim()</a></code> call in a script's code (rule
+3.11.3), in one total per project, so a claim moved between a document and a
+script removes nothing. It reads git only and changes nothing in the
+repository; its cache lives under the git directory.</p>
     </div>
 
     <div class="section level2">
