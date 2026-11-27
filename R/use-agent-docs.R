@@ -33,10 +33,14 @@
 #'   been edited.
 #' @param skills The skills folders to write into: a character vector of
 #'   preset names or folders relative to the project root. The default,
-#'   `"agents"`, writes `.agents/skills` alone. Claude Code reads
-#'   `.claude/skills` and not `.agents/skills`, so Claude Code users pass
-#'   `skills = c("agents", "claude")`, or install the plugin with
-#'   `/plugin marketplace add vorpalvorpal/weft`. The presets are
+#'   `"auto"`, writes `.agents/skills`, and also `.claude/skills` when the
+#'   project root holds a `.claude` folder, a `CLAUDE.md` or a `CLAUDE.local.md`
+#'   (Claude Code reads `.claude/skills` and not `.agents/skills`); only the
+#'   project root is looked at, and the call's first lines say which file or
+#'   folder chose `.claude/skills`. `"auto"` may be combined with other items,
+#'   as in `c("auto", "gemini")`. `skills = "agents"` writes `.agents/skills`
+#'   alone. You can also install the plugin with
+#'   `/plugin marketplace add vorpalvorpal/weft`. The other presets are
 #'   `agents` (`.agents/skills`), `claude` (`.claude/skills`), `codex`
 #'   (`.agents/skills`), `gemini` (`.gemini/skills`), `opencode`
 #'   (`.opencode/skills`), `kimi` (`.kimi-code/skills`) and `cursor`
@@ -49,9 +53,10 @@
 #'   `AGENTS.md` first, then the skill files folder by folder in the order
 #'   given.
 #' @export
-use_agent_docs <- function(path = ".", overwrite = FALSE, skills = "agents") {
+use_agent_docs <- function(path = ".", overwrite = FALSE, skills = "auto") {
   root <- install_root(path, "use_agent_docs")
-  dirs <- skills_dirs(skills)
+  dirs <- skills_dirs(skills, root)
+  for (n in auto_notes(root, skills)) message(n)
   plan <- agent_docs_plan(root, overwrite, dirs)
   announce_items(root, plan$items)
   done <- write_items(plan$items)
@@ -133,16 +138,36 @@ SKILL_PRESETS <- c(agents = ".agents/skills", claude = ".claude/skills", codex =
                    gemini = ".gemini/skills", opencode = ".opencode/skills",
                    kimi = ".kimi-code/skills", cursor = ".cursor/skills")
 
+# what makes the `auto` preset add .claude/skills: the first of these found at the project root, or NULL
+auto_trigger <- function(root) {
+  hits <- c(".claude" = dir.exists(file.path(root, ".claude")),
+            "CLAUDE.md" = file.exists(file.path(root, "CLAUDE.md")),
+            "CLAUDE.local.md" = file.exists(file.path(root, "CLAUDE.local.md")))
+  if (any(hits)) names(hits)[which(hits)[1L]] else NULL
+}
+
+# the line saying why `auto` wrote .claude/skills, when it did
+auto_notes <- function(root, skills) {
+  trig <- if (is.character(skills) && "auto" %in% trimws(skills)) auto_trigger(root)
+  if (is.null(trig)) return(character())
+  sprintf("skills = \"auto\": %s is in the project root, so the weft skill is also written to .claude/skills.",
+          if (trig == ".claude") "the .claude folder" else trig)
+}
+
 # the folders (relative to the project root, once each, in order given) for `skills`
-skills_dirs <- function(skills) {
+skills_dirs <- function(skills, root = ".") {
   if (!is.character(skills) || anyNA(skills) || any(!nzchar(trimws(skills)))) {
     tool_abort("use_agent_docs(): `skills` must be a character vector of preset names or folders, with no NA and no empty string.")
   }
   out <- character()
   for (s in trimws(skills)) {
+    if (identical(s, "auto")) {
+      out <- c(out, ".agents/skills", if (!is.null(auto_trigger(root))) ".claude/skills")
+      next
+    }
     if (!grepl("/", s, fixed = TRUE) && !startsWith(s, ".")) {
       if (!s %in% names(SKILL_PRESETS)) {
-        tool_abort(sprintf("use_agent_docs(): %s is not a skills preset. The presets are: %s. Give a folder as a path with a / or starting with a dot.",
+        tool_abort(sprintf("use_agent_docs(): %s is not a skills preset. The presets are: auto, %s. Give a folder as a path with a / or starting with a dot.",
                            s, paste(names(SKILL_PRESETS), collapse = ", ")))
       }
       d <- SKILL_PRESETS[[s]]
@@ -220,7 +245,7 @@ agents_item <- function(path, root, overwrite) {
             new = c(old[seq_len(b$s - 1L)], block, old[-seq_len(b$e)]), eol = eol)
 }
 
-agent_docs_plan <- function(root, overwrite = FALSE, dirs = ".agents/skills") {
+agent_docs_plan <- function(root, overwrite = FALSE, dirs = skills_dirs("auto", root)) {
   agents <- file.path(root, "AGENTS.md")
   place_check(agents, root)
   src <- skill_sources()

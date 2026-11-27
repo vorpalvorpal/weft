@@ -79,12 +79,16 @@ to the project root, and writes the same files into each:
 | `kimi` | `.kimi-code/skills` | Kimi Code |
 | `cursor` | `.cursor/skills` | reported for Cursor |
 
-The default is `"agents"`, which writes `.agents/skills` alone. **Claude Code reads
-`.claude/skills/` and not `.agents/skills/`**, so Claude Code users pass
-`skills = c("agents", "claude")`, or install the plugin with
-`/plugin marketplace add vorpalvorpal/weft`. A `.claude/skills/weft` copy that an
-earlier weft wrote is left as it is by the default call; the closing message says
-that it was not updated and gives that call to update it, and `status()` names it.
+The default is `"auto"`, which writes `.agents/skills`, and also `.claude/skills`
+when the project root holds a `.claude` folder, a `CLAUDE.md` or a
+`CLAUDE.local.md`. **Claude Code reads `.claude/skills/` and not
+`.agents/skills/`**, hence the trigger; the call's first lines name the file or
+folder that chose it. Only the project root is looked at. `skills = "agents"`
+writes `.agents/skills` alone, `c("auto", "gemini")` adds a folder, and you can
+instead install the plugin with `/plugin marketplace add vorpalvorpal/weft`. A
+`.claude/skills/weft` copy that an earlier weft wrote, in a project the default
+does not write it for, is left as it is; the closing message says that it was not
+updated and gives the call to update it, and `status()` names it.
 That Codex, opencode and Cursor read
 `.agents/skills` is reported by secondary sources; it was not checked against
 the vendors' documents. A folder of your own is a path such as

@@ -4,7 +4,7 @@
 \alias{use_agent_docs}
 \title{Write the agent documents: an AGENTS.md block and a skill}
 \usage{
-use_agent_docs(path = ".", overwrite = FALSE, skills = "agents")
+use_agent_docs(path = ".", overwrite = FALSE, skills = "auto")
 }
 \arguments{
 \item{path}{A directory in the project.}
@@ -14,10 +14,14 @@ been edited.}
 
 \item{skills}{The skills folders to write into: a character vector of
 preset names or folders relative to the project root. The default,
-\code{"agents"}, writes \code{.agents/skills} alone. Claude Code reads
-\code{.claude/skills} and not \code{.agents/skills}, so Claude Code users pass
-\code{skills = c("agents", "claude")}, or install the plugin with
-\verb{/plugin marketplace add vorpalvorpal/weft}. The presets are
+\code{"auto"}, writes \code{.agents/skills}, and also \code{.claude/skills} when the
+project root holds a \code{.claude} folder, a \code{CLAUDE.md} or a \code{CLAUDE.local.md}
+(Claude Code reads \code{.claude/skills} and not \code{.agents/skills}); only the
+project root is looked at, and the call's first lines say which file or
+folder chose \code{.claude/skills}. \code{"auto"} may be combined with other items,
+as in \code{c("auto", "gemini")}. \code{skills = "agents"} writes \code{.agents/skills}
+alone. You can also install the plugin with
+\verb{/plugin marketplace add vorpalvorpal/weft}. The other presets are
 \code{agents} (\code{.agents/skills}), \code{claude} (\code{.claude/skills}), \code{codex}
 (\code{.agents/skills}), \code{gemini} (\code{.gemini/skills}), \code{opencode}
 (\code{.opencode/skills}), \code{kimi} (\code{.kimi-code/skills}) and \code{cursor}

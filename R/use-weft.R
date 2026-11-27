@@ -115,10 +115,12 @@ use_weft <- function(path = ".") {
 
   # use_agent_docs()
   ap <- agent_docs_plan(root)
+  ap_dirs <- skills_dirs("auto", root)
   add("use_agent_docs", items_what(ap$items), function() {
     done <- write_items(ap$items)
     for (n in ap$notes) message(n)
-    for (n in stale_copy_notes(root, ".agents/skills")) message(n)
+    for (n in auto_notes(root, "auto")) message(n)
+    for (n in stale_copy_notes(root, ap_dirs)) message(n)
     vapply(done, `[[`, "", "path")
   })
 
