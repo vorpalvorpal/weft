@@ -176,37 +176,193 @@ def _is_mapping(inner):
     return False
 
 
-def _blocks(lines):
-    """The inner lines of each metadata block of a document, in order (see the module's note)."""
-    out = []
+_KNITR_BEGIN = _re.compile(r"^[\t >]*```+\s*\{([a-zA-Z0-9_]+( *[ ,].*)?)\}\s*$")
+_KNITR_END = _re.compile(r"^[\t >]*```+\s*$")
+_CHUNK_PREFIX = _re.compile(r"^([\t >]*`+)")
+_FENCE_LINE = _re.compile(r"^( {0,3})((?:> ?(?: {0,3}(?=>))?)*)( *)(`{3,}|~{3,})(.*)$")
+_QUOTE = _re.compile(r"^ {0,3}(?:> ?(?: {0,3}(?=>))?)*")
+_ITEM = _re.compile(r"^( *)([-+*]|[0-9]{1,9}[.)])(?:( {1,4})(?=\S)|[ \t]*$)")
+_ATTR = (r"\{[ \t]*(?:(?:#[A-Za-z0-9_:.-]+|\.[A-Za-z][A-Za-z0-9_:.-]*"
+         r"|[A-Za-z][A-Za-z0-9_:.-]*=(?:\"(?:[^\"\\]|\\.)*\"|'(?:[^'\\]|\\.)*'|[^ \t}]+)|-)[ \t]*)*\}")
+_INFO = _re.compile(r"^(?:\{[ \t]*=[A-Za-z0-9_-]+[ \t]*\}|[^ \t{`]*[ \t]*(?:" + _ATTR + r")?)$")
+
+
+def _blank(line):
+    return not line.strip(" \t\r\n")
+
+
+def _exact_end(line, p):
+    return line.startswith(p) and not line[len(p):].strip()
+
+
+def _knitr_chunks(lines):
+    """The chunks of `lines` as knitr divides a document (R's knitr_chunks()): (open, close) pairs, 0-based."""
     n = len(lines)
+    cand, isb = [], []
+    for i, line in enumerate(lines):
+        if "```" not in line:
+            continue
+        b = bool(_KNITR_BEGIN.match(line))
+        if b or _KNITR_END.match(line):
+            cand.append(i)
+            isb.append(b)
+    out = []
+
+    def reads_on(t, p):
+        # is the end line cand[t] (not exact) code, because knitr reads on to a later exact closer?
+        i = cand[t]
+        e = next((cand[s] for s in range(t + 1, len(cand)) if not isb[s] and _exact_end(lines[cand[s]], p)), None)
+        if e is None:
+            return False
+        return not any(b.startswith(p) and _re.match(r"`*\{", b[len(p):]) for b in lines[i + 1:e])
+
+    cur, p = None, None
+    for t, i in enumerate(cand):
+        line = lines[i]
+        if cur is None:
+            if isb[t]:
+                cur = i
+                p = _CHUNK_PREFIX.match(line).group(1) if i != 0 else None
+        elif isb[t]:
+            if p is None or line.startswith(p + "{"):
+                out.append((cur, i - 1))
+                cur = i
+        elif not (p is not None and not _exact_end(line, p) and reads_on(t, p)):
+            out.append((cur, i))
+            cur = None
+    if cur is not None:
+        out.append((cur, n - 1))
+    return out
+
+
+def _expand_tabs(line):
+    """`line` with the tabs of its leading white space and `>` markers expanded to the next stop of 4."""
+    if not _re.match(r"^[ >]*\t", line):
+        return line
+    lead = _re.match(r"^[ \t>]*", line).group(0)
+    out = ""
+    for ch in lead:
+        out += " " * (4 - len(out) % 4) if ch == "\t" else ch
+    return out + line[len(lead):]
+
+
+def _parse_fence(line):
+    """A fence line as R's parse_fence_lines() reads it: (depth, indent, char, length, info), or None."""
+    m = _FENCE_LINE.match(_expand_tabs(line))
+    if not m:
+        return None
+    depth = m.group(2).count(">")
+    indent = len(m.group(3)) if depth else len(m.group(1)) + len(m.group(3))
+    return depth, indent, m.group(4)[0], len(m.group(4)), m.group(5)
+
+
+def _quote_depth(line):
+    return _QUOTE.match(line).group(0).count(">")
+
+
+def _lead_width(line):
+    return len(_expand_tabs(line)) - len(_expand_tabs(line).lstrip(" "))
+
+
+def _list_item_col(lines, k, ind):
+    """The content column of the list item the line k, indented ind (4 or more), sits in, or None."""
+    j = k - 1
+    while j >= 0:
+        if _blank(lines[j]):
+            j -= 1
+            continue
+        line = _expand_tabs(lines[j])
+        m = _ITEM.match(line)
+        if m:
+            c0 = len(m.group(0)) if m.group(3) else len(m.group(1)) + len(m.group(2)) + 1
+            if c0 <= ind <= c0 + 3:
+                return c0
+            if not m.group(1):
+                return None
+        elif _lead_width(line) == 0 and (j == 0 or _blank(lines[j - 1])):
+            return None
+        j -= 1
+    return None
+
+
+def _blocks(lines):
+    """The inner lines of each metadata block of a document, in order (see the module's note), as R's
+    plain_blocks() reads them outside the chunks: a fence opens with an info string Pandoc's markdown reader
+    takes (none, one word, an attribute block); one that does not close in its container is no fence; in a
+    list item a fence at indent 4 or more needs a blank line above."""
+    n = len(lines)
+    inchunk = [False] * n
+    for a, b in _knitr_chunks(lines):
+        for q in range(a, b + 1):
+            inchunk[q] = True
+    pf = {}
+    fi = []
+    for j, line in enumerate(lines):
+        if not inchunk[j] and _FENCE.match(line):
+            pf[j] = _parse_fence(line)
+            fi.append(j)
+    at = {j: s for s, j in enumerate(fi)}
+
+    def closes(j, r, d, c0):
+        q = pf.get(j)
+        return bool(q) and q[2] == r[2] and q[3] >= r[3] and q[0] == d and not q[4].strip(" \t\r") \
+            and c0 <= q[1] <= c0 + 3
+
+    def fence_close(k, r, c0):
+        if r[0] == 0 and c0 == 0:
+            return next((j for j in fi[at[k] + 1:] if closes(j, r, 0, 0)), None)
+        for j in range(k + 1, n):
+            if inchunk[j]:
+                continue
+            line = lines[j]
+            if r[0] > 0 and _quote_depth(line) < r[0]:
+                return None
+            if c0 > 0 and not _blank(line) and _lead_width(line) < c0:
+                return None
+            if j in pf and closes(j, r, r[0], c0):
+                return j
+        return None
+
+    out = []
+    closers = set()
     k = 0
     while k < n:
         line = lines[k]
-        m = _FENCE.match(line)
-        if m:
-            close = _re.compile(r"^[ \t>]*" + _re.escape(m.group(1)[0]) + "{" + str(len(m.group(1))) +
-                                r",}[ \t]*$")
-            j = k + 1
-            while j < n and not close.match(lines[j]):
-                j += 1
-            k = j + 1
-            continue
-        if _COMMENT_OPEN.match(line):
+        nxt = k + 1
+        if inchunk[k]:
+            pass
+        elif k in pf:
+            r = pf[k]
+            if r and _INFO.match(r[4].strip(" \t\r\n")):
+                c0 = 0
+                if r[1] > 3:
+                    if r[0] > 0:
+                        c0 = None
+                    elif k > 0 and not _blank(lines[k - 1]) and not inchunk[k - 1] and (k - 1) not in closers:
+                        # no blank line (or a block's end) above: the line goes on the paragraph above
+                        c0 = None
+                    else:
+                        c0 = _list_item_col(lines, k, r[1])
+                c = fence_close(k, r, c0) if c0 is not None else None
+                if c is not None:
+                    closers.add(c)
+                    nxt = c + 1
+        elif _COMMENT_OPEN.match(line):
             # the comment ends at the first `-->` after its `<!--`; one that never ends hides nothing
-            end = k if "-->" in line.split("<!--", 1)[1] else next(
-                (j for j in range(k + 1, n) if "-->" in lines[j]), None)
-            k = k + 1 if end is None else end + 1
-            continue
-        if _OPEN.match(line) and (k == 0 or not lines[k - 1].strip()) and k + 1 < n and lines[k + 1].strip():
+            if "-->" in line.split("<!--", 1)[1]:
+                nxt = k + 1
+            else:
+                end = next((j for j in range(k + 1, n) if not inchunk[j] and "-->" in lines[j]), None)
+                if end is not None:
+                    nxt = end + 1
+        elif _OPEN.match(line) and (k == 0 or _blank(lines[k - 1])) and k + 1 < n and not _blank(lines[k + 1]):
             j = k + 1
             while j < n and not _CLOSE.match(lines[j]):
                 j += 1
             if j < n and _is_mapping(lines[k + 1:j]):
                 out.append(lines[k + 1:j])
-                k = j + 1
-                continue
-        k += 1
+                nxt = j + 1
+        k = nxt
     return out
 
 
