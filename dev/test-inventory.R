@@ -29,7 +29,7 @@ inventory_write <- function(x, stem) {
   saveRDS(x$inv, paste0(stem, ".rds"))
   utils::write.csv(x$inv, paste0(stem, ".csv"), row.names = FALSE)
   bad <- x$inv[x$inv$failed > 0 | x$inv$error, ]
-  writeLines(paste0(bad$key, "  --  ", x$reason), paste0(stem, ".failures.txt"))
+  writeLines(if (nrow(bad)) paste0(bad$key, "  --  ", x$reason) else character(), paste0(stem, ".failures.txt"))
   cat(sprintf("%d files, %d tests, %d expectations, %d skipped, %d failing, %.1f min\n",
               length(unique(x$inv$file)), nrow(x$inv), sum(x$inv$nb), sum(x$inv$skipped),
               nrow(bad), sum(x$inv$real) / 60))
@@ -50,8 +50,10 @@ inventory_compare <- function(before, after) {
   ia <- a[match(both, a$key), ]
   ib <- b[match(both, b$key), ]
   d <- ia$nb != ib$nb
-  show("nb changed", paste0(both[d], " (", ia$nb[d], " -> ", ib$nb[d], ")"))
+  show("nb changed", if (any(d)) paste0(both[d], " (", ia$nb[d], " -> ", ib$nb[d], ")") else character())
   show("New skips", both[ib$skipped & !ia$skipped])
+  fixed <- (ia$failed > 0 | ia$error) & !(ib$failed > 0 | ib$error)
+  show("Failed before, passing now", both[fixed])
   new_fail <- (ib$failed > 0 | ib$error) & !(ia$failed > 0 | ia$error)
   show("New failures", c(both[new_fail], setdiff(b$key[b$failed > 0 | b$error], a$key)))
   fa <- per_file(a)
