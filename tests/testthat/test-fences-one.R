@@ -1,5 +1,16 @@
-# A18: one fence finder. The finders that see fences must agree, by the rulings R1 to R5 (CommonMark, as
-# Pandoc reads it):
+# A18: one fence finder. The finders that see fences must agree, by the rulings R1 to R5. Plain fences follow
+# CommonMark (as Pandoc reads them); executable chunks (`{r}`, ...) are found as knitr finds them, because
+# knitr replaces each chunk with its output before Pandoc reads anything. The knitr facts below were checked
+# by knitting small documents (knitr::all_patterns$md: begin `^[\t >]*```+\s*\{engine...\}\s*$`, end
+# `^[\t >]*```+\s*$`):
+#   a backtick in a chunk header is fine; a chunk may be indented any amount (4 spaces at top level or in a
+#   list item runs); a chunk inside <!-- --> runs; a chunk is closed by the first line of 3 or more
+#   backticks and spaces, at any indent, with or without a `>`, of any length (a shorter or a longer one
+#   closes; "``` y" does not); an unquoted chunk is closed by a quoted "> ```" line, and a quoted chunk by
+#   an unquoted one; a quoted chunk with no closer runs to the end of the file (not to the end of its
+#   quote); an unclosed chunk runs to the end; tilde `~~~{r}` is not a chunk. Surprise: a `~~~` line also
+#   ended a `{r}` chunk when knitted.
+# The rulings for plain fences:
 #   R1  a backtick fence whose info string holds a backtick is not an opener; a tilde fence's may
 #   R2  a closer has the same character, is at least as long, and has only spaces after it; a fence is
 #       indented at most 3 spaces
@@ -61,38 +72,63 @@ fo_lint <- function(lines) {
 
 # ---- R1: a backtick in a backtick fence's info string -----------------------------------------------------
 
-test_that("R1: fence_blocks() and find_chunks() see no fence on a backtick opener with a backtick in its info", {
-  l <- c("```{r a`b}", "x <- 1", "```")
-  expect_true(is.na(fo_fb_close(l, 1L)))
-  expect_true(is.na(fo_ch_close(l, 1L)))
+test_that("R1 (plain): a backtick fence with a backtick in its info is not a fence, for fence_blocks()", {
+  expect_true(is.na(fo_fb_close(c("``` a`b", "text", "```"), 1L)))
 })
 
-test_that("R1: a tilde fence's info string may hold a backtick", {
+test_that("R1 (plain): a tilde fence's info string may hold a backtick", {
   expect_identical(fo_fb_close(c("~~~ a`b", "x", "~~~"), 1L), 3L)
 })
 
-test_that("R1: metadata_blocks() reads a block after a line that is not a fence opener", {
-  l <- c("``` a`b", "", "---", "k: v", "---")
-  expect_identical(fo_mb_pairs(l), "3-5")
+test_that("R1 (plain): metadata_blocks() reads a block after a line that is not a fence opener", {
+  expect_identical(fo_mb_pairs(c("``` a`b", "", "---", "k: v", "---")), "3-5")
 })
 
-test_that("R1: metadata_blocks() reads no block inside a tilde fence whose info holds a backtick", {
-  l <- c("~~~ a`b", "", "---", "k: v", "---", "~~~")
+test_that("R1 (plain): metadata_blocks() reads no block inside a tilde fence whose info holds a backtick", {
+  expect_identical(fo_mb_pairs(c("~~~ a`b", "", "---", "k: v", "---", "~~~")), character())
+})
+
+test_that("R1 (chunk): knitr runs a chunk whose header holds a backtick, so every finder sees it", {
+  l <- c("```{r a`b}", "x <- 1", "```")
+  expect_identical(fo_fb_close(l, 1L), 3L)
+  expect_identical(fo_ch_close(l, 1L), 3L)
+  expect_true(fo_ch_closed(l, 1L))
+})
+
+test_that("R1 (chunk, metadata): a block inside a chunk with a backtick in its header is not a block", {
+  l <- c("```{r a`b}", "---", "k: v", "---", "```")
   expect_identical(fo_mb_pairs(l), character())
 })
 
-test_that("R1 (lints): the opener `{r a`b}` is text, so it gets no chunk finding and its lines are prose", {
-  # the line is not a chunk, so there is no chunk-label finding on it
+test_that("R1 (lints): a chunk with a backtick in its header is a chunk and gets its chunk finding", {
   r <- fo_lint(c("```{r a`b}", "x <- 1", "```"))
-  expect_false(any(r$rule == "chunk-label" & r$line == 1L))
-  # and the control: the same chunk without the backtick is found
-  r2 <- fo_lint(c("```{r}", "x <- 1", "```"))
-  expect_true(any(r2$rule == "chunk-label" & r2$line == 1L))
+  expect_true(any(r$rule == "chunk-label" & r$line == 1L))
+  # the plain twin is text and gets none
+  r2 <- fo_lint(c("``` a`b", "x <- 1", "```"))
+  expect_false(any(r2$rule == "chunk-label"))
 })
 
 # ---- R2: closers and indentation -------------------------------------------------------------------------
 
-test_that("R2: a closer needs the same character, at least the opener's length, and only spaces after it", {
+test_that("R2 (plain): a closer needs the same character, at least the opener's length, and only spaces after", {
+  expect_identical(fo_fb_close(c("```text", "x", "`````"), 1L), 3L)          # longer closes
+  expect_identical(fo_fb_close(c("```text", "x", "```   ", "y"), 1L), 3L)     # trailing spaces
+  expect_identical(fo_fb_close(c("```text", "x", "``` y", "z", "```"), 1L), 5L) # text after: not a closer
+  expect_identical(fo_fb_close(c("```text", "x", "~~~", "```"), 1L), 4L)      # other character
+  expect_identical(fo_fb_close(c("````text", "x", "```", "y", "````"), 1L), 5L) # shorter: not a closer
+})
+
+test_that("R2 (plain): a fence may be indented up to 3 spaces", {
+  expect_identical(fo_fb_close(c("   ```text", "x", "   ```"), 1L), 3L)
+  expect_identical(fo_mb_pairs(c("   ```", "", "---", "k: v", "---", "   ```")), character())
+})
+
+test_that("R2 (plain): 4 spaces is indented code, not a fence", {
+  expect_true(is.na(fo_fb_close(c("    ```", "x", "    ```"), 1L)))
+  expect_identical(fo_mb_pairs(c("    ```", "", "---", "k: v", "---")), "3-5")
+})
+
+test_that("R2 (chunk): a chunk closer is 3 or more backticks and spaces, of any length, as knitr reads it", {
   # a longer closer closes
   l1 <- c("```{r}", "x", "`````")
   expect_identical(fo_fb_close(l1, 1L), 3L)
@@ -101,51 +137,54 @@ test_that("R2: a closer needs the same character, at least the opener's length, 
   l2 <- c("```{r}", "x", "```   ", "y")
   expect_identical(fo_fb_close(l2, 1L), 3L)
   expect_identical(fo_ch_close(l2, 1L), 3L)
-  # text after the closer means it is not a closer: the fence runs on to the real closer
+  # text after the closer: not a closer, the chunk runs on to the real one
   l3 <- c("```{r}", "x", "``` y", "z", "```")
   expect_identical(fo_fb_close(l3, 1L), 5L)
   expect_identical(fo_ch_close(l3, 1L), 5L)
-  # a tilde line does not close a backtick fence
-  l4 <- c("```{r}", "x", "~~~", "```")
-  expect_identical(fo_fb_close(l4, 1L), 4L)
-  expect_identical(fo_ch_close(l4, 1L), 4L)
-  # a shorter closer does not close
+  # a SHORTER closer closes a longer opener in knitr (it checks 3 or more, not the opener's length)
   l5 <- c("````{r}", "x", "```", "y", "````")
-  expect_identical(fo_fb_close(l5, 1L), 5L)
-  expect_identical(fo_ch_close(l5, 1L), 5L)
+  expect_identical(fo_fb_close(l5, 1L), 3L)
+  expect_identical(fo_ch_close(l5, 1L), 3L)
+  # an indented closer closes, whatever the indent
+  l6 <- c("```{r}", "x", "    ```", "y")
+  expect_identical(fo_fb_close(l6, 1L), 3L)
+  expect_identical(fo_ch_close(l6, 1L), 3L)
 })
 
-test_that("R2: a fence may be indented up to 3 spaces", {
+test_that("R2 (chunk): knitr ends a {r} chunk at a `~~~` line (a surprise; checked by knitting)", {
+  l <- c("```{r}", "x", "~~~", "y", "```")
+  expect_identical(fo_fb_close(l, 1L), 3L)
+  expect_identical(fo_ch_close(l, 1L), 3L)
+})
+
+test_that("R2 (chunk): a chunk may be indented 3 spaces, 4 spaces, or sit in a list item, as knitr runs it", {
   l <- c("   ```{r}", "x", "   ```")
   expect_identical(fo_fb_close(l, 1L), 3L)
   expect_identical(fo_ch_close(l, 1L), 3L)
-  expect_identical(fo_mb_pairs(c("   ```", "", "---", "k: v", "---", "   ```")), character())
-})
-
-test_that("R2: 4 spaces is indented code, not a fence", {
-  l <- c("    ```{r}", "x", "    ```")
-  expect_true(is.na(fo_fb_close(l, 1L)))
-  expect_true(is.na(fo_ch_close(l, 1L)))
-  # so a block after it is read
-  expect_identical(fo_mb_pairs(c("    ```", "", "---", "k: v", "---")), "3-5")
+  l4 <- c("para", "", "    ```{r}", "    x", "    ```")
+  expect_identical(fo_fb_close(l4, 3L), 5L)
+  expect_identical(fo_ch_close(l4, 3L), 5L)
+  ll <- c("- item", "", "    ```{r}", "    x", "    ```")
+  expect_identical(fo_fb_close(ll, 3L), 5L)
+  expect_identical(fo_ch_close(ll, 3L), 5L)
 })
 
 # ---- R3: an unclosed fence runs to line n ---------------------------------------------------------------
 
-test_that("R3: an unclosed fence ends at the last line n in every finder, and is marked unclosed", {
+test_that("R3 (chunk): an unclosed chunk ends at the last line n in every finder, and is marked unclosed", {
   l <- c("```{r}", "x <- 1", "y <- 2")
   expect_identical(fo_fb_close(l, 1L), 3L)
   expect_identical(fo_ch_close(l, 1L), 3L)
   expect_false(fo_ch_closed(l, 1L))
 })
 
-test_that("R3: the same holds for a tilde fence and for trailing blank lines", {
+test_that("R3 (plain and chunk): trailing blank lines are part of the unclosed fence", {
   expect_identical(fo_fb_close(c("~~~", "x <- 1", "", ""), 1L), 4L)
+  expect_identical(fo_fb_close(c("```", "text"), 1L), 2L)
   l <- c("```{r}", "x <- 1", "", "")
   expect_identical(fo_fb_close(l, 1L), 4L)
   expect_identical(fo_ch_close(l, 1L), 4L)
   expect_false(fo_ch_closed(l, 1L))
-  expect_identical(fo_fb_close(c("```", "text"), 1L), 2L)
 })
 
 test_that("R3: a closed fence is marked closed, and its close is the closer", {
@@ -155,9 +194,9 @@ test_that("R3: a closed fence is marked closed, and its close is the closer", {
   expect_true(fo_ch_closed(l, 1L))
 })
 
-test_that("R3: an unclosed fence swallows a later metadata block", {
-  l <- c("```{r}", "x", "", "---", "k: v", "---")
-  expect_identical(fo_mb_pairs(l), character())
+test_that("R3: an unclosed fence, plain or chunk, swallows a later metadata block", {
+  expect_identical(fo_mb_pairs(c("```{r}", "x", "", "---", "k: v", "---")), character())
+  expect_identical(fo_mb_pairs(c("```text", "x", "", "---", "k: v", "---")), character())
 })
 
 test_that("R3 (lints): an unclosed {r} fence gives the findings of the same fence closed on a last line", {
@@ -166,42 +205,51 @@ test_that("R3 (lints): an unclosed {r} fence gives the findings of the same fenc
   a <- fo_lint(open)
   b <- fo_lint(closed)
   expect_identical(a, b)
-  # and the construct on line 3 is code, not prose, so no construct finding comes from it
   expect_false(any(a$rule == "construct" & a$line == 3L))
 })
 
 # ---- R4: fences and block quotes -------------------------------------------------------------------------
 
-test_that("R4: a fence opened in a block quote ends where its quote ends, if nothing closes it first", {
-  l <- c("> ```{r}", "> x", "", "para")
-  fb <- fo_fb_close(l, 1L)
-  ch <- fo_ch_close(l, 1L)
-  # the quote's last line is 2; the blank line 3 ends the quote. Either is the quote's end; a run to
-  # line 4 is not
-  expect_true(fb %in% 2:3)
-  expect_true(ch %in% 2:3)
-  expect_identical(fb, ch)
-  expect_false(fo_ch_closed(l, 1L))
+test_that("R4 (plain): a quoted, unclosed fence closes at its quote's last line", {
+  l <- c("> ```", "> x", "", "para")
+  expect_identical(fo_fb_close(l, 1L), 2L)
 })
 
-test_that("R4: a quoted fence closed by a quoted closer is closed", {
-  l <- c("> ```{r}", "> x", "> ```", "after")
-  expect_identical(fo_fb_close(l, 1L), 3L)
-  expect_identical(fo_ch_close(l, 1L), 3L)
+test_that("R4 (plain): a quoted fence closed by a quoted closer is closed", {
+  expect_identical(fo_fb_close(c("> ```", "> x", "> ```", "after"), 1L), 3L)
+})
+
+test_that("R4 (plain): a metadata block after a quoted unclosed fence is read", {
+  expect_identical(fo_mb_pairs(c("> ```", "> a", "", "---", "k: v", "---", "t")), "4-6")
+})
+
+test_that("R4 (plain): a quoted line does not close a fence that started outside a quote", {
+  expect_identical(fo_fb_close(c("```", "> ```", "x"), 1L), 3L)
+  expect_identical(fo_mb_pairs(c("```", "> ```", "", "---", "k: v", "---")), character())
+})
+
+test_that("R4 (chunk): knitr's rule is the engine's, not the quote's: a quoted line closes an unquoted chunk", {
+  l <- c("```{r}", "> ```", "x")
+  expect_identical(fo_fb_close(l, 1L), 2L)
+  expect_identical(fo_ch_close(l, 1L), 2L)
   expect_true(fo_ch_closed(l, 1L))
 })
 
-test_that("R4: a metadata block after a quoted unclosed fence is read", {
-  l <- c("> ```", "> a", "", "---", "k: v", "---", "t")
-  expect_identical(fo_mb_pairs(l), "4-6")
+test_that("R4 (chunk): an unquoted closer closes a quoted chunk, and a quoted closer too", {
+  l1 <- c("> ```{r}", "> x", "```", "text")
+  expect_identical(fo_fb_close(l1, 1L), 3L)
+  expect_identical(fo_ch_close(l1, 1L), 3L)
+  l2 <- c("> ```{r}", "> x", "> ```", "after")
+  expect_identical(fo_fb_close(l2, 1L), 3L)
+  expect_identical(fo_ch_close(l2, 1L), 3L)
+  expect_true(fo_ch_closed(l2, 1L))
 })
 
-test_that("R4: a quoted line does not close a fence that started outside a quote", {
-  l <- c("```{r}", "> ```", "x")
-  expect_identical(fo_fb_close(l, 1L), 3L)
-  expect_identical(fo_ch_close(l, 1L), 3L)
+test_that("R4 (chunk): a quoted chunk with no closer runs to the end of the file, not the end of its quote", {
+  l <- c("> ```{r}", "> x", "", "para")
+  expect_identical(fo_fb_close(l, 1L), 4L)
+  expect_identical(fo_ch_close(l, 1L), 4L)
   expect_false(fo_ch_closed(l, 1L))
-  expect_identical(fo_mb_pairs(c("```", "> ```", "", "---", "k: v", "---")), character())
 })
 
 test_that("R4 (scan_text, find_fences): prose after a quoted unclosed fence is scanned as it would be unquoted", {
@@ -226,20 +274,23 @@ test_that("R4 (scan_text, find_fences): a quoted line does not close an outside 
   expect_identical(r$line, 5L)
 })
 
-# ---- R5: fences hide front matter; comments hide fences ------------------------------------------------
+# ---- R5: fences hide front matter; comments hide plain fences ---------------------------------------------
 
-test_that("R5: a YAML block inside a fence is not front matter, for every finder", {
-  l <- c("```", "---", "weft:", "  chunk_claims: collect", "---", "```")
-  expect_identical(fo_mb_pairs(l), character())
-  expect_identical(weft:::front_block(l), character())
-  expect_null(fo_claims(l))
+test_that("R5: a YAML block inside a fence, plain or chunk, is not front matter, for every finder", {
+  for (open in c("```", "```text", "```{r}", "~~~")) {
+    close <- if (open == "~~~") "~~~" else "```"
+    l <- c(open, "---", "weft:", "  chunk_claims: collect", "---", close)
+    expect_identical(fo_mb_pairs(l), character(), label = open)
+    expect_identical(weft:::front_block(l), character(), label = open)
+    expect_null(fo_claims(l), label = open)
+  }
   # the control: the same block with no fence is front matter
-  expect_identical(fo_claims(l[2:5]), "collect")
+  expect_identical(fo_claims(c("---", "weft:", "  chunk_claims: collect", "---")), "collect")
 })
 
-test_that("R5: a block inside an unclosed fence, or a tilde fence, is not front matter", {
+test_that("R5: a block inside an unclosed fence is not front matter", {
   expect_null(fo_claims(c("```{r}", "---", "weft:", "  chunk_claims: collect", "---")))
-  expect_null(fo_claims(c("~~~", "---", "weft:", "  chunk_claims: collect", "---", "~~~")))
+  expect_null(fo_claims(c("```", "---", "weft:", "  chunk_claims: collect", "---")))
   expect_identical(fo_mb_pairs(c("~~~", "---", "k: v", "---")), character())
 })
 
@@ -249,16 +300,26 @@ test_that("R5: a block inside a later fence is not a later block", {
   expect_null(fo_claims(l))
 })
 
-test_that("R5: a fence inside an HTML comment is not a fence, for every finder", {
-  l <- c("<!--", "```{r}", "-->", "", "---", "weft:", "  chunk_claims: collect", "---")
+test_that("R5 (plain): a plain fence inside an HTML comment is not a fence", {
+  l <- c("<!--", "```", "-->", "", "---", "weft:", "  chunk_claims: collect", "---")
   expect_true(is.na(fo_fb_close(l, 2L)))
-  expect_true(is.na(fo_ch_close(l, 2L)))
   expect_identical(fo_mb_pairs(l), "5-8")
-  # so the block after the comment is read
   expect_identical(fo_claims(l), "collect")
 })
 
-test_that("R5 (lints): a {r} chunk inside an HTML comment gets no chunk finding", {
+test_that("R5 (chunk): knitr runs a chunk inside an HTML comment, so every finder sees it", {
+  l <- c("<!--", "```{r}", "x <- 1", "```", "-->")
+  expect_identical(fo_fb_close(l, 2L), 4L)
+  expect_identical(fo_ch_close(l, 2L), 4L)
+  expect_true(fo_ch_closed(l, 2L))
+})
+
+test_that("R5 (chunk): knitr finds a chunk opened inside a plain fence", {
+  l <- c("```text", "```{r}", "x", "```", "y", "```")
+  expect_identical(fo_ch_close(l, 2L), 4L)
+})
+
+test_that("R5 (lints): a {r} chunk inside an HTML comment gets its chunk finding; a plain fence there gets none", {
   r <- fo_lint(c("<!--", "```{r}", "x <- 1", "```", "-->"))
-  expect_false(any(r$rule == "chunk-label"))
+  expect_true(any(r$rule == "chunk-label" & r$line == 2L))
 })
