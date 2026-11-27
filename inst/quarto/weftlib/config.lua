@@ -305,54 +305,317 @@ local function is_mapping(inner)
   return false
 end
 
+-- ---- the one fence finder (A18), the twin of R/fences.R -----------------------------------------------
+-- The metadata blocks are found as R's doc_fences() finds them (the A18 ruling and its amendments of 27
+-- Nov): first the executable chunks over the whole text, as knitr finds them (knitr_chunks()); then, in the
+-- text outside them, the plain fences as Pandoc's markdown reader reads them, the HTML comments that hide
+-- them, and the metadata blocks (plain_pass()).
+
+-- A knitr chunk header (knitr 1.51 `chunk.begin`: ^[\t >]*```+\s*\{([a-zA-Z0-9_]+( *[ ,].*)?)\}\s*$).
+local function knitr_begin(l)
+  local inner = l:match("^[\t >]*```+%s*{(.*)}%s*$")
+  if not inner then return false end
+  return inner:match("^[A-Za-z0-9_]+$") ~= nil or inner:match("^[A-Za-z0-9_]+ *[ ,]") ~= nil
+end
+
+-- the opener's prefix an exact closer repeats, and whether `l` is that closer
+local function chunk_prefix(l) return l:match("^([\t >]*`+)") end
+local function exact_end(l, p) return l:sub(1, #p) == p and l:sub(#p + 1):match("^%s*$") ~= nil end
+
+-- The chunks of `lines` as knitr divides a document (R's knitr_chunks()): an array of {open, close}.
+local function knitr_chunks(lines)
+  local n = #lines
+  local cand, isb = {}, {}
+  for i = 1, n do
+    local l = lines[i]
+    if l:find("```", 1, true) then
+      local b = knitr_begin(l)
+      if b or l:match("^[\t >]*```+%s*$") then
+        cand[#cand + 1] = i
+        isb[#cand] = b
+      end
+    end
+  end
+  local out = {}
+  -- is the end line cand[t] (not exact) code, because knitr reads on to a later exact closer?
+  local function reads_on(t, p)
+    local i, e = cand[t], nil
+    for s = t + 1, #cand do
+      if not isb[s] and exact_end(lines[cand[s]], p) then e = cand[s]; break end
+    end
+    if not e then return false end
+    for q = i + 1, e - 1 do
+      local b = lines[q]
+      if b:sub(1, #p) == p and b:sub(#p + 1):match("^`*{") then return false end
+    end
+    return true
+  end
+  local cur, p
+  for t = 1, #cand do
+    local i = cand[t]
+    local l = lines[i]
+    if not cur then
+      if isb[t] then
+        cur = i
+        p = (i ~= 1) and chunk_prefix(l) or nil
+      end
+    elseif isb[t] then
+      if p == nil or l:sub(1, #p + 1) == p .. "{" then
+        out[#out + 1] = { cur, i - 1 }
+        cur = i
+      end
+    elseif not (p ~= nil and not exact_end(l, p) and reads_on(t, p)) then
+      out[#out + 1] = { cur, i }
+      cur = nil
+    end
+  end
+  if cur then out[#out + 1] = { cur, n } end
+  return out
+end
+
+-- `l` with the tabs of its leading white space and `>` markers expanded to the next stop of 4
+local function expand_tabs(l)
+  if not l:match("^[ >]*\t") then return l end
+  local lead = l:match("^[ \t>]*")
+  local out, col = {}, 0
+  for c in lead:gmatch(".") do
+    if c == "\t" then
+      local w = 4 - col % 4
+      out[#out + 1] = string.rep(" ", w)
+      col = col + w
+    else
+      out[#out + 1] = c
+      col = col + 1
+    end
+  end
+  return table.concat(out) .. l:sub(#lead + 1)
+end
+
+-- the block-quote markers at `i` of `l` (` {0,3}` before, then `> ?`, then up to 3 spaces before another
+-- `>`): their number and the position after them
+local function quote_markers(l, i)
+  local depth = 0
+  while l:sub(i, i) == ">" do
+    depth = depth + 1
+    i = i + 1
+    if l:sub(i, i) == " " then i = i + 1 end
+    local j, c = i, 0
+    while c < 3 and l:sub(j, j) == " " do j = j + 1; c = c + 1 end
+    if l:sub(j, j) == ">" then i = j end
+  end
+  return depth, i
+end
+
+local function lead_spaces(l, max)
+  local s = #l:match("^ *")
+  return (max and s > max) and max or s
+end
+
+-- A fence line read as R's parse_fence_lines() reads it: depth, indent, fence character, run length and info;
+-- nil when it is no fence line.
+local function parse_fence(l)
+  l = expand_tabs(l)
+  local n1 = lead_spaces(l, 3)
+  local depth, i = quote_markers(l, n1 + 1)
+  local s3 = #l:match("^ *", i)
+  i = i + s3
+  local run = l:match("^```+", i) or l:match("^~~~+", i)
+  if not run then return nil end
+  return { depth = depth, indent = (depth > 0) and s3 or (n1 + s3), fch = run:sub(1, 1), flen = #run,
+           info = l:sub(i + #run) }
+end
+
+local function quote_depth(l)
+  local d = quote_markers(l, lead_spaces(l, 3) + 1)
+  return d
+end
+local function lead_width(l) return #expand_tabs(l):match("^ *") end
+
+-- a quoted string at `i` of `s` (quote `q`, backslash escapes): the position after it, or nil
+local function quoted_end(s, i, q)
+  if s:sub(i, i) ~= q then return nil end
+  i = i + 1
+  while i <= #s do
+    local c = s:sub(i, i)
+    if c == "\\" then i = i + 2
+    elseif c == q then return i + 1
+    else i = i + 1 end
+  end
+  return nil
+end
+
+-- a Pandoc attribute block at `i` of `s` (`{#id .class key=value -}`): the position after it, or nil
+local function attr_end(s, i)
+  if s:sub(i, i) ~= "{" then return nil end
+  i = i + 1 + #s:match("^[ \t]*", i + 1)
+  while true do
+    if s:sub(i, i) == "}" then return i + 1 end
+    local e
+    local m = s:match("^#[A-Za-z0-9_:.%-]+", i) or s:match("^%.[A-Za-z][A-Za-z0-9_:.%-]*", i)
+      or (s:sub(i, i) == "-" and "-" or nil)
+    if m then
+      e = i + #m
+    else
+      local k = s:match("^[A-Za-z][A-Za-z0-9_:.%-]*=", i)
+      if not k then return nil end
+      local v = i + #k
+      e = quoted_end(s, v, "\"") or quoted_end(s, v, "'")
+      if not e then
+        local u = s:match("^[^ \t}]+", v)
+        if not u then return nil end
+        e = v + #u
+      end
+    end
+    i = e + #s:match("^[ \t]*", e)
+  end
+end
+
+-- Does an info string (trimmed) open a fence for Pandoc's markdown reader (R's pandoc_fence_info()): none,
+-- one word, an attribute block or both, or a raw attribute; with `any_brace`, any braced text too.
+local function fence_info_ok(x, any_brace)
+  if any_brace and x:match("^{.*}$") then return true end
+  if x:match("^{[ \t]*=[A-Za-z0-9_%-]+[ \t]*}$") then return true end
+  local i = 1 + #x:match("^[^ \t{`]*")
+  i = i + #x:match("^[ \t]*", i)
+  if i > #x then return true end
+  local e = attr_end(x, i)
+  return e ~= nil and e > #x
+end
+
+-- the content column of a list item line, and the item's own indent; nil when the line is no item
+local function item_col(l)
+  local sp, mk = l:match("^( *)([%-+*])")
+  if not sp then
+    sp, mk = l:match("^( *)(%d+[.)])")
+    if mk and #mk > 10 then mk = nil end
+  end
+  if not mk then return nil end
+  local rest = l:sub(#sp + #mk + 1)
+  local gap = rest:match("^( +)%S")
+  if gap and #gap <= 4 then return #sp + #mk + #gap, #sp end
+  if rest:match("^[ \t]*$") then return #sp + #mk + 1, #sp end
+  return nil
+end
+
+-- the content column of the list item a line `k` indented `ind` (4 or more) sits in, or nil (R's
+-- list_item_col())
+local function list_item_col(lines, k, ind)
+  local j = k - 1
+  while j >= 1 do
+    if not blank(lines[j]) then
+      local l = expand_tabs(lines[j])
+      local c0, own = item_col(l)
+      if c0 then
+        if ind >= c0 and ind <= c0 + 3 then return c0 end
+        if own == 0 then return nil end
+      elseif #l:match("^ *") == 0 and (j == 1 or blank(lines[j - 1])) then
+        return nil
+      end
+    end
+    j = j - 1
+  end
+  return nil
+end
+
+-- The plain fences and the metadata blocks of `lines` outside the chunks (`inchunk`, a set of line numbers),
+-- as R's plain_blocks() reads them: `fences`, an array of {open, close}; `blocks`, the inner lines of each
+-- metadata block, its field `open` the line of its opening `---`.
+local function plain_pass(lines, inchunk, any_brace)
+  local n = #lines
+  local pf, fi, at = {}, {}, {}
+  for j = 1, n do
+    local l = lines[j]
+    if not inchunk[j] and (l:match("^[ \t>]*```") or l:match("^[ \t>]*~~~")) then
+      fi[#fi + 1] = j
+      at[j] = #fi
+      pf[j] = parse_fence(l) or false
+    end
+  end
+  local function closes(j, r, d, c0)
+    local q = pf[j]
+    return q and q.fch == r.fch and q.flen >= r.flen and q.depth == d and q.info:match("^[ \t\r]*$") ~= nil
+      and q.indent >= c0 and q.indent <= c0 + 3
+  end
+  -- the closer of the fence opened on `k`, or nil: a fence that does not close in its container is no fence
+  local function fence_close(k, r, c0)
+    if r.depth == 0 and c0 == 0 then
+      for s = at[k] + 1, #fi do
+        if closes(fi[s], r, 0, 0) then return fi[s] end
+      end
+      return nil
+    end
+    for j = k + 1, n do
+      if not inchunk[j] then
+        local l = lines[j]
+        if r.depth > 0 and quote_depth(l) < r.depth then return nil end
+        if c0 > 0 and not blank(l) and lead_width(l) < c0 then return nil end
+        if pf[j] and closes(j, r, r.depth, c0) then return j end
+      end
+    end
+    return nil
+  end
+  local fences, blocks, closers = {}, {}, {}
+  local k = 1
+  while k <= n do
+    local l = lines[k]
+    local nextk = k + 1
+    if inchunk[k] then
+      -- a chunk's line
+    elseif pf[k] ~= nil then
+      local r = pf[k]
+      if r and fence_info_ok(trim(r.info), any_brace) then
+        local c0 = 0
+        if r.indent > 3 then
+          if r.depth > 0 then c0 = nil
+          -- no blank line (or a block's end) above: the line goes on the paragraph above
+          elseif k > 1 and not blank(lines[k - 1]) and not inchunk[k - 1] and not closers[k - 1] then c0 = nil
+          else c0 = list_item_col(lines, k, r.indent) end
+        end
+        local c = c0 and fence_close(k, r, c0)
+        if c then
+          fences[#fences + 1] = { k, c }
+          closers[c] = true
+          nextk = c + 1
+        end
+      end
+    elseif #(l:match("^( *)<!%-%-") or "    ") <= 3 then
+      -- the comment ends at the first `-->` after its `<!--`; one that never ends hides nothing
+      local at4 = l:find("<!--", 1, true)
+      local stop
+      if l:find("-->", at4 + 4, true) then stop = k
+      else
+        for j = k + 1, n do
+          if not inchunk[j] and lines[j]:find("-->", 1, true) then stop = j; break end
+        end
+      end
+      if stop then nextk = stop + 1 end
+    elseif l:match("^%-%-%-[ \t\r]*$") and (k == 1 or blank(lines[k - 1])) and k < n and not blank(lines[k + 1]) then
+      local j = k + 1
+      while j <= n and not (lines[j]:match("^%-%-%-[ \t\r]*$") or lines[j]:match("^%.%.%.[ \t\r]*$")) do
+        j = j + 1
+      end
+      if j <= n then
+        local inner = { open = k }
+        for q = k + 1, j - 1 do inner[#inner + 1] = lines[q] end
+        if is_mapping(inner) then
+          blocks[#blocks + 1] = inner
+          nextk = j + 1
+        end
+      end
+    end
+    k = nextk
+  end
+  return { fences = fences, blocks = blocks }
+end
+
 -- The inner lines of each metadata block of a document, in order (the rule in the note at the top); each
 -- array's field `open` is the line number of its opening `---`.
 local function metadata_blocks(lines)
-  local out, n, k = {}, #lines, 1
-  while k <= n do
-    local l = lines[k]
-    local mark = l:match("^[ \t>]*(```+)") or l:match("^[ \t>]*(~~~+)")
-    local lead = l:match("^( *)<!%-%-")
-    if mark then
-      local c, j = mark:sub(1, 1), k + 1
-      while j <= n do
-        local m = lines[j]:match("^[ \t>]*(" .. c .. "+)[ \t\r]*$")
-        if m and #m >= #mark then break end
-        j = j + 1
-      end
-      k = j + 1
-    elseif lead and #lead <= 3 then
-      -- the comment ends at the first `-->` after its `<!--`; one that never ends hides nothing
-      local at = l:find("<!--", 1, true)
-      local stop
-      if l:find("-->", at + 4, true) then stop = k
-      else
-        for j = k + 1, n do
-          if lines[j]:find("-->", 1, true) then stop = j; break end
-        end
-      end
-      k = (stop or k) + 1
-    else
-      local opened = false
-      if l:match("^%-%-%-[ \t\r]*$") and (k == 1 or blank(lines[k - 1])) and k < n and not blank(lines[k + 1]) then
-        local j = k + 1
-        while j <= n and not (lines[j]:match("^%-%-%-[ \t\r]*$") or lines[j]:match("^%.%.%.[ \t\r]*$")) do
-          j = j + 1
-        end
-        if j <= n then
-          local inner = { open = k }
-          for q = k + 1, j - 1 do inner[#inner + 1] = lines[q] end
-          if is_mapping(inner) then
-            out[#out + 1] = inner
-            k = j + 1
-            opened = true
-          end
-        end
-      end
-      if not opened then k = k + 1 end
-    end
+  local inchunk = {}
+  for _, c in ipairs(knitr_chunks(lines)) do
+    for q = c[1], c[2] do inchunk[q] = true end
   end
-  return out
+  return plain_pass(lines, inchunk, false).blocks
 end
 
 local function front_matter_weft(lines)
@@ -580,12 +843,211 @@ local function jupyter_lines(path, text)
   return nil
 end
 
+-- ---- the engine Quarto runs a document on (the twin of R's quarto_engine_choice()) --------------------------
+-- Quarto 1.11.9's markdownExecutionEngine(): a project's `engines:` list first, then julia, knitr, jupyter,
+-- markdown. The front block's keys come first: the first engine of that order that a truthy top-level key of
+-- its name claims, or that `engine:` or `execute: engine:` names. Only then the chunk languages.
+local QUARTO_ENGINES = { "julia", "knitr", "jupyter", "markdown" }
+local HANDLER_LANGS = { mermaid = true, dot = true, ojs = true }
+
+-- the language of a chunk header as Quarto reads it for the engine (languagesWithClasses()), lower-cased
+local function quarto_lang(l)
+  local inner = l:match("^[\t >]*```+%s*{([^}]*)}%s*$")
+  local lang = inner and inner:match("^([A-Za-z][A-Za-z0-9_.]*)")
+  return lang and lang:lower()
+end
+
+-- the backticks of a cell start (breakQuartoMd()), or nil
+local function quarto_cell_ticks(l)
+  local ticks, inner = l:match("^%s*(```+)%s*{(.*)}%s*$")
+  if not ticks then return nil end
+  if inner:match("^[=A-Za-z][=A-Za-z0-9._]*$") or inner:match("^[=A-Za-z][=A-Za-z0-9._]* *[ ,]") then
+    return #ticks
+  end
+  return nil
+end
+
+-- the header line of the cell breakQuartoMd() leaves open at the end, or nil (R's quarto_unclosed_cell())
+local function quarto_unclosed_cell(lines)
+  local n = #lines
+  local in_yaml, in_cell, in_code = false, nil, 0
+  for i = 1, n do
+    local l = lines[i]
+    local hr = l:match("^%-%-%-%s*$") ~= nil
+    if hr or l:match("^%s*```") then
+      local cell = quarto_cell_ticks(l)
+      local endt = l:match("^%s*(```+)%s*$")
+      if hr and not in_cell and in_code == 0
+         and (in_yaml or not (i > 1 and blank(lines[i - 1]) and (i < n and blank(lines[i + 1])))) then
+        in_yaml = not in_yaml
+      elseif not in_yaml and not in_cell and in_code == 0 and cell then
+        in_cell, in_code = i, cell
+      elseif in_code > 0 and endt and #endt == in_code then
+        in_cell, in_code = nil, 0
+      elseif in_code == 0 and l:sub(1, 3) == "```" then
+        local word = l:match("^[^ ]*")
+        local _, c = word:gsub("`", "")
+        in_code = c
+      end
+    end
+  end
+  return in_cell
+end
+
+-- the lines inside a plain fence read over the whole text, chunk headers taken as fences (R's fenced_lines())
+local function fenced_lines(lines)
+  local out = {}
+  for _, f in ipairs(plain_pass(lines, {}, true).fences) do
+    for q = f[1] + 1, f[2] do out[q] = true end
+  end
+  return out
+end
+
+-- the chunk headers Quarto reads the languages from: an array of {line, lang} (R's quarto_chunk_headers())
+local function quarto_chunk_headers(lines)
+  local out = {}
+  local fenced, open
+  for i, l in ipairs(lines) do
+    local lang = l:find("```", 1, true) and quarto_lang(l)
+    if lang then
+      if not fenced then
+        fenced = fenced_lines(lines)
+        open = quarto_unclosed_cell(lines)
+      end
+      if not fenced[i] and i ~= open then out[#out + 1] = { line = i, lang = lang } end
+    end
+  end
+  return out
+end
+
+-- a one-line YAML scalar's text: no trailing comment, no quotes
+local function scalar_text(v)
+  v = trim((v:gsub("^#.*$", ""):gsub("[ \t]#.*$", "")))
+  return (v:gsub("^[\"']", ""):gsub("[\"']$", ""))
+end
+
+-- the engine the front block's lines `fm` claim, in the order `order`, or nil (R's front_engine_claim())
+local function front_engine_claim(fm, order)
+  local top = {}
+  for i, l in ipairs(fm) do
+    local k = l:match("^([A-Za-z_][A-Za-z0-9_.%-]*)[ \t]*:")
+    if k then top[#top + 1] = { i = i, key = k, rest = l:sub(#l:match("^[^:]*:") + 1) } end
+  end
+  local function under(t)
+    local to = top[t + 1] and top[t + 1].i - 1 or #fm
+    local b = {}
+    for q = top[t].i + 1, to do
+      if not blank(fm[q]) and not fm[q]:match("^[ \t]*#") then b[#b + 1] = fm[q] end
+    end
+    return b
+  end
+  local falsy = { ["false"] = true, False = true, FALSE = true, null = true, Null = true, NULL = true,
+                  ["~"] = true, ["0"] = true, ['""'] = true, ["''"] = true }
+  local function truthy(t)
+    local raw = trim((top[t].rest:gsub("^#.*$", ""):gsub("[ \t]#.*$", "")))
+    if raw == "" then return #under(t) > 0 end
+    return not falsy[raw]
+  end
+  local exec
+  for t, e in ipairs(top) do
+    if e.key == "engine" then
+      local v = scalar_text(e.rest)
+      if v == "" then
+        local b = under(t)
+        v = b[1] and (b[1]:match("^[ \t]*([A-Za-z]+)") or "") or ""
+      end
+      exec = v:lower()
+    elseif e.key == "execute" then
+      local b = under(t)
+      if b[1] then
+        local ind = #b[1]:match("^[ \t]*")
+        for _, l in ipairs(b) do
+          if #l:match("^[ \t]*") == ind and l:match("^[ \t]*engine[ \t]*:") then
+            exec = scalar_text(l:gsub("^[^:]*:", "", 1)):lower()
+            break
+          end
+        end
+      end
+    end
+  end
+  for _, name in ipairs(order) do
+    local last
+    for t, e in ipairs(top) do
+      if e.key == name then last = t end
+    end
+    if last and truthy(last) then return name end
+    if exec == name then return name end
+  end
+  return nil
+end
+
+-- the engine names of a project's `engines:` list (its `_quarto.yml`), in order
+local function project_engines(path)
+  local d = dir_of(path)
+  if d == path then d = "." end
+  local q = M.find_upward(d, "_quarto.yml") or M.find_upward(d, "_quarto.yaml")
+  local text = q and read_file(q)
+  local out = {}
+  if not text then return out end
+  local ls = lines_of(text)
+  for i, l in ipairs(ls) do
+    local rest = l:match("^engines[ \t]*:(.*)$")
+    if rest then
+      rest = trim((rest:gsub("[ \t]#.*$", "")))
+      if rest:sub(1, 1) == "[" then
+        for item in rest:gsub("^%[", ""):gsub("%].*$", ""):gmatch("[^,]+") do
+          local v = scalar_text(item)
+          if v:match("^[A-Za-z_][A-Za-z0-9_%-]*$") then out[#out + 1] = v end
+        end
+      elseif rest == "" then
+        for j = i + 1, #ls do
+          local item = ls[j]:match("^[ \t]*%-[ \t]+(.*)$")
+          if item then
+            local v = scalar_text(item)
+            if v:match("^[A-Za-z_][A-Za-z0-9_%-]*$") then out[#out + 1] = v end
+          elseif not (blank(ls[j]) or ls[j]:match("^[ \t]")) then
+            break
+          end
+        end
+      end
+      break
+    end
+  end
+  return out
+end
+
+-- the engine and how it was chosen ("key" or "chunks"), from the front block `fm` (or nil) and the lines
+local function engine_choice(fm, lines, project)
+  local order, seen = {}, {}
+  for _, list in ipairs({ project, QUARTO_ENGINES }) do
+    for _, e in ipairs(list) do
+      if not seen[e] then order[#order + 1] = e; seen[e] = true end
+    end
+  end
+  local e = fm and front_engine_claim(fm, order)
+  if e then return e, "key", {} end
+  local hdrs = quarto_chunk_headers(lines)
+  local has, other = {}, false
+  for _, h in ipairs(hdrs) do
+    has[h.lang] = true
+    if h.lang ~= "r" and h.lang ~= "julia" and not HANDLER_LANGS[h.lang] then other = true end
+  end
+  if has.r then return "knitr", "chunks", hdrs end
+  if has.julia then
+    for _, o in ipairs(order) do
+      if o == "julia" or o == "jupyter" then return o, "chunks", hdrs end
+    end
+  end
+  if other then return "jupyter", "chunks", hdrs end
+  return "markdown", "chunks", hdrs
+end
+
 -- Is the source a document the knitr hooks resolve (N14, N92)? The rule of R/scan-contexts.R:
--- filter_resolves(): an .Rmd is knitr's; a .qmd with `engine: knitr`, or with an executed {r} chunk and no
--- `engine:` or `jupyter:` key; and the intermediate `.knit.md` of rmarkdown. `engine:` and `jupyter:` are
--- read from the front block alone, as Quarto reads them (rule 2.1.6): the first metadata block, when only
--- blank lines stand above it, in the include-expanded text, so an include on line 1 can supply it (P4); the
--- chunks are read from that text too.
+-- filter_resolves(): an .Rmd is knitr's, and the intermediate `.knit.md` of rmarkdown; a .qmd that Quarto
+-- runs on knitr (engine_choice()), unless the engine came from its chunks and every R chunk among them is
+-- `eval = FALSE` (`#| eval: false`). The keys are read from the front block alone, as Quarto reads them
+-- (rule 2.1.6): the first metadata block, when only blank lines stand above it, in the include-expanded
+-- text, so an include on line 1 can supply it (P4); the chunks are read from that text too.
 function M.source_is_knitr(path, text)
   if not path then return false end
   local low = path:lower()
@@ -599,23 +1061,14 @@ function M.source_is_knitr(path, text)
       if not blank(flines[q]) then fm = nil; break end
     end
   end
-  if fm then
-    for _, l in ipairs(fm) do
-      local v = l:match("^engine[ \t\r\n]*:(.*)$")
-      if v then
-        v = v:gsub("[ \t\r\n]+#.*$", ""):gsub("^[ \t\r\n]+", ""):gsub("[ \t\r\n]+$", "")
-        v = v:gsub("^[\"']", ""):gsub("[\"']$", "")
-        return v:lower() == "knitr"
-      end
-    end
-    for _, l in ipairs(fm) do
-      if l:match("^jupyter[ \t\r\n]*:") then return false end
-    end
-  end
-  for i, l in ipairs(flines) do
-    if l:match("^[ \t>]*```+[ \t]*{[ \t]*[rR][ \t,}]") then
+  local engine, by, hdrs = engine_choice(fm, flines, project_engines(path))
+  if engine ~= "knitr" then return false end
+  if by == "key" then return true end
+  for _, h in ipairs(hdrs) do
+    if h.lang == "r" then
+      local l = flines[h.line]
       local off = l:match("[ ,{]eval[ \t]*=[ \t]*FALSE[ \t]*[,}]") or l:match("[ ,{]eval[ \t]*=[ \t]*F[ \t]*[,}]")
-      local j = i + 1
+      local j = h.line + 1
       while not off and flines[j] and flines[j]:match("^[ \t>]*#|") do
         local v = flines[j]:match("^[ \t>]*#|[ ]?eval[ \t]*:[ \t]*(%a+)[ \t]*$")
                   or flines[j]:match("^[ \t>]*#|[ ]?eval[ \t]*:[ \t]*(%a+)[ \t]*#.*$")
