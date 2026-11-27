@@ -99,7 +99,7 @@ writeLines(c(
   "[No site | One site | # sites]{n=n_high} read high."
 ), file.path(dir, "survey.Rmd"))
 use_setup(dir)
-#> weft will write, under /tmp/Rtmpubk0QI/weft-example1abb2e61af83:
+#> weft will write, under /tmp/RtmpzFjRYH/weft-example1ae321d461ee:
 #>   _weft.yml  (edit: adds the weft_version line)
 #>   survey.Rmd  (edit: adds the weft setup line and names the weft-check filter)
 #>   weft-check.lua  (new: the weft-check filter for rmarkdown)
