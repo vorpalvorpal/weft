@@ -261,7 +261,7 @@ lint_claim_word <- function(src, ctx) {
   }
   # CW4: a hyphen directly before or after the word; U+2010 and U+2011 are hyphens too
   if (nrow(w)) {
-    hy <- "[-‐‑]"
+    hy <- "[-\u2010\u2011]"
     before <- grepl(hy, substring(prose, w$ps - 1L, w$ps - 1L)) & w$ps > 1L
     after <- grepl(hy, substring(prose, w$ps + nchar(w$run), w$ps + nchar(w$run)))
     ok <- !(before | after)
