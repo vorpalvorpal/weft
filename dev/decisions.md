@@ -965,3 +965,18 @@ behaviour went through test-first.
   one fence finder.
 - **Also open.** The review-closing and targets test warnings (fixture
   warnings leaking from in-process `tar_make`), being fixed 27 Nov.
+
+## Project, folder, include and notebook metadata (2026-11-27)
+
+- **Rules P1 to P9** (`dev/quarto-project-metadata.md`, with the Quarto
+  experiments behind them). Quarto's own keys (`lang`, `execute:`,
+  `bibliography`, the engine keys) follow Quarto's layers: `_quarto.yml`,
+  profiles, `.local`, each folder's `_metadata.yml` below the root (the
+  root's own only for a root document), the document, merged deeply
+  across files. `weft:` comes from `_weft.yml` and the document only, and
+  the misplaced-`weft:` lint widens. Included front matter and notebook
+  (`.ipynb`, percent `.py`) front matter are read by every reader. An
+  include on line 1 can choose the engine. Alternatives refused, with
+  reasons, are in that file: reading `weft:` from Quarto's merged metadata;
+  modelling `doc.meta` instead of Quarto's view; a lint in place of
+  following I6; `metadata-files`.
