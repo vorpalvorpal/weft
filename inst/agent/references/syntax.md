@@ -118,12 +118,32 @@ styles), which `print()` uses. In cli, `{.val {w}}` draws the console form and
 `{w}` the plain text. Tick labels: `labels = function(b) fmt_num(b, target =
 "plain")`. For rich plot text, ggtext draws `format(w, target = "html")` and
 marquee draws `format(w, target = "marquee")`; every `fmt_*()` takes the same
-two targets for tick labels. A `weft` object given to ggtext or marquee as it is
+two targets for tick labels. Do not write `target = "html"` or `"marquee"` in
+prose (lint `value-format`); a project formatter's `targets:` lists `markdown`
+and `tex` only. A `weft` object given to ggtext or marquee as it is
 draws its plain text. A failed check is collected as in prose in a knit with weft on;
 elsewhere the first failure stops with an error.
 Keep the markup a literal string: the lints and the commit gate read literal
 `weft()` strings in chunks and in the project's `.R` files, and skip a computed
 one (`paste0()`, `sprintf()`).
+
+## Self-formatting values
+
+`val_num()`, `val_pct()`, `val_sci()` and `val_p()` state a number's format once.
+The result is still a number (class `weft_val`); it prints the same in every
+sink: `paste()`, `glue()`, `message()`, a ggplot2 title or label, a data frame.
+
+```r
+top <- val_num(u(61.234, NTU), digits = 1)
+labs(title = paste("Peak:", top))
+format(top, target = "html")   # also "markdown", "tex", "marquee"; default plain
+```
+
+Arithmetic drops the format (`top * 2` has no format); `min()`, `max()`,
+`range()`, `mean()` and `median()` keep it. `c()` of values with different
+formats is an error. `cat()` prints the bare number and `writeLines()` refuses
+it: give them `format(v)`. A default-digits value that prints a non-zero number
+as zero warns once; pass `digits` or `sigfig` to say it is meant.
 
 ## A literal that must stay
 
