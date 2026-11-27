@@ -257,7 +257,7 @@ test_that("T7 WS7: a target other than plain, markdown or ansi is a weft_constru
   w <- weft("a")
   e <- tryCatch(format(w, target = "tex"), error = function(e) e)
   expect_s3_class(e, "weft_construct_error")
-  expect_match(conditionMessage(e), "`target` must be \"plain\", \"markdown\" or \"ansi\"; got \"tex\".", fixed = TRUE)
+  expect_match(conditionMessage(e), "`target` must be \"plain\", \"markdown\", \"ansi\", \"html\" or \"marquee\"; got \"tex\".", fixed = TRUE)
   e <- tryCatch(format(w, target = 1), error = function(e) e)
   expect_s3_class(e, "weft_construct_error")
   expect_match(conditionMessage(e), "got something else.", fixed = TRUE)

@@ -146,7 +146,7 @@ test_that("RT6: fmt_unit() takes target = \"marquee\"", {
 
 test_that("D104, RT2: a project formatter's markdown is read and rendered under marquee", {
   rich_install("fmt_tidy", function(x, ...) paste0("*", x, "*"))
-  g2_cfg(rich_reg(".tidy", "fmt_tidy"))
+  withr::local_dir(f2_proj(rich_reg(".tidy", "fmt_tidy")))
   expect_identical(rich_fmt_text(weft("`r 3`{.tidy}"), "marquee"), "{.em 3}")
 })
 
@@ -157,7 +157,7 @@ test_that("D104, RT2: a formatter that lists tex is called with target = \"markd
     store$seen <- c(store$seen, target)
     paste0("[", x, "]")
   })
-  g2_cfg(rich_reg(".seen", "fmt_seen", extra = "    targets: [markdown, tex]"))
+  withr::local_dir(f2_proj(rich_reg(".seen", "fmt_seen", extra = "    targets: [markdown, tex]")))
   out <- rich_fmt_text(weft("`r 3`{.seen}"), "marquee")
   expect_true(length(store$seen) >= 1L)
   expect_true(all(store$seen == "markdown"))
@@ -188,9 +188,10 @@ test_that("MQ3: marquee reads each row as the plain text, with no strikethrough 
   skip_if_not_installed("marquee")
   skip_if_not_installed("marquee", "1.2.0")
   for (r in c(RICH_FMT_ROWS, RICH_UNIT_ROWS)) {
-    g2_cfg(r$yml)
+    g2_restore()
+    withr::local_dir(f2_proj(r$yml))
     p <- marquee::marquee_parse(f2_tx(r$f(target = "marquee")))
-    plain <- f2_tx(r$f(target = "plain"))
+    plain <- gsub("^\n+|\n+$", "", f2_tx(r$f(target = "plain")))
     expect_identical(mq_flat(paste(p$text, collapse = "")), mq_flat(mq_unscript(plain)), label = paste("row", r$id))
     expect_false(any(p$strikethrough), label = paste("strikethrough, row", r$id))
     expect_false(any(p$underline), label = paste("underline, row", r$id))

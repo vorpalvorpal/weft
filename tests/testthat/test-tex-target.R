@@ -33,7 +33,7 @@ expect_tt_error <- function(e, class, msg) {
   expect_identical(conditionMessage(e), msg)
 }
 
-e100 <- function(got) sprintf("`target` must be \"markdown\", \"tex\" or \"plain\"; got %s.", got)
+e100 <- function(got) sprintf("`target` must be \"markdown\", \"tex\", \"plain\", \"html\" or \"marquee\"; got %s.", got)
 e101 <- function(cls, why) sprintf("`%s` has no TeX form (target = \"tex\"): %s (rule 3.4.11).", cls, why)
 E103 <- "This text was formatted for TeX (target = \"tex\") and would print here as markdown. Format the number again, without `target` (rule 3.4.11)."
 e102 <- function(tok, shown) {
@@ -112,7 +112,7 @@ test_that("TX3: a result made under \"tex\" carries the attribute target = \"tex
 
 test_that("TX3, E100: any other value of `target` is a weft_construct_error with the value in double quotes", {
   g2_restore()
-  for (bad in list("html", "TeX", "Markdown", "", "tex ", "latex")) {
+  for (bad in list("rtf", "TeX", "Markdown", "", "tex ", "latex")) {
     e <- tt_err(fmt_num(3, target = bad))
     expect_tt_error(e, "weft_construct_error", e100(sprintf("\"%s\"", bad)))
     e <- tt_err(weft:::apply_formatters(3, ".num", target = bad))
@@ -132,8 +132,8 @@ test_that("TX3, E100: a `target` that is not one string says `something else`", 
 test_that("TX3, E100: it is raised by every fmt_*(), before anything else is looked at", {
   g2_restore()
   for (nm in names(tt_calls)) {
-    e <- tt_err(tt_calls[[nm]](target = "html"))
-    expect_tt_error(e, "weft_construct_error", e100("\"html\""))
+    e <- tt_err(tt_calls[[nm]](target = "rtf"))
+    expect_tt_error(e, "weft_construct_error", e100("\"rtf\""))
   }
 })
 

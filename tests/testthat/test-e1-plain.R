@@ -223,9 +223,9 @@ test_that("T5 FT1: a plain result carries the attribute target = 'plain'; markdo
 })
 
 test_that("T5 FT3: a target that is not markdown, tex or plain is a weft_construct_error", {
-  e <- tryCatch(fmt_num(1, target = "html"), error = function(e) e)
+  e <- tryCatch(fmt_num(1, target = "rtf"), error = function(e) e)
   expect_s3_class(e, "weft_construct_error")
-  expect_match(conditionMessage(e), "`target` must be \"markdown\", \"tex\" or \"plain\"; got \"html\".", fixed = TRUE)
+  expect_match(conditionMessage(e), "`target` must be \"markdown\", \"tex\", \"plain\", \"html\" or \"marquee\"; got \"rtf\".", fixed = TRUE)
   e2 <- tryCatch(fmt_num(1, target = 1), error = function(e) e)
   expect_s3_class(e2, "weft_construct_error")
   expect_match(conditionMessage(e2), "got something else.", fixed = TRUE)

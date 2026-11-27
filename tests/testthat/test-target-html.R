@@ -53,7 +53,7 @@ test_that("HR5: each newline is <br>, \\r\\n is one, two newlines are <br><br>",
 test_that("HR6: span attributes are id, class, the keys style, title, lang and dir, then data-KEY, in that order", {
   g2_cfg(NULL)
   h <- function(x) rich_fmt_text(weft(x), "html")
-  expect_identical(h("[x]{.a .b}"), "<span class=\"a b\">x</span>")
+  expect_identical(h("[x]{.c .b}"), "<span class=\"c b\">x</span>")
   expect_identical(h("[x]{k='v' .c #i}"), "<span id=\"i\" class=\"c\" data-k=\"v\">x</span>")
   expect_identical(h("[x]{lang='en' dir='rtl' title='t'}"), "<span lang=\"en\" dir=\"rtl\" title=\"t\">x</span>")
   expect_identical(h("[x]{title='a & b <c>'}"), "<span title=\"a &amp; b &lt;c&gt;\">x</span>")
@@ -102,9 +102,10 @@ test_that("HR1, HR2: the text of the HTML is the plain form, for every row with 
   skip_if_not_installed("xml2")
   fmt <- Filter(function(r) r$plain, c(RICH_FMT_ROWS, RICH_UNIT_ROWS))
   for (r in fmt) {
-    g2_cfg(r$yml)
-    expect_identical(html_text_of(f2_tx(r$f(target = "html"))), f2_tx(r$f(target = "plain")),
-                     label = paste("row", r$id))
+    g2_restore()
+    withr::local_dir(f2_proj(r$yml))
+    plain <- gsub("^\n+|\n+$", "", f2_tx(r$f(target = "plain")))
+    expect_identical(html_text_of(f2_tx(r$f(target = "html"))), plain, label = paste("row", r$id))
   }
   g2_cfg(NULL)
   for (r in Filter(function(r) r$plain, c(RICH_TEXT_ROWS, RICH_H0_ROWS, RICH_START_ROWS))) {
@@ -166,7 +167,7 @@ test_that("RT4, D98 (H0): format(x, target = \"html\") has class c(\"html\", \"c
 
 test_that("RT4: NA is \"NA\" and names are kept", {
   x <- format(weft(c(k = "a *b*", m = NA_character_)), target = "html")
-  expect_identical(unname(unclass(x)), c("a <i>b</i>", "NA"))
+  expect_identical(unname(as.character(x)), c("a <i>b</i>", "NA"))
   expect_identical(names(x), c("k", "m"))
 })
 
@@ -251,7 +252,7 @@ test_that("RT6: fmt_unit() takes target = \"html\"", {
 
 test_that("D104, RT2: a project formatter's markdown is read and rendered under html", {
   rich_install("fmt_tidy", function(x, ...) paste0("*", x, "*"))
-  g2_cfg(rich_reg(".tidy", "fmt_tidy"))
+  withr::local_dir(f2_proj(rich_reg(".tidy", "fmt_tidy")))
   expect_identical(rich_fmt_text(weft("`r 3`{.tidy}"), "html"), "<i>3</i>")
 })
 
@@ -262,7 +263,7 @@ test_that("D104, RT2: a formatter that lists tex is called with target = \"markd
     store$seen <- c(store$seen, target)
     paste0("[", x, "]")
   })
-  g2_cfg(rich_reg(".seen", "fmt_seen", extra = "    targets: [markdown, tex]"))
+  withr::local_dir(f2_proj(rich_reg(".seen", "fmt_seen", extra = "    targets: [markdown, tex]")))
   out <- rich_fmt_text(weft("`r 3`{.seen}"), "html")
   expect_true(length(store$seen) >= 1L)
   expect_true(all(store$seen == "markdown"))

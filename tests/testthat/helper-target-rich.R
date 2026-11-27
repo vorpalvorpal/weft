@@ -122,8 +122,8 @@ rich_fmt_text <- function(w, target) unname(as.character(unclass(format(w, targe
 # run the formatter rows of one column; each row reads its own _weft.yml first
 rich_expect_fmt_rows <- function(rows, col, target, env = parent.frame()) {
   for (r in rows) {
-    g2_cfg(r$yml, env = env)
-    got <- f2_tx(r$f(target = target))
+    g2_restore(env)
+    got <- withr::with_dir(f2_proj(r$yml, env = env), f2_tx(r$f(target = target)))
     testthat::expect_identical(got, r[[col]], label = paste(target, "fmt row", r$id))
   }
 }

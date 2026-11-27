@@ -201,21 +201,21 @@ test_that("T5 C7: print() returns its argument invisibly", {
 
 test_that("T6 C6: an unknown target is a weft_construct_error with the new text", {
   w <- weft("a")
-  e <- tryCatch(format(w, target = "html"), error = function(e) e)
+  e <- tryCatch(format(w, target = "rtf"), error = function(e) e)
   expect_s3_class(e, "weft_construct_error")
   expect_match(conditionMessage(e),
-    "`target` must be \"plain\", \"markdown\" or \"ansi\"; got \"html\".", fixed = TRUE)
+    "`target` must be \"plain\", \"markdown\", \"ansi\", \"html\" or \"marquee\"; got \"rtf\".", fixed = TRUE)
   e <- tryCatch(format(w, target = 1), error = function(e) e)
   expect_s3_class(e, "weft_construct_error")
   expect_match(conditionMessage(e),
-    "`target` must be \"plain\", \"markdown\" or \"ansi\"; got something else.", fixed = TRUE)
+    "`target` must be \"plain\", \"markdown\", \"ansi\", \"html\" or \"marquee\"; got something else.", fixed = TRUE)
 })
 
 test_that("T6 C12: fmt_em() does not take target = 'ansi' (E1's FT3 text, unchanged)", {
   e <- tryCatch(fmt_em("x", target = "ansi"), error = function(e) e)
   expect_s3_class(e, "weft_construct_error")
   expect_match(conditionMessage(e),
-    "`target` must be \"markdown\", \"tex\" or \"plain\"; got \"ansi\".", fixed = TRUE)
+    "`target` must be \"markdown\", \"tex\", \"plain\", \"html\" or \"marquee\"; got \"ansi\".", fixed = TRUE)
 })
 
 # ---- T7: joined and changed elements (C4) ------------------------------------------------------
