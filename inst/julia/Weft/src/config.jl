@@ -156,43 +156,217 @@ function _cc_is_mapping(inner)
     false
 end
 
-# The inner lines of each metadata block of a document, in order (see the note at the top).
+# ---- the one fence finder (A18), the twin of R/fences.R -------------------------------------------------
+# The metadata blocks are found as R's doc_fences() finds them (the A18 ruling and its amendments of 27 Nov):
+# first the executable chunks over the whole text, as knitr finds them (_cc_knitr_chunks()); then, in the text
+# outside them, the plain fences as Pandoc's markdown reader reads them, the HTML comments that hide them, and
+# the metadata blocks (_cc_blocks()).
+
+const _CC_KNITR_BEGIN = r"^[\t >]*```+\s*\{([a-zA-Z0-9_]+( *[ ,].*)?)\}\s*$"
+const _CC_KNITR_END = r"^[\t >]*```+\s*$"
+const _CC_CHUNK_PREFIX = r"^([\t >]*`+)"
+const _CC_FENCE_LINE = r"^( {0,3})((?:> ?(?: {0,3}(?=>))?)*)( *)(`{3,}|~{3,})(.*)$"
+const _CC_QUOTE = r"^ {0,3}(?:> ?(?: {0,3}(?=>))?)*"
+const _CC_ITEM = r"^( *)([-+*]|[0-9]{1,9}[.)])(?:( {1,4})(?=\S)|[ \t]*$)"
+const _CC_ATTR = "\\{[ \\t]*(?:(?:#[A-Za-z0-9_:.-]+|\\.[A-Za-z][A-Za-z0-9_:.-]*" *
+                 "|[A-Za-z][A-Za-z0-9_:.-]*=(?:\"(?:[^\"\\\\]|\\\\.)*\"|'(?:[^'\\\\]|\\\\.)*'|[^ \\t}]+)|-)[ \\t]*)*\\}"
+const _CC_INFO = Regex("^(?:\\{[ \\t]*=[A-Za-z0-9_-]+[ \\t]*\\}|[^ \\t{`]*[ \\t]*(?:" * _CC_ATTR * ")?)\$")
+
+_cc_exact_end(l, p) = startswith(l, p) && isempty(strip(l[nextind(l, lastindex(p)):end]))
+
+# The chunks of `lines` as knitr divides a document (R's knitr_chunks()): (open, close) pairs.
+function _cc_knitr_chunks(lines)
+    n = length(lines)
+    cand = Int[]
+    isb = Bool[]
+    for (i, l) in enumerate(lines)
+        occursin("```", l) || continue
+        b = occursin(_CC_KNITR_BEGIN, l)
+        if b || occursin(_CC_KNITR_END, l)
+            push!(cand, i)
+            push!(isb, b)
+        end
+    end
+    out = Tuple{Int, Int}[]
+    # is the end line cand[t] (not exact) code, because knitr reads on to a later exact closer?
+    function reads_on(t, p)
+        i = cand[t]
+        e = 0
+        for s in t + 1:length(cand)
+            if !isb[s] && _cc_exact_end(lines[cand[s]], p)
+                e = cand[s]
+                break
+            end
+        end
+        e == 0 && return false
+        for q in i + 1:e - 1
+            b = lines[q]
+            startswith(b, p) && occursin(r"^`*\{", b[nextind(b, lastindex(p)):end]) && return false
+        end
+        true
+    end
+    cur = 0
+    p = nothing
+    for (t, i) in enumerate(cand)
+        l = lines[i]
+        if cur == 0
+            if isb[t]
+                cur = i
+                p = i == 1 ? nothing : match(_CC_CHUNK_PREFIX, l).captures[1]
+            end
+        elseif isb[t]
+            if p === nothing || startswith(l, p * "{")
+                push!(out, (cur, i - 1))
+                cur = i
+            end
+        elseif !(p !== nothing && !_cc_exact_end(l, p) && reads_on(t, p))
+            push!(out, (cur, i))
+            cur = 0
+        end
+    end
+    cur == 0 || push!(out, (cur, n))
+    out
+end
+
+# `l` with the tabs of its leading white space and `>` markers expanded to the next stop of 4.
+function _cc_expand_tabs(l::AbstractString)
+    occursin(r"^[ >]*\t", l) || return String(l)
+    lead = match(r"^[ \t>]*", l).match
+    out = IOBuffer()
+    col = 0
+    for ch in lead
+        if ch == '\t'
+            w = 4 - col % 4
+            write(out, " "^w)
+            col += w
+        else
+            write(out, ch)
+            col += 1
+        end
+    end
+    String(take!(out)) * l[nextind(l, lastindex(lead)):end]
+end
+
+# A fence line as R's parse_fence_lines() reads it: (depth, indent, char, length, info), or nothing.
+function _cc_parse_fence(l)
+    m = match(_CC_FENCE_LINE, _cc_expand_tabs(l))
+    m === nothing && return nothing
+    depth = count(==('>'), m.captures[2])
+    indent = depth > 0 ? length(m.captures[3]) : length(m.captures[1]) + length(m.captures[3])
+    (depth, indent, first(m.captures[4]), length(m.captures[4]), String(m.captures[5]))
+end
+
+_cc_quote_depth(l) = count(==('>'), match(_CC_QUOTE, l).match)
+_cc_lead_width(l) = length(match(r"^ *", _cc_expand_tabs(l)).match)
+
+# The content column of the list item the line `k`, indented `ind` (4 or more), sits in, or nothing.
+function _cc_list_item_col(lines, k, ind)
+    j = k - 1
+    while j >= 1
+        if _cc_blank(lines[j])
+            j -= 1
+            continue
+        end
+        l = _cc_expand_tabs(lines[j])
+        m = match(_CC_ITEM, l)
+        if m !== nothing
+            c0 = m.captures[3] === nothing ? length(m.captures[1]) + length(m.captures[2]) + 1 : length(m.match)
+            c0 <= ind <= c0 + 3 && return c0
+            isempty(m.captures[1]) && return nothing
+        elseif _cc_lead_width(l) == 0 && (j == 1 || _cc_blank(lines[j - 1]))
+            return nothing
+        end
+        j -= 1
+    end
+    nothing
+end
+
+# The inner lines of each metadata block of a document, in order (see the note at the top), as R's
+# plain_blocks() reads them outside the chunks: a fence opens with an info string Pandoc's markdown reader
+# takes (none, one word, an attribute block); one that does not close in its container is no fence; in a list
+# item a fence at indent 4 or more needs a blank line above.
 function _cc_blocks(lines)
     out = Vector{Vector{String}}()
     n = length(lines)
+    inchunk = falses(n)
+    for (a, b) in _cc_knitr_chunks(lines)
+        inchunk[a:b] .= true
+    end
+    pf = Dict{Int, Any}()
+    fi = Int[]
+    for (j, l) in enumerate(lines)
+        if !inchunk[j] && occursin(_CC_FENCE, l)
+            pf[j] = _cc_parse_fence(l)
+            push!(fi, j)
+        end
+    end
+    at = Dict(j => s for (s, j) in enumerate(fi))
+    function closes(j, r, d, c0)
+        q = get(pf, j, nothing)
+        q === nothing && return false
+        q[3] == r[3] && q[4] >= r[4] && q[1] == d && isempty(strip(q[5], [' ', '\t', '\r'])) && c0 <= q[2] <= c0 + 3
+    end
+    function fence_close(k, r, c0)
+        if r[1] == 0 && c0 == 0
+            for s in at[k] + 1:length(fi)
+                closes(fi[s], r, 0, 0) && return fi[s]
+            end
+            return nothing
+        end
+        for j in k + 1:n
+            inchunk[j] && continue
+            l = lines[j]
+            r[1] > 0 && _cc_quote_depth(l) < r[1] && return nothing
+            c0 > 0 && !_cc_blank(l) && _cc_lead_width(l) < c0 && return nothing
+            haskey(pf, j) && closes(j, r, r[1], c0) && return j
+        end
+        nothing
+    end
+    closers = Set{Int}()
     k = 1
     while k <= n
         line = lines[k]
-        m = match(_CC_FENCE, line)
-        if m !== nothing
-            mark = m.captures[1]
-            closer = Regex("^[ \\t>]*" * string(first(mark)) * "{" * string(length(mark)) * ",}[ \\t]*\$")
-            j = k + 1
-            while j <= n && !occursin(closer, lines[j])
-                j += 1
+        nxt = k + 1
+        if inchunk[k]
+            # a chunk's line
+        elseif haskey(pf, k)
+            r = pf[k]
+            if r !== nothing && occursin(_CC_INFO, strip(r[5], [' ', '\t', '\r', '\n']))
+                c0 = 0
+                if r[2] > 3
+                    if r[1] > 0
+                        c0 = nothing
+                    elseif k > 1 && !_cc_blank(lines[k - 1]) && !inchunk[k - 1] && !((k - 1) in closers)
+                        # no blank line (or a block's end) above: the line goes on the paragraph above
+                        c0 = nothing
+                    else
+                        c0 = _cc_list_item_col(lines, k, r[2])
+                    end
+                end
+                c = c0 === nothing ? nothing : fence_close(k, r, c0)
+                if c !== nothing
+                    push!(closers, c)
+                    nxt = c + 1
+                end
             end
-            k = j + 1
-            continue
-        end
-        if occursin(_CC_COMMENT_OPEN, line)
+        elseif occursin(_CC_COMMENT_OPEN, line)
             # the comment ends at the first `-->` after its `<!--`; one that never ends hides nothing
             after = split(line, "<!--"; limit = 2)[2]
-            stop = occursin("-->", after) ? k : findnext(l -> occursin("-->", l), lines, k + 1)
-            k = stop === nothing ? k + 1 : stop + 1
-            continue
-        end
-        if occursin(_CC_OPEN, line) && (k == 1 || _cc_blank(lines[k - 1])) && k < n && !_cc_blank(lines[k + 1])
+            if !occursin("-->", after)
+                stop = findnext(j -> !inchunk[j] && occursin("-->", lines[j]), 1:n, k + 1)
+                stop === nothing || (nxt = stop + 1)
+            end
+        elseif occursin(_CC_OPEN, line) && (k == 1 || _cc_blank(lines[k - 1])) && k < n && !_cc_blank(lines[k + 1])
             j = k + 1
             while j <= n && !occursin(_CC_CLOSE, lines[j])
                 j += 1
             end
             if j <= n && _cc_is_mapping(lines[k + 1:j - 1])
                 push!(out, String.(lines[k + 1:j - 1]))
-                k = j + 1
-                continue
+                nxt = j + 1
             end
         end
-        k += 1
+        k = nxt
     end
     out
 end
