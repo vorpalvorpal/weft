@@ -62,7 +62,7 @@ dir.create(dir)
 writeLines("project:\n  type: default", file.path(dir, "_quarto.yml"))
 writeLines("", file.path(dir, "_weft.yml"))
 use_quarto(dir)
-#> weft will write, under /tmp/Rtmpezdyzb/weft-example1a0314dd6749:
+#> weft will write, under /tmp/RtmprooAnM/weft-example1ac85395e1d5:
 #>   _extensions/weft-check/_extension.yml, weft.lua, weftlib/ and weft-check.lua  (the weft filters)
 #>   _extensions/weft-check/weft-output.lua  (the rendered-output check; it runs after Quarto's own filters)
 #>   _weft/pre-render.R   (fails a .qmd with constructs and no `engine: knitr`; opens .weft/failures.jsonl)
