@@ -42,66 +42,14 @@ doc_memo <- function(kind, lines, compute) {
 # ---- metadata blocks ---------------------------------------------------------
 
 # The metadata blocks of a document, as the line numbers of the delimiters: the
-# one reading of a document's front matter (rule 2.1.6). Like Pandoc, a block
-# opens with a line that is exactly `---` (trailing white space allowed, no
-# indent) at the top of the file (only blank lines above) or after a blank line,
-# followed by a line that is not blank, closes at the next `---` or `...` line,
-# and holds a YAML mapping. A block inside a backtick or tilde fence, or inside
-# an HTML comment that starts a line, is not one; an indented `---` is not one
-# either.
-metadata_blocks <- function(lines) doc_memo("metadata_blocks", lines, metadata_blocks_)
-
-metadata_blocks_ <- function(lines) {
-  n <- length(lines)
-  is_blank <- function(l) !nzchar(trim_ws(l))
-  open <- integer()
-  close <- integer()
-  # only a fence line, a line that opens an HTML comment or a `---` line can matter: the rest are skipped,
-  # in one pass
-  opens_comment <- grepl("^ {0,3}<!--", lines)
-  cand <- which(grepl("^[ \t>]*(`{3,}|~{3,})", lines) | opens_comment | grepl("^---[ \t\r]*$", lines))
-  ends_comment <- which(grepl("-->", lines, fixed = TRUE))
-  # the first line after `k` that closes the fence `fence`, or n + 1: a closing line is a fence line, so
-  # only the candidates are tried (E2)
-  next_close <- function(fence, k) {
-    after <- cand[cand > k]
-    hit <- after[grepl(fence, lines[after], perl = TRUE)]
-    if (length(hit)) hit[1L] else n + 1L
-  }
-  k <- 1L
-  while (k <= n) {
-    ci <- cand[cand >= k]
-    if (!length(ci)) break
-    k <- ci[1L]
-    l <- lines[k]
-    fm <- regmatches(l, regexec("^[ \t>]*(`{3,}|~{3,})", l))[[1]]
-    if (length(fm)) {
-      fence <- paste0("^[ \t>]*", substr(fm[2], 1, 1), "{", nchar(fm[2]), ",}[ \t\r]*$")
-      k <- next_close(fence, k) + 1L
-      next
-    }
-    if (opens_comment[k]) {
-      # the comment ends at the first `-->` after its `<!--`; one that never ends hides nothing
-      same <- grepl("-->", sub("^.*?<!--", "", l, perl = TRUE), fixed = TRUE)
-      end <- if (same) k else ends_comment[ends_comment > k][1L]
-      k <- if (is.na(end)) k + 1L else end + 1L
-      next
-    }
-    if (grepl("^---[ \t\r]*$", l) && (k == 1L || is_blank(lines[k - 1L])) &&
-        k < n && !is_blank(lines[k + 1L])) {
-      j <- k + 1L
-      while (j <= n && !grepl("^(---|\\.\\.\\.)[ \t\r]*$", lines[j])) j <- j + 1L
-      if (j <= n && is_yaml_mapping(lines[(k + 1L):(j - 1L)])) {
-        open <- c(open, k)
-        close <- c(close, j)
-        k <- j + 1L
-        next
-      }
-    }
-    k <- k + 1L
-  }
-  data.frame(open = open, close = close)
-}
+# one reading of a document's front matter (rule 2.1.6), made by the one fence
+# finder (doc_fences(), A18). Like Pandoc, a block opens with a line that is
+# exactly `---` (trailing white space allowed, no indent) at the top of the file
+# (only blank lines above) or after a blank line, followed by a line that is not
+# blank, closes at the next `---` or `...` line, and holds a YAML mapping. A
+# block inside a chunk, a plain fence or an HTML comment that starts a line is
+# not one; an indented `---` is not one either.
+metadata_blocks <- function(lines) doc_fences(lines)$meta
 
 # The lines of the front block, without its delimiters: the first metadata block,
 # when only blank lines stand above it; character() when there is none. It is
@@ -342,41 +290,24 @@ scan_front_matter_rows <- function(lines, file = NA_character_, config = NULL,
 # header's options as written.
 find_chunks <- function(lines) doc_memo("find_chunks", lines, find_chunks_)
 
+# The chunks of the one fence finder (doc_fences(), A18), found as knitr finds them: `close` is the
+# closer, or line n for a chunk with none (`closed` FALSE); chunk_code_end() is its last line of code.
 find_chunks_ <- function(lines) {
-  n <- length(lines)
-  mb <- metadata_blocks(lines)
-  inyaml <- rep(FALSE, n)
-  for (b in seq_len(nrow(mb))) inyaml[mb$open[b]:mb$close[b]] <- TRUE
-  begin <- "^[ \t>]*(`{3,})[ \t]*\\{[ \t]*([A-Za-z0-9_]+)(.*)\\}[ \t]*$"
-  # a chunk header is a fence line: only those are looked at, in one pass; a closing line is a fence line
-  # too, metadata or not, so the close is looked for among those (E2)
-  fl <- which(grepl("^[ \t>]*(`{3,}|~{3,})", lines))
-  cand <- fl[!inyaml[fl]]
-  out <- list()
-  k <- 1L
-  while (k <= n) {
-    ci <- cand[cand >= k]
-    if (!length(ci)) break
-    k <- ci[1L]
-    l <- lines[k]
-    m <- regmatches(l, regexec(begin, l, perl = TRUE))[[1]]
-    gen <- regmatches(l, regexec("^[ \t>]*(`{3,}|~{3,})", l))[[1]]
-    if (length(m) || length(gen)) {
-      fence <- if (length(m)) m[2] else gen[2]
-      close_re <- paste0("^[ \t>]*", substr(fence, 1, 1), "{", nchar(fence), ",}[ \t\r]*$")
-      after <- fl[fl > k]
-      hit <- after[grepl(close_re, lines[after], perl = TRUE)]
-      j <- if (length(hit)) hit[1L] else n + 1L
-      if (length(m)) {
-        out[[length(out) + 1L]] <- list(open = k, close = min(j, n + 1L) - 0L,
-                                        engine = m[3], header = m[4], closed = j <= n)
-      }
-      k <- j + 1L
-      next
-    }
-    k <- k + 1L
-  }
-  out
+  f <- doc_fences(lines)$fences
+  f <- f[f$chunk, , drop = FALSE]
+  lapply(seq_len(nrow(f)), function(i) {
+    list(open = f$open[i], close = f$close[i], engine = f$engine[i], header = f$header[i],
+         closed = f$closed[i])
+  })
+}
+
+# The chunks of find_chunks() that no fenced example holds: the cells Quarto reads. Quarto reads the
+# markdown before knitr runs, so the fences here are CommonMark's over the whole text, chunk lines included
+# (a ```` ```` ```` fence around a chunk header holds it; a ```` ```{julia} ```` after that fence closes is a
+# cell).
+unfenced_chunks <- function(lines) {
+  pl <- doc_memo("commonmark_fences", lines, function(l) plain_blocks(l, logical(length(l)))$fences)
+  Filter(function(ch) !any(pl$open < ch$open & pl$close >= ch$open), find_chunks(lines))
 }
 
 # The engine Quarto runs a document on: "knitr", "jupyter", "julia" or
@@ -385,8 +316,9 @@ find_chunks_ <- function(lines) {
 # (9.2.8) and a `jupyter:` key jupyter;
 # with neither, the executed chunks do: an {r} chunk is knitr, else {python}
 # is jupyter, else {julia} is julia. Only lower-case languages are executable
-# (Quarto's rule), and find_chunks() already leaves out fenced examples, so a
-# chunk shown inside a longer fence does not count. When the document's
+# (Quarto's rule), and Quarto reads its cells outside fenced examples, so a
+# chunk shown inside a plain fence does not count (knitr would run it, but the
+# engine is chosen before knitr runs: unfenced_chunks()). When the document's
 # `path` is given, the keys and the chunks are read from the include-expanded
 # text (rule P4), and a notebook or a percent script is jupyter whatever it
 # says (J8).
@@ -406,7 +338,7 @@ quarto_engine <- function(lines, path = NULL) {
   }
   if (any(grepl("^knitr[ \t]*:", fm))) return("knitr")
   if (any(grepl("^jupyter[ \t]*:", fm))) return("jupyter")
-  langs <- vapply(find_chunks(xl), function(ch) ch$engine, "")
+  langs <- vapply(unfenced_chunks(xl), function(ch) ch$engine, "")
   if ("r" %in% langs) return("knitr")
   if ("python" %in% langs) return("jupyter")
   if ("julia" %in% langs) return("julia")
@@ -587,7 +519,7 @@ labelled_chunks <- function(lines) {
   for (i in seq_along(chunks)) {
     ch <- chunks[[i]]
     hdr <- parse_header(ch$header)
-    oi <- chunk_option_lines(lines, ch$open, ch$close)
+    oi <- chunk_option_lines(lines, ch$open, chunk_code_end(ch) + 1L)
     optblk <- parse_option_block(oi$lines, oi$text)
     lab <- hdr$label
     for (o in optblk) {
@@ -1107,7 +1039,7 @@ chunk_code_regions <- function(lines) {
   for (i in seq_along(chs)) {
     ch <- chs[[i]]
     first <- ch$oi$code_first
-    last <- min(ch$close, n + 1L) - 1L
+    last <- chunk_code_end(ch)
     body[[i]] <- region("body", i, first, if (last >= first) dl[first:last] else character())
     for (o in ch$optblk) {
       if (!(o$name %in% CAPTION_OPTIONS) || !identical(o$form, "expr")) next
@@ -1331,6 +1263,7 @@ filter_resolves <- function(lines, file = NA_character_, fm = front_block(lines)
     return(!identical(v, "knitr"))
   }
   if (any(grepl("^jupyter[ \t]*:", fm))) return(TRUE)
+  # the header test is the Lua filter's too (source_is_knitr()) and the grammar table's: keep them together
   hdr <- grep("^[ \t>]*`{3,}[ \t]*\\{[ \t]*[rR][ \t,}]", lines)
   for (k in hdr) {
     if (grepl("[ ,{]eval[ \t]*=[ \t]*(FALSE|F)[ \t]*[,}]", lines[k])) next

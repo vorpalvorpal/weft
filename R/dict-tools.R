@@ -669,8 +669,7 @@ seed_chunks <- function(lines) {
     }
     if (!is.null(opts$eval) && opts$eval$text %in% c("FALSE", "F")) next
     from <- ch$open + 1L
-    to <- min(ch$close, length(lines) + 1L) - 1L
-    if (!ch$closed) to <- length(lines)
+    to <- chunk_code_end(ch)
     code <- if (to >= from) lines[from:to] else character()
     if (any(grepl("^\\s*#\\|\\s*eval:\\s*(false|no)\\s*(#.*)?$", code, ignore.case = TRUE))) next
     out[[length(out) + 1L]] <- list(code = code, open = ch$open)

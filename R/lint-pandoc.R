@@ -263,8 +263,8 @@ block_start_r <- function(src) {
       # a backtick fence cuts the paragraph only when it is closed
       fence <- ok & grepl("^ {0,3}`{3,}", src$lines[lines])
       if (any(fence)) {
-        fb <- fence_blocks(src$lines, rep(FALSE, length(src$lines)))
-        closed <- fb$open[fb$close > fb$open & grepl("^ {0,3}`{3,}[ \t\r]*$", src$lines[fb$close])]
+        fb <- doc_fences(src$lines)$fences
+        closed <- fb$open[fb$closed & fb$close > fb$open]
         ok[fence & !(lines %in% closed)] <- FALSE
       }
       if (any(ok)) {
@@ -315,8 +315,8 @@ block_start_fence <- function(src) {
   if (!nl || !any(grepl("^ {0,3}`{3,}", lines))) return(new_findings())
   inmeta <- logical(nl)
   for (m in src$meta) inmeta[m$open:m$close] <- TRUE
-  fb <- fence_blocks(lines, inmeta)
-  fb <- fb[fb$open > 1L, , drop = FALSE]
+  fb <- doc_fences(lines)$fences
+  fb <- fb[fb$open > 1L & !inmeta[fb$open], , drop = FALSE]
   if (!nrow(fb)) return(new_findings())
   blank <- !grepl("[^ \t]", lines)
   out <- list()
@@ -324,8 +324,7 @@ block_start_fence <- function(src) {
     o <- fb$open[[i]]
     cl <- fb$close[[i]]
     # only a backtick fence that is closed cuts a paragraph
-    if (blank[o - 1L] || !grepl("^ {0,3}`{3,}", lines[o]) || cl <= o ||
-        !grepl("^ {0,3}`{3,}[ \t\r]*$", lines[cl])) next
+    if (blank[o - 1L] || !grepl("^ {0,3}`{3,}", lines[o]) || cl <= o || !fb$closed[[i]]) next
     top <- o - 1L
     while (top > 1L && !blank[top - 1L]) top <- top - 1L
     para <- paste(lines[top:(o - 1L)], collapse = "\n")

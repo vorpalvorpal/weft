@@ -159,35 +159,7 @@ lint_rel_path <- function(path, root) {
   enc2utf8(rel_to(p, r))
 }
 
-# All the fenced blocks: open and close lines, and the text after the fence.
-fence_blocks <- function(lines, inmeta) {
-  n <- length(lines)
-  empty <- data.frame(open = integer(), close = integer(), info = character(),
-                      stringsAsFactors = FALSE)
-  cand <- which(!inmeta & grepl("^[ \t>]*(`{3,}|~{3,})", lines))
-  if (!length(cand)) return(empty)
-  m <- regmatches(lines[cand], regexec("^[ \t>]*(`{3,}|~{3,})(.*)$", lines[cand]))
-  fch <- vapply(m, function(x) substr(x[2L], 1L, 1L), "")
-  fln <- vapply(m, function(x) nchar(x[2L]), 1L)
-  info <- trimws(vapply(m, function(x) x[3L], ""))
-  closer <- grepl("^[ \t>]*(`{3,}|~{3,})[ \t\r]*$", lines[cand])
-  open <- integer()
-  close <- integer()
-  inf <- character()
-  last <- 0L
-  for (i in seq_along(cand)) {
-    k <- cand[i]
-    if (k <= last) next
-    if (fch[i] == "`" && grepl("`", info[i], fixed = TRUE) && !grepl("^\\{.*\\}$", info[i])) next
-    j <- which(closer & cand > k & fch == fch[i] & fln >= fln[i])[1L]
-    cl <- if (is.na(j)) n else cand[j]
-    open <- c(open, k)
-    close <- c(close, cl)
-    inf <- c(inf, info[i])
-    last <- cl
-  }
-  data.frame(open = open, close = close, info = inf, stringsAsFactors = FALSE)
-}
+# fence_blocks(), the one fence finder's view of the fenced blocks: fences.R (A18).
 
 # YAML read for the lints: `!expr` kept as text, nothing evaluated.
 yaml_text <- function(x) {

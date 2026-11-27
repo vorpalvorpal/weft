@@ -15,29 +15,20 @@ heading_anchors <- function(lines) {
     end <- which(grepl("^(---|\\.\\.\\.)[ \t]*$", lines[-1L]))[1L]
     if (!is.na(end)) skip[1L:(end + 1L)] <- TRUE
   }
-  fence <- NULL
+  # the fences and chunks are the one fence finder's (A18)
+  fb <- doc_fences(lines)$fences
+  if (nrow(fb)) skip[sequence(fb$close - fb$open + 1L, fb$open)] <- TRUE
   in_comment <- FALSE
   for (i in seq_len(n)) {
     if (skip[i]) next
     l <- lines[i]
-    if (!is.null(fence)) {
-      skip[i] <- TRUE
-      if (grepl(fence, l, perl = TRUE)) fence <- NULL
-      next
-    }
     # an HTML comment is not part of the output (D10)
     if (in_comment) {
       skip[i] <- TRUE
       if (grepl("-->", l, fixed = TRUE)) in_comment <- FALSE
       next
     }
-    fm <- regmatches(l, regexec("^[ \t>]*(`{3,}|~{3,})", l))[[1L]]
-    if (length(fm)) {
-      skip[i] <- TRUE
-      fence <- paste0("^[ \t>]*", substr(fm[2L], 1L, 1L), "{", nchar(fm[2L]), ",}[ \t\r]*$")
-    } else if (grepl("<!--", gsub("<!--.*?-->", "", l, perl = TRUE), fixed = TRUE)) {
-      in_comment <- TRUE
-    }
+    if (grepl("<!--", gsub("<!--.*?-->", "", l, perl = TRUE), fixed = TRUE)) in_comment <- TRUE
   }
   blank <- function(l) !nzchar(trimws(l))
   heads <- list()

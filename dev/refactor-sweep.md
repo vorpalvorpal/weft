@@ -604,7 +604,22 @@ whole suite after each. Order:
 8. B14: move the sentence finder and anchors out of `ledger.R`, after A.
    - Done: both sections moved unchanged to `ledger-sentence.R`.
 9. A18: one fence finder.
-   - Skipped. The five finders differ on purpose-built edge cases:
+   - Done (27 Nov, after the A18 ruling and its amendment in
+     `decisions.md`): `doc_fences()` in `fences.R` finds the chunks as knitr
+     1.51 divides a document (`knitr_chunks()`), then the plain fences, HTML
+     comments and metadata blocks by CommonMark in the text outside them
+     (`plain_blocks()`). `fence_blocks()`, `find_chunks()`,
+     `metadata_blocks()` (and so `front_block()`) and the scan's
+     `find_fences()` read it, as do `heading_anchors()`, `values_blocks()`,
+     the `block-start` lint's closed test and `qmd_needs_engine()`. Quarto's
+     engine choice counts only the chunks no CommonMark fence holds
+     (`unfenced_chunks()`). `filter_resolves()` keeps its header grep, which
+     the Lua filter's `source_is_knitr()` and the grammar table share (it
+     takes `{ r }`, which knitr does not). An unclosed chunk's `close` is
+     now line n; `chunk_code_end()` gives its last code line. Left alone:
+     `include_skipped_lines()` (Quarto's own cell reader), the Lua filter's
+     `metadata_blocks()`, and the Python and Julia chunk readers.
+   - (Earlier note.) Skipped. The five finders differ on purpose-built edge cases:
      `fence_blocks()` skips a backtick fence whose info string holds a
      backtick, `find_chunks()` and `metadata_blocks()` do not; an unclosed
      fence ends at line `n` in one and `n + 1` in another; `find_fences()`

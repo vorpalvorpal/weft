@@ -31,14 +31,14 @@ named_uses <- function(rows) {
 }
 
 # The `weft-values` blocks of a text (N20): the attribute text of the opening fence and the body.
+# The blocks are plain fences of the one fence finder (A18), not in a block quote.
 values_blocks <- function(lines) {
-  open <- grep("^[ \t]*(`{3,}|~{3,})[ \t]*\\{[^}]*\\.weft-values[^}]*\\}[ \t]*$", lines)
-  lapply(open, function(k) {
-    fence <- regmatches(lines[k], regexpr("`{3,}|~{3,}", lines[k]))
-    close_re <- paste0("^[ \t]*", substr(fence, 1L, 1L), "{", nchar(fence), ",}[ \t]*$")
-    rest <- if (k < length(lines)) lines[(k + 1L):length(lines)] else character()
-    j <- which(grepl(close_re, rest))[1L]
-    list(attrs = lines[k], body = if (is.na(j)) rest else rest[seq_len(j - 1L)])
+  f <- doc_fences(lines)$fences
+  f <- f[!f$chunk & grepl("^\\{[^}]*\\.weft-values[^}]*\\}$", f$info) & !grepl("^[ \t]*>", lines[f$open]), ,
+         drop = FALSE]
+  lapply(seq_len(nrow(f)), function(i) {
+    last <- if (f$closed[i]) f$close[i] - 1L else f$close[i]
+    list(attrs = lines[f$open[i]], body = if (last > f$open[i]) lines[(f$open[i] + 1L):last] else character())
   })
 }
 

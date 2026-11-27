@@ -77,68 +77,29 @@ cut_lines <- function(text, n) {
   x
 }
 
-# Fenced blocks (executed chunks and not): the scanner leaves them alone.
+# Fenced blocks (executed chunks and not): the scanner leaves them alone. They are the one fence finder's
+# (doc_fences(), A18), as character offsets: `f_start` and `f_end` (the first character of the opening
+# line, the last of the closing one), `f_chunk`, `f_raw` (a `{=latex}` or `{=tex}` fence) and `f_closed`.
+# A chunk opened inside a plain fence is an interval inside that fence's (fence_index()).
 find_fences <- function(S) {
-  S$f_start <- integer()
-  S$f_end <- integer()
+  S$f_start <- numeric()
+  S$f_end <- numeric()
+  S$f_chunk <- logical()
   S$f_raw <- logical()
+  S$f_closed <- logical()
+  S$f_cover <- numeric()
   if (S$n == 0L) return(invisible())
   ls <- c(1L, S$nl + 1L)
   le <- c(S$nl - 1L, S$n)
-  lines <- cut_lines(S$text, length(ls))
-  open_re <- "^[ \t]*((?:>[ \t]*)*)(`{3,}|~{3,})(.*)$"
-  m <- regmatches(lines, regexec(open_re, lines, perl = TRUE))
-  k <- 1L
-  nl <- length(lines)
-  starts <- integer()
-  ends <- integer()
-  chunk <- logical()
-  rawf <- logical()
-  while (k <= nl) {
-    mm <- m[[k]]
-    k0 <- k
-    # a backtick fence has no backtick in its info string, except a knitr chunk
-    # header (`{r, fig.cap = "... `r x` ..."}`), which knitr reads as one
-    if (length(mm) && !(substr(mm[3], 1, 1) == "`" && grepl("`", mm[4], fixed = TRUE) &&
-                        !grepl("^[ \t]*\\{.*\\}[ \t\r]*$", mm[4]))) {
-      ch <- substr(mm[3], 1, 1)
-      len <- nchar(mm[3])
-      quoted <- nzchar(mm[2])
-      close_re <- paste0("^[ \t]*", if (quoted) "(?:>[ \t]*)+" else "",
-                         if (ch == "`") "`" else "~", "{", len, ",}[ \t\r]*$")
-      j <- k + 1L
-      closed <- FALSE
-      while (j <= nl) {
-        if (grepl(close_re, lines[j], perl = TRUE)) {
-          closed <- TRUE
-          break
-        }
-        # a quoted fence ends with its block quote
-        if (quoted && !grepl("^[ \t]*>", lines[j])) break
-        j <- j + 1L
-      }
-      if (closed) {
-        end <- le[j]
-        k <- j + 1L
-      } else if (quoted && j <= nl) {
-        end <- le[j - 1L]
-        k <- j
-      } else {
-        end <- S$n
-        k <- j + 1L
-      }
-      starts <- c(starts, ls[k0])
-      ends <- c(ends, end)
-      chunk <- c(chunk, grepl(KNITR_CHUNK_BEGIN, lines[k0], perl = TRUE))
-      rawf <- c(rawf, grepl("^[ \t]*\\{=(latex|tex)\\}[ \t\r]*$", mm[4]))
-    } else {
-      k <- k + 1L
-    }
-  }
-  S$f_start <- as.numeric(starts)
-  S$f_end <- as.numeric(ends)
-  S$f_chunk <- chunk
-  S$f_raw <- rawf
+  f <- doc_fences(cut_lines(S$text, length(ls)))$fences
+  S$f_start <- as.numeric(ls[f$open])
+  S$f_end <- as.numeric(le[f$close])
+  S$f_chunk <- f$chunk
+  S$f_raw <- !f$chunk & grepl("^\\{=(latex|tex)\\}$", f$info)
+  S$f_closed <- f$closed
+  # the furthest end of the fences up to each one, so that a place after a nested chunk is still found in
+  # the fence around it
+  S$f_cover <- cummax(S$f_end)
   invisible()
 }
 
@@ -306,13 +267,13 @@ raw_named <- function(S, from, to, parent) {
 }
 
 # The body of a fenced block that opens at `p` and ends at `fe`: first and last position, or NULL when empty.
-fence_body <- function(S, p, fe) {
+# `closed`: whether its last line is its closer (find_fences()).
+fence_body <- function(S, p, fe, closed = TRUE) {
   nls <- S$nl[S$nl >= p & S$nl <= fe]
   if (!length(nls)) return(NULL)
   from <- nls[1L] + 1L
   last <- nls[length(nls)]
-  closed <- length(nls) > 1L &&
-    grepl("^[ \t>]*(`{3,}|~{3,})[ \t\r]*$", substr(S$text, last + 1L, fe))
+  closed <- closed && length(nls) > 1L
   to <- if (closed) last - 1L else fe
   if (to < from) NULL else c(from, to)
 }
@@ -390,7 +351,11 @@ para_limit <- function(S, i) S$plim[findInterval(i - 1L, S$plim) + 1L]
 
 fence_index <- function(S, p) {
   fi <- findInterval(p, S$f_start)
-  if (fi > 0L && p <= S$f_end[fi]) fi else NA_integer_
+  if (fi == 0L || p > S$f_cover[fi]) return(NA_integer_)
+  if (p <= S$f_end[fi]) return(fi)
+  # inside an earlier fence that holds a chunk ending before `p`
+  k <- which(S$f_start[seq_len(fi)] <= p & S$f_end[seq_len(fi)] >= p)
+  if (length(k)) k[length(k)] else NA_integer_
 }
 
 comment_end <- function(S, i) {
@@ -1442,7 +1407,7 @@ scan_seq <- function(S, from, to, parent) {
     if (!is.na(fi)) {
       # a chunk is knitr's code; any other fenced block is text to knitr, which evaluates its inline R
       if (!S$f_chunk[fi] && S$f_raw[fi]) {
-        bd <- fence_body(S, p, S$f_end[fi])
+        bd <- fence_body(S, p, S$f_end[fi], S$f_closed[fi])
         if (!is.null(bd)) raw_named(S, bd[1L], bd[2L], parent)
       }
       i <- if (!S$f_chunk[fi] && length(S$kn_s)) {

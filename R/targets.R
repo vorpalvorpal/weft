@@ -805,7 +805,7 @@ document_children <- function(lines) {
       v <- value_of(o$text)
       if (is.character(v)) out <- c(out, v) else unresolved <- TRUE
     }
-    body <- lines[seq_len(max(0L, min(ch$close, length(lines) + 1L) - 1L - ch$open)) + ch$open]
+    body <- lines[seq_len(max(0L, chunk_code_end(ch) - ch$open)) + ch$open]
     hit <- regmatches(body, regexec("^\\s*#\\|\\s*child:\\s*(.+?)\\s*$", body))
     for (h in hit) {
       if (length(h) == 2L) {
