@@ -21,10 +21,16 @@ test_that("E62's Pkg.add line installs the Weft package into a fresh Julia proje
   depot <- withr::local_tempdir("weft-e62-depot-")
   code <- paste0("using Pkg; ", line, "; using Weft; ",
                  "println(\"INSTALLED=\", haskey(Pkg.project().dependencies, \"Weft\"))")
+  # A user's fresh shell has no R in it. The R test process has R's lib folder, and the system's, on
+  # LD_LIBRARY_PATH, so a plain child `julia` loads the system libunwind and segfaults (exit 139, finding 22);
+  # weft:::julia_child_env() takes the system folders out, as weft does for its own Julia children. Julia's
+  # temporary files go in a test folder too, so that a crash leaves nothing in R's temp directory.
+  tmp <- withr::local_tempdir("weft-e62-tmp-")
+  env <- c(JULIA_DEPOT_PATH = paste0(depot, ":"), TMPDIR = tmp, weft:::julia_child_env())
   out <- suppressWarnings(system2(
     Sys.which("julia"), c(paste0("--project=", proj), "-e", shQuote(code)),
     stdout = TRUE, stderr = TRUE,
-    env = paste0("JULIA_DEPOT_PATH=", depot, ":")))
+    env = paste0(names(env), "=", env)))
   expect_null(attr(out, "status"), label = paste(utils::tail(out, 15), collapse = "\n"))
   expect_true(any(out == "INSTALLED=true"), label = paste(utils::tail(out, 15), collapse = "\n"))
 })
