@@ -298,7 +298,8 @@ local function is_mapping(inner)
   for _, l in ipairs(inner) do
     local t = trim(l)
     if t ~= "" and t:sub(1, 1) ~= "#" then
-      return l:match("^[A-Za-z_\"'][^:]*:[ \t\r]") ~= nil or l:match("^[A-Za-z_\"'][^:]*:$") ~= nil
+      -- a block written indented as a whole is still a mapping (YAML takes its first line's indent as the margin)
+      return l:match("^[ \t]*[A-Za-z_\"'][^:]*:[ \t\r]") ~= nil or l:match("^[ \t]*[A-Za-z_\"'][^:]*:$") ~= nil
         or t:sub(1, 1) == "{"
     end
   end
@@ -850,13 +851,6 @@ end
 local QUARTO_ENGINES = { "julia", "knitr", "jupyter", "markdown" }
 local HANDLER_LANGS = { mermaid = true, dot = true, ojs = true }
 
--- the language of a chunk header as Quarto reads it for the engine (languagesWithClasses()), lower-cased
-local function quarto_lang(l)
-  local inner = l:match("^[\t >]*```+%s*{([^}]*)}%s*$")
-  local lang = inner and inner:match("^([A-Za-z][A-Za-z0-9_.]*)")
-  return lang and lang:lower()
-end
-
 -- the backticks of a cell start (breakQuartoMd()), or nil
 local function quarto_cell_ticks(l)
   local ticks, inner = l:match("^%s*(```+)%s*{(.*)}%s*$")
@@ -894,27 +888,36 @@ local function quarto_unclosed_cell(lines)
   return in_cell
 end
 
--- the lines inside a plain fence read over the whole text, chunk headers taken as fences (R's fenced_lines())
-local function fenced_lines(lines)
-  local out = {}
-  for _, f in ipairs(plain_pass(lines, {}, true).fences) do
-    for q = f[1] + 1, f[2] do out[q] = true end
-  end
-  return out
-end
-
--- the chunk headers Quarto reads the languages from: an array of {line, lang} (R's quarto_chunk_headers())
+-- the chunk headers Quarto reads the languages from (languagesWithClasses()): an array of {line, lang}, R's quarto_chunk_headers(). Quarto reads its regex over the whole text, so `[^}]*` and `%s*` cross
+-- line ends: `{r` with its `}` on a later line is a header of language r (knitr's own pattern runs none). A
+-- match starts at a line `^[\t >]*```+`; the backticks may be followed by blank lines, then `{` and the
+-- name; the first `}` after it must end its line. The next search starts on the line after that `}`.
 local function quarto_chunk_headers(lines)
   local out = {}
-  local fenced, open
-  for i, l in ipairs(lines) do
-    local lang = l:find("```", 1, true) and quarto_lang(l)
-    if lang then
-      if not fenced then
-        fenced = fenced_lines(lines)
-        open = quarto_unclosed_cell(lines)
+  local n = #lines
+  local open
+  local i = 1
+  while i <= n do
+    local l = lines[i]
+    local after = l:find("```", 1, true) and l:match("^[\t >]*```+(.*)$")
+    local hit
+    if after then
+      local j, text = i, after
+      while j < n and text:match("^%s*$") do j = j + 1; text = lines[j] end
+      local lang, rest = text:match("^%s*{([A-Za-z][A-Za-z0-9_.]*)(.*)$")
+      if lang then
+        local k = j
+        local close = rest:find("}", 1, true)
+        while not close and k < n do k = k + 1; rest = lines[k]; close = rest:find("}", 1, true) end
+        if close and rest:sub(close + 1):match("^%s*$") then hit = { lang = lang:lower(), last = k } end
       end
-      if not fenced[i] and i ~= open then out[#out + 1] = { line = i, lang = lang } end
+    end
+    if hit then
+      if open == nil then open = quarto_unclosed_cell(lines) or false end
+      if i ~= open then out[#out + 1] = { line = i, lang = hit.lang } end
+      i = hit.last + 1
+    else
+      i = i + 1
     end
   end
   return out
@@ -928,6 +931,16 @@ end
 
 -- the engine the front block's lines `fm` claim, in the order `order`, or nil (R's front_engine_claim())
 local function front_engine_claim(fm, order)
+  -- a block written indented as a whole is still one mapping: take its first line's indent off every line
+  local ind
+  for _, l in ipairs(fm) do
+    if not blank(l) and not l:match("^[ \t]*#") then ind = l:match("^[ \t]*"); break end
+  end
+  if ind and ind ~= "" then
+    local copy = {}
+    for q, l in ipairs(fm) do copy[q] = l:sub(1, #ind) == ind and l:sub(#ind + 1) or l end
+    fm = copy
+  end
   local top = {}
   for i, l in ipairs(fm) do
     local k = l:match("^([A-Za-z_][A-Za-z0-9_.%-]*)[ \t]*:")
@@ -956,14 +969,14 @@ local function front_engine_claim(fm, order)
         local b = under(t)
         v = b[1] and (b[1]:match("^[ \t]*([A-Za-z]+)") or "") or ""
       end
-      exec = v:lower()
+      exec = v
     elseif e.key == "execute" then
       local b = under(t)
       if b[1] then
         local ind = #b[1]:match("^[ \t]*")
         for _, l in ipairs(b) do
           if #l:match("^[ \t]*") == ind and l:match("^[ \t]*engine[ \t]*:") then
-            exec = scalar_text(l:gsub("^[^:]*:", "", 1)):lower()
+            exec = scalar_text(l:gsub("^[^:]*:", "", 1))
             break
           end
         end
@@ -981,15 +994,9 @@ local function front_engine_claim(fm, order)
   return nil
 end
 
--- the engine names of a project's `engines:` list (its `_quarto.yml`), in order
-local function project_engines(path)
-  local d = dir_of(path)
-  if d == path then d = "." end
-  local q = M.find_upward(d, "_quarto.yml") or M.find_upward(d, "_quarto.yaml")
-  local text = q and read_file(q)
+-- the engine names an `engines:` key lists in the lines `ls` of a project file, in order
+local function file_engines(ls)
   local out = {}
-  if not text then return out end
-  local ls = lines_of(text)
   for i, l in ipairs(ls) do
     local rest = l:match("^engines[ \t]*:(.*)$")
     if rest then
@@ -1016,6 +1023,107 @@ local function project_engines(path)
   return out
 end
 
+-- the profile names a `profile:` / `default:` of the lines `ls` gives (a name, names joined by commas, a flow
+-- list or a block list), or an empty list (R's profile_default())
+local function file_profile_default(ls)
+  local out = {}
+  local function add(v)
+    for name in scalar_text(v):gmatch("[^ ,]+") do out[#out + 1] = name end
+  end
+  for i, l in ipairs(ls) do
+    if l:match("^profile[ \t]*:[ \t]*$") then
+      for j = i + 1, #ls do
+        local rest = ls[j]:match("^[ \t]+default[ \t]*:(.*)$")
+        if rest then
+          rest = trim((rest:gsub("[ \t]#.*$", "")))
+          if rest:sub(1, 1) == "[" then
+            for item in rest:gsub("^%[", ""):gsub("%].*$", ""):gmatch("[^,]+") do add(item) end
+          elseif rest == "" then
+            for q = j + 1, #ls do
+              local item = ls[q]:match("^[ \t]*%-[ \t]+(.*)$")
+              if item then add(item) elseif not (blank(ls[q]) or ls[q]:match("^[ \t]*#")) then break end
+            end
+          else
+            add(rest)
+          end
+          break
+        elseif not (blank(ls[j]) or ls[j]:match("^[ \t]")) then
+          break
+        end
+      end
+      break
+    end
+  end
+  return out
+end
+
+-- the QUARTO_PROFILE= value of `_environment.local`, else `_environment`, in `root`, or "" (R's
+-- environment_profile())
+local function environment_profile(root)
+  local function one(name)
+    local text = read_file(root .. "/" .. name)
+    if not text then return "" end
+    for _, l in ipairs(lines_of(text)) do
+      local v = trim(l):gsub("^export[ \t]+", ""):match("^QUARTO_PROFILE[ \t]*=(.*)$")
+      if v then
+        v = trim(v)
+        local q = v:match("^([\"'])")
+        if q and v:sub(-1) == q and #v >= 2 then return v:sub(2, -2) end
+        return trim((v:gsub("[ \t]+#.*$", "")))
+      end
+    end
+    return ""
+  end
+  local e = one("_environment.local")
+  if e ~= "" then return e end
+  return one("_environment")
+end
+
+-- the engine names of a project's `engines:` list, in order: its `_quarto.yml`, then the `_quarto-<profile>`
+-- file of each active profile (the first named last), then `_quarto.yml.local` (R's quarto_project_engines():
+-- Quarto merges them so, the lists joined with the earlier first). The active profiles are those of
+-- QUARTO_PROFILE, else of `_environment.local` / `_environment`, else `profile: default:` in the local file,
+-- else in `_quarto.yml`.
+local function project_engines(path)
+  local d = dir_of(path)
+  if d == path then d = "." end
+  local q = M.find_upward(d, "_quarto.yml") or M.find_upward(d, "_quarto.yaml")
+  local text = q and read_file(q)
+  local out = {}
+  if not text then return out end
+  local root = dir_of(q)
+  local base = lines_of(text)
+  local localf
+  for _, name in ipairs({ "_quarto.yml.local", "_quarto.yaml.local" }) do
+    local t = read_file(root .. "/" .. name)
+    if t then localf = lines_of(t); break end
+  end
+  local named = os.getenv("QUARTO_PROFILE") or ""
+  if named == "" then named = environment_profile(root) end
+  local profiles = {}
+  if named ~= "" then
+    for name in named:gmatch("[^ ,]+") do profiles[#profiles + 1] = name end
+  else
+    profiles = localf and file_profile_default(localf) or {}
+    if #profiles == 0 then profiles = file_profile_default(base) end
+  end
+  local seen = {}
+  local function add(list)
+    for _, e in ipairs(list) do
+      if not seen[e] then seen[e] = true; out[#out + 1] = e end
+    end
+  end
+  add(file_engines(base))
+  for k = #profiles, 1, -1 do
+    for _, ext in ipairs({ ".yml", ".yaml" }) do
+      local t = read_file(root .. "/_quarto-" .. profiles[k] .. ext)
+      if t then add(file_engines(lines_of(t))); break end
+    end
+  end
+  if localf then add(file_engines(localf)) end
+  return out
+end
+
 -- the engine and how it was chosen ("key" or "chunks"), from the front block `fm` (or nil) and the lines
 local function engine_choice(fm, lines, project)
   local order, seen = {}, {}
@@ -1027,15 +1135,18 @@ local function engine_choice(fm, lines, project)
   local e = fm and front_engine_claim(fm, order)
   if e then return e, "key", {} end
   local hdrs = quarto_chunk_headers(lines)
-  local has, other = {}, false
+  -- the languages in the order they first appear; each goes to the first engine of the order that claims it
+  -- (julia claims julia, knitr claims r, jupyter claims julia); a language nobody claims, that is no
+  -- handler's, sends the document to jupyter once all have been tried
+  local claims = { julia = { julia = true }, knitr = { r = true }, jupyter = { julia = true } }
+  local seen_lang, langs, other = {}, {}, false
   for _, h in ipairs(hdrs) do
-    has[h.lang] = true
-    if h.lang ~= "r" and h.lang ~= "julia" and not HANDLER_LANGS[h.lang] then other = true end
+    if not seen_lang[h.lang] then seen_lang[h.lang] = true; langs[#langs + 1] = h.lang end
+    if not HANDLER_LANGS[h.lang] then other = true end
   end
-  if has.r then return "knitr", "chunks", hdrs end
-  if has.julia then
+  for _, lg in ipairs(langs) do
     for _, o in ipairs(order) do
-      if o == "julia" or o == "jupyter" then return o, "chunks", hdrs end
+      if claims[o] and claims[o][lg] then return o, "chunks", hdrs end
     end
   end
   if other then return "jupyter", "chunks", hdrs end
