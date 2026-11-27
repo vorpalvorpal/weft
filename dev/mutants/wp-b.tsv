@@ -1,0 +1,6 @@
+id	file	old	new	filter
+b1-n-removed-off-by-one	R/gate.R	n <- as.integer(n)	n <- as.integer(n) + 1L	^gate-(edits|checks)$
+b2-checks-column-dropped	R/gate.R	seconds = 0, checks = checks)	seconds = 0)	^gate-(edits|checks)$
+b3-e80-wording	R/gate.R	gone since HEAD (information:	removed since HEAD (information:	^gate-(edits|checks)$
+b4-e80-singular	R/gate.R	if (n == 1L) "1 check" else	if (n == 0L) "1 check" else	^gate-(edits|checks)$
+b5-block-file-header-wording	R/gate.R	out <- c(out, paste0("  ", f, ", as in HEAD"))	out <- c(out, paste0("  ", f, ", in HEAD"))	^gate-(edits|checks)$

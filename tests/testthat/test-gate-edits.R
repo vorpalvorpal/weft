@@ -6,7 +6,14 @@
 # Each test (a) counts constructs on the before and after texts with count_constructs() and checks that, per
 # kind, the totals move by what the hand answer says (values and spans together; claims apart), and (b) runs
 # the edit through the gate in a temporary git repository (baseline committed, the after text staged) and
-# checks n_removed, that no trailer is refused exactly when N > 0, and that `Weft-Removed: N` passes.
+# checks n_removed, that no trailer is refused exactly when N > 0, and that `Weft-Removed: N` passes. It also
+# holds what test-gate-checks.R's N139 loop used to check on the same edits (information only, D36): that
+# `res$checks` is a data frame with the documented columns and, when it lists checks and the commit is
+# refused, that the report says how many in the E80 line.
+# One repository serves every edit: the baseline is committed once, each edit is written and staged, gated, and
+# then undone with `git checkout HEAD -- . && git reset -q && git clean -fdq`, after which `git status
+# --porcelain --ignored` must be empty. The gate writes only its cache, `.git/weft/cache`, which neither
+# checkout nor clean touches; it is removed too, so that every edit gates cold as before.
 # E16b has no hand answer: its expected N is the scanner's own count, as the design says.
 #
 # Keeping the documents free of unrelated findings: the gate judges the findings an edit ADDS, and every
@@ -24,6 +31,17 @@ ge_tot <- function(x) c(vs = sum(x$kind %in% c("value", "span")), claim = sum(x$
 # N under the ruling: each group's positive part of removed less added
 ge_n <- function(rm, add) as.integer(max(0, rm[["claim"]] - add[["claim"]]) + max(0, rm[["vs"]] - add[["vs"]]))
 
+ge_cols <- c("project", "file", "line", "cond", "level", "verdict", "by", "by_line", "remains")
+ge_before <- c(G_ENGINE, ge$render_doc(ge$D0, 72))
+ge_dir <- g_repo(list("ch1.qmd" = ge_before))
+ge_status <- function(dir) g_ok_git(dir, "status", "--porcelain", "--ignored")
+ge_reset <- function(dir) {
+  g_ok_git(dir, "checkout", "HEAD", "--", ".")
+  g_ok_git(dir, "reset", "-q")
+  g_ok_git(dir, "clean", "-fdq")
+  unlink(file.path(dir, ".git", "weft"), recursive = TRUE)
+}
+
 test_that("4a edits: the fixture holds the 72 edits and the extra, each with a hand answer", {
   expect_length(ge$EDITS, 73L)
   expect_identical(sort(names(ge$EDITS)), sort(c(names(ge$EXPECT), "E16b")))
@@ -37,7 +55,7 @@ for (id in names(ge$EDITS)) local({
   e <- ge$EDITS[[id]]
   test_that(paste0("4a edits ", id, ": ", e$desc), {
     skip_if_no_git()
-    before <- c(G_ENGINE, ge$render_doc(ge$D0, 72))
+    before <- ge_before
     after <- c(G_ENGINE, ge$render_doc(e$f(ge$D0), e$width, e$hash_safe))
     cb <- ge_cc(before)
     ca <- ge_cc(after)
@@ -58,29 +76,43 @@ for (id in names(ge$EDITS)) local({
       n <- x$n
     }
 
-    # (b) through the gate
-    dir <- g_scenario(list("ch1.qmd" = before), list("ch1.qmd" = after))
-    res <- g_gate(dir)
-    expect_identical(res$n_removed, n)
-    if (identical(id, "E16b")) {
-      # the reflow breaks constructs (errors) and a heading (a finding): refused whatever the message says
-      expect_false(res$ok)
-      expect_identical(g_gate(dir, msg = c("Reflow", "", paste0("Weft-Removed: ", n)))$trailer, n)
-      return(invisible())
+    # (b) through the gate, in the shared repository, undone at the end
+    dir <- ge_dir
+    expect_identical(ge_status(dir), character())
+    run <- function() {
+      g_apply(dir, list("ch1.qmd" = after))
+      g_add(dir)
+      on.exit(ge_reset(dir))
+      res <- g_gate(dir)
+      expect_s3_class(res$checks, "data.frame")
+      expect_identical(names(res$checks), ge_cols)
+      expect_identical(res$n_removed, n)
+      if (identical(id, "E16b")) {
+        # the reflow breaks constructs (errors) and a heading (a finding): refused whatever the message says
+        expect_false(res$ok)
+        expect_identical(g_gate(dir, msg = c("Reflow", "", paste0("Weft-Removed: ", n)))$trailer, n)
+        return(invisible())
+      }
+      # a full report that has gone checks says how many, in E80 (N139)
+      if (nrow(res$checks) && !res$ok) {
+        expect_true(any(grepl(sprintf("^commit-msg: %d checks? gone since HEAD", nrow(res$checks)), g_report(res))))
+      }
+      # no construct error; the findings added are the edit's own (E03, E04) and no others
+      expect_identical(nrow(res$errors), 0L)
+      expect_identical(sort(res$added$rule), sort(as.character(e$finding)))
+      clean <- is.null(e$finding)
+      if (n > 0L) {
+        expect_false(res$ok)
+        expect_true(is.na(res$trailer))
+        ok <- g_gate(dir, msg = c("Apply the edit", "", paste0("Weft-Removed: ", n)))
+        expect_identical(ok$ok, clean)       # the trailer clears the removal and nothing else
+        expect_identical(ok$trailer, n)
+        expect_identical(ok$n_removed, n)
+      } else {
+        expect_identical(res$ok, clean)
+      }
     }
-    # no construct error; the findings added are the edit's own (E03, E04) and no others
-    expect_identical(nrow(res$errors), 0L)
-    expect_identical(sort(res$added$rule), sort(as.character(e$finding)))
-    clean <- is.null(e$finding)
-    if (n > 0L) {
-      expect_false(res$ok)
-      expect_true(is.na(res$trailer))
-      ok <- g_gate(dir, msg = c("Apply the edit", "", paste0("Weft-Removed: ", n)))
-      expect_identical(ok$ok, clean)       # the trailer clears the removal and nothing else
-      expect_identical(ok$trailer, n)
-      expect_identical(ok$n_removed, n)
-    } else {
-      expect_identical(res$ok, clean)
-    }
+    run()
+    expect_identical(ge_status(dir), character())  # the reset left nothing, not even an ignored file
   })
 })
