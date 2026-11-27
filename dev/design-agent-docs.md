@@ -126,3 +126,15 @@ a plugin's default `skills/` directory is `skills/<name>/SKILL.md`, so the
 same `skills/weft/` serves the Agent Skills installers and the plugin,
 with no second copy to drift. Install id: `weft@weft`. Cost: Claude Code
 copies the whole repository into its plugin cache.
+
+**Ruling, 27 Nov 2026 (supersedes the default of 15 Nov).** Robin chose detection. The default
+is the new preset `auto`: `.agents/skills`, plus `.claude/skills` when the project root holds a
+`.claude` folder, a `CLAUDE.md` or a `CLAUDE.local.md`. `auto` combines with other items, and the
+call names the file or folder that chose `.claude/skills`. `"agents"` keeps its meaning (one
+folder). Alternatives: keep `"agents"` (Claude Code users silently get no skill, since Claude Code
+reads neither `.agents/skills` nor `AGENTS.md` without an `@AGENTS.md` line); `c("agents",
+"claude")` (a useless second copy in every project that does not use Claude Code); `NULL` as the
+detecting default (refused: a named preset says what it does in the signature and combines with
+other items). Detection looks at the project root only. Since a `.claude/skills/weft` copy implies
+a `.claude` folder, `auto` always updates such a copy, so AD7's "not updated" note no longer arises
+for `.claude/skills` under the default.
