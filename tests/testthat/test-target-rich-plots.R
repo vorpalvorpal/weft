@@ -57,6 +57,12 @@ test_that("RS1, 3.6.11: marquee draws the marquee form of a title", {
   skip_on_cran()
   skip_if_not_installed("ggplot2", "4.0.0")
   skip_if_not_installed("marquee")
+  # marquee 1.3.0 builds element_marquee() as an S7 subclass of ggplot2's element_text, and with S7 1.0.0
+  # (ggplot2 4.0.4) it errors "`_parent` must be an instance of <ggplot2::element_text>, not <S7_object>".
+  # That is in marquee and S7, before any weft code runs, so the test waits for a fixed marquee.
+  skip_if(utils::packageVersion("S7") >= "1.0.0" && utils::packageVersion("marquee") <= "1.3.0" &&
+            inherits(try(marquee::element_marquee(), silent = TRUE), "try-error"),
+          "marquee <= 1.3.0 cannot build element_marquee() with S7 >= 1.0.0 (CI: ggplot2 4.0.4, marquee 1.3.0, S7 1.0.0)")
   rp_device()
   g2_cfg(NULL)
   t <- format(weft("Rate *r* of 10^-4^ m^2^"), target = "marquee")
