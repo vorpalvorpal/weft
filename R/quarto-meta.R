@@ -36,18 +36,38 @@ profile_default <- function(y) {
   as.character(unlist(d))
 }
 
+# The local config file of the project folder `root` (`_quarto.yml.local`, else `_quarto.yaml.local`, whichever
+# the base file is called), or NA.
+quarto_local_file <- function(root) first_existing(root, c("_quarto.yml.local", "_quarto.yaml.local"))
+
+# The `QUARTO_PROFILE=` value of `_environment.local`, else of `_environment`, in the project folder `root`,
+# or "" (a dotenv line, its value perhaps quoted, an `export` allowed; the first such line of a file wins).
+environment_profile <- function(root) {
+  one <- function(f) {
+    if (!file.exists(f)) return("")
+    l <- trimws(read_source_text(f) |> strsplit("\r?\n") |> unlist())
+    l <- sub("^export[ \t]+", "", l[grepl("^(export[ \t]+)?QUARTO_PROFILE[ \t]*=", l)])
+    if (!length(l)) return("")
+    v <- trimws(sub("^QUARTO_PROFILE[ \t]*=", "", l[1L]))
+    if (grepl("^([\"']).*\\1", v)) substring(v, 2L, nchar(v) - 1L) else trimws(sub("[ \t]+#.*$", "", v))
+  }
+  e <- one(file.path(root, "_environment.local"))
+  if (nzchar(e)) e else one(file.path(root, "_environment"))
+}
+
 # The active profiles of the project whose config file is `qfile`, the first named first (P9): those of
-# QUARTO_PROFILE (which `quarto render --profile` sets), else `profile: default` in `_quarto.yml.local`, else
-# in `_quarto.yml`.
+# QUARTO_PROFILE (which `quarto render --profile` sets), else of `_environment.local` or `_environment`, else
+# `profile: default` in `_quarto.yml.local`, else in `_quarto.yml`. Names split at commas and spaces.
 quarto_profiles <- function(qfile) {
   env <- Sys.getenv("QUARTO_PROFILE", "")
+  if (!nzchar(env)) env <- environment_profile(dirname(qfile))
   named <- if (nzchar(env)) {
     env
   } else {
-    d <- profile_default(quarto_layer_yaml(paste0(qfile, ".local")))
+    d <- profile_default(quarto_layer_yaml(quarto_local_file(dirname(qfile))))
     if (length(d)) d else profile_default(quarto_layer_yaml(qfile))
   }
-  p <- trimws(unlist(strsplit(named, ",", fixed = TRUE)))
+  p <- trimws(unlist(strsplit(named, "[ ,]+")))
   unique(p[nzchar(p)])
 }
 
@@ -70,12 +90,12 @@ quarto_layer_files <- function(path) {
     qfile <- first_existing(qroot, QUARTO_MARKERS)
     prof <- vapply(rev(quarto_profiles(qfile)),
                    function(p) first_existing(qroot, paste0("_quarto-", p, c(".yml", ".yaml"))), "")
-    local <- paste0(qfile, ".local")
+    local <- quarto_local_file(qroot)
     parts <- if (identical(dir, qroot)) character() else strsplit(rel_to(dir, qroot), "/", fixed = TRUE)[[1L]]
     mdirs <- if (length(parts)) file.path(qroot, Reduce(function(a, b) paste0(a, "/", b), parts, accumulate = TRUE))
              else qroot
     meta <- vapply(mdirs, first_existing, "", names = METADATA_MARKERS, USE.NAMES = FALSE)
-    files <- c(qfile, prof, if (file.exists(local)) local, meta)
+    files <- c(qfile, prof, local, meta)
     unname(files[!is.na(files)])
   })
 }

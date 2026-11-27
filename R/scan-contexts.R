@@ -334,24 +334,33 @@ QUARTO_ENGINES <- c("julia", "knitr", "jupyter", "markdown")
 # send a document to jupyter.
 QUARTO_HANDLER_LANGS <- c("mermaid", "dot", "ojs")
 
-# Quarto's chunk header for the engine (languagesWithClasses()): the language, lower-cased.
-QUARTO_LANG_RE <- "^[\t >]*```+\\s*\\{([a-zA-Z][a-zA-Z0-9_.]*)([^}]*)?\\}\\s*$"
+# Quarto's chunk header for the engine (languagesWithClasses()): the language, lower-cased. Quarto reads it
+# over the whole text, so `[^}]*` and `\\s*` cross line ends: `{r` with its `}` on a later line is a chunk of
+# language r (knitr's own pattern works line by line and runs none: find_chunks()).
+QUARTO_LANG_RE <- "(?m)^[\t >]*```+\\s*\\{([a-zA-Z][a-zA-Z0-9_.]*)([^}]*)?\\}\\s*$"
 # Quarto's cell start and end (breakQuartoMd()), which decide the text the languages are read from.
 QUARTO_CELL_RE <- "^\\s*(```+)\\s*\\{([=A-Za-z][=A-Za-z0-9._]*)( *[ ,].*)?\\}\\s*$"
 QUARTO_CODE_END_RE <- "^\\s*(```+)\\s*$"
 
-# The lines of the chunk headers Quarto reads the engine's languages from, with their languages: every line
-# of QUARTO_LANG_RE, but not the header of a cell that never closes (breakQuartoMd() leaves an unclosed
-# cell's header out of the text it hands on, when the file ends in a newline, as a file read by lines is
-# taken to), and not a header inside a plain fence (fenced_lines(); Quarto 1.11.9 reads those too, the
-# sweep-d table holds them out: dev/decisions.md, 27 Nov).
+# The chunk headers Quarto reads the engine's languages from (languagesWithClasses()), as the first line of
+# each and its language. Quarto does not track fences, so a header inside one counts (and knitr runs the
+# chunk there too: filter_resolves() reads the r headers as they are). A header of a cell that never closes is not read (breakQuartoMd() leaves it out
+# of the text it hands on, when the file ends in a newline, as a file read by lines is taken to).
 quarto_chunk_headers <- function(lines) {
   doc_memo("quarto_chunk_headers", lines, function(l) {
-    hdr <- which(grepl(QUARTO_LANG_RE, l, perl = TRUE))
-    if (!length(hdr)) return(list(line = integer(), lang = character()))
-    hdr <- setdiff(hdr, c(quarto_unclosed_cell(l), which(fenced_lines(l))))
-    lang <- tolower(sub(QUARTO_LANG_RE, "\\1", l[hdr], perl = TRUE))
-    list(line = hdr, lang = lang)
+    none <- list(line = integer(), lang = character())
+    if (!any(grepl("```", l, fixed = TRUE))) return(none)
+    text <- paste(l, collapse = "\n")
+    m <- gregexpr(QUARTO_LANG_RE, text, perl = TRUE)[[1L]]
+    if (m[1L] < 0L) return(none)
+    cs <- attr(m, "capture.start")[, 1L]
+    cl <- attr(m, "capture.length")[, 1L]
+    lang <- tolower(substring(text, cs, cs + cl - 1L))
+    starts <- cumsum(c(1L, nchar(l) + 1L))
+    hdr <- findInterval(as.integer(m), starts)
+    keep <- !hdr %in% quarto_unclosed_cell(l)
+    hdr <- hdr[keep]
+    list(line = hdr, lang = lang[keep])
   })
 }
 
@@ -391,12 +400,16 @@ quarto_unclosed_cell <- function(lines) {
 
 # The engine that the front block's keys claim, in Quarto's order `order`, or NA (then the chunks decide).
 # `fm` is the front block's lines, read as text: a top-level key at column 0; a value is falsy when it is
-# `false`, `null`, `~`, `0` or empty with nothing indented under it. `engine:` is lower-cased, and its
-# mapping form names its first key (Quarto 1.11.9 refuses both; weft keeps the older reading, the grammar
-# table's `engine: Knitr` row); of `engine:` and `execute: engine:` the later key wins, as Quarto's
-# metadataAsFormat() merges them.
+# `false`, `null`, `~`, `0` or empty with nothing indented under it. `engine:` is matched as written (names
+# are case-sensitive: `engine: Knitr` claims nothing), and its mapping form names its first key (Quarto 1.11.9
+# refuses it as a schema error; the first key is the author's plain intent); of `engine:` and `execute:
+# engine:` the later key wins, as Quarto's metadataAsFormat() merges them.
 front_engine_claim <- function(fm, order) {
   if (!length(fm)) return(NA_character_)
+  # a block written indented as a whole is still one mapping: take its first line's indent off every line
+  body <- fm[nzchar(trim_ws(fm)) & !grepl("^[ \t]*#", fm)]
+  ind <- if (length(body)) sub("[^ \t].*$", "", body[1L]) else ""
+  if (nzchar(ind)) fm <- ifelse(startsWith(fm, ind), substring(fm, nchar(ind) + 1L), fm)
   top <- which(grepl("^[A-Za-z_][A-Za-z0-9_.-]*[ \t]*:", fm))
   if (!length(top)) return(NA_character_)
   key <- sub("[ \t]*:.*$", "", fm[top])
@@ -428,10 +441,10 @@ front_engine_claim <- function(fm, order) {
         b <- under(t)
         v <- if (length(b)) sub("^[ \t]*([A-Za-z]+).*$", "\\1", b[1L]) else ""
       }
-      exec <- tolower(v)
+      exec <- v
     } else if (key[t] == "execute") {
       e <- child_engine(t)
-      if (!is.na(e)) exec <- tolower(e)
+      if (!is.na(e)) exec <- e
     }
   }
   for (e in order) {
@@ -461,19 +474,16 @@ quarto_engine_choice <- function(fm, chunk_lines, project = character()) {
   order <- unique(c(project, QUARTO_ENGINES))
   e <- front_engine_claim(fm, order)
   if (!is.na(e)) return(list(engine = e, by = "key"))
+  # Quarto walks the languages in the order they first appear, and takes for each the first engine of its
+  # order that claims it: julia claims julia, knitr claims r, jupyter claims julia (when it comes before the
+  # julia engine); markdown claims none. A language nobody claims, that is not a handler's, sends the
+  # document to jupyter once every language has been tried.
+  claims <- list(julia = "julia", knitr = "r", jupyter = "julia")
   langs <- quarto_chunk_langs(chunk_lines)
-  # only r (knitr) and julia (julia, and jupyter after it) are claimed; Quarto takes the first claimed
-  # language in the text, and an R chunk anywhere is taken first here (the sweep-d table pins it: decisions,
-  # 27 Nov); with neither, a language outside Quarto's handlers sends the document to jupyter
-  e <- if ("r" %in% langs) {
-    "knitr"
-  } else if ("julia" %in% langs) {
-    order[order %in% c("julia", "jupyter")][1L]
-  } else if (length(setdiff(langs, QUARTO_HANDLER_LANGS))) {
-    "jupyter"
-  } else {
-    "markdown"
+  for (lg in langs) {
+    for (e in order) if (lg %in% claims[[e]]) return(list(engine = e, by = "chunks"))
   }
+  e <- if (length(setdiff(langs, QUARTO_HANDLER_LANGS))) "jupyter" else "markdown"
   list(engine = e, by = "chunks")
 }
 
