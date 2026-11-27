@@ -182,7 +182,9 @@ test_that("notebooks verify: control, a .qmd behaves as before", {
 test_that("notebooks verify: since lists a finding added in a notebook at its JSON line, not one already in HEAD", {
   v4_env()
   old <- nbs_ipynb(list(nbs_md("Prose.", NBS_BAD)))
-  new <- nbs_ipynb(list(nbs_md("Prose.", NBS_BAD, "", "More.", "A [a site]{n=\"j\" if=\"y\"} here.")))
+  # ruling 27 Nov: a construct error is listed apart from `added` (8.1.1, 6.2.2), so the finding
+  # added is a typed numeral, a tier-1 finding that is not a construct error
+  new <- nbs_ipynb(list(nbs_md("Prose.", NBS_BAD, "", "More.", "The site had 42 visits.")))
   p <- v4_proj(list("nb.ipynb" = old$lines), git = TRUE)
   base <- g_head(p$top)
   g_write(p$top, "nb.ipynb", new$lines)
@@ -190,8 +192,8 @@ test_that("notebooks verify: since lists a finding added in a notebook at its JS
   g_commit(p$top, "second")
   r <- v4_verify(p$root, since = base, static = TRUE)
   a <- as.data.frame(unclass(r$res$added), stringsAsFactors = FALSE)
-  expect_identical(a$file, "nb.ipynb")
-  expect_identical(a$line, new$at(1L, 5L))
+  expect_identical(a$file[a$rule == "numeral"], "nb.ipynb")
+  expect_identical(a$line[a$rule == "numeral"], new$at(1L, 5L))
 })
 
 # ---- checks() -----------------------------------------------------------------------------------------------
