@@ -531,7 +531,7 @@ test_that("AD7: a project with no copy at all is reported missing, as now", {
 
 # ---- AD8: what is unchanged ------------------------------------------------------------------------
 
-test_that("AD8: a project holding only an old .claude SKILL.md gains the .agents copy and keeps its .claude copy as it was", {
+test_that("AD8: a project holding only an old .claude SKILL.md gains the .agents copy and, under auto, has its .claude copy updated", {
   d <- adm_proj()
   h4_agent(d, skills = "claude")
   unlink(adm_path(d, ".claude/skills/weft/references"), recursive = TRUE)
@@ -540,11 +540,10 @@ test_that("AD8: a project holding only an old .claude SKILL.md gains the .agents
   old <- unname(tools::md5sum(adm_path(d, ".claude/skills/weft/SKILL.md")))
   s <- h4_say(weft::use_agent_docs(d))
   for (p in adm_files(".agents/skills")) expect_true(file.exists(adm_path(d, p)), label = p)
-  expect_identical(unname(tools::md5sum(adm_path(d, ".claude/skills/weft/SKILL.md"))), old)
-  expect_false(file.exists(adm_path(d, ".claude/skills/weft/references/syntax.md")))
-  expect_match(s$text, ADM_STALE_NOTE, fixed = TRUE)
-  h4_agent(d, skills = c("agents", "claude"))
+  # the .claude folder makes auto write .claude/skills too (ruling of 27 Nov 2026)
+  expect_false(identical(unname(tools::md5sum(adm_path(d, ".claude/skills/weft/SKILL.md"))), old))
   for (p in adm_files(".claude/skills")) expect_true(file.exists(adm_path(d, p)), label = p)
+  expect_false(grepl("was not updated", s$text, fixed = TRUE))
   expect_identical(unname(tools::md5sum(adm_path(d, ".agents/skills/weft/SKILL.md"))),
                    unname(tools::md5sum(adm_path(d, ".claude/skills/weft/SKILL.md"))))
 })
@@ -571,20 +570,16 @@ test_that("AD8: calls write nothing in HOME, the cache or the project's parent",
 
 # ---- the default leaves an older .claude copy stale: the closing message says so ----------------
 
-test_that("AD3/AD7: the default leaves an older .claude copy as it is and says how to update it", {
+test_that("AD3/AD7: the default updates an older .claude copy, because the .claude folder selects it", {
   d <- adm_proj()
   h4_agent(d, skills = c("agents", "claude"))
   claude <- adm_path(d, ".claude/skills/weft/SKILL.md")
   adm_stale(claude)
   old <- readLines(claude)
   s <- h4_say(weft::use_agent_docs(d))
-  expect_identical(readLines(claude), old)
-  expect_match(s$text, ADM_STALE_NOTE, fixed = TRUE)
-  expect_false(".claude/skills/weft/SKILL.md" %in% u4_rel(s$value, d))
-  # the named call updates it, and then says nothing
-  s2 <- h4_say(weft::use_agent_docs(d, skills = c("agents", "claude")))
   expect_false(identical(readLines(claude), old))
-  expect_false(grepl("was not updated", s2$text, fixed = TRUE))
+  expect_true(".claude/skills/weft/SKILL.md" %in% u4_rel(s$value, d))
+  expect_false(grepl("was not updated", s$text, fixed = TRUE))
 })
 
 test_that("AD3/AD7: no stale-copy message when the .claude copy is current, edited or absent", {
@@ -599,13 +594,13 @@ test_that("AD3/AD7: no stale-copy message when the .claude copy is current, edit
   expect_false(grepl("was not updated", s2$text, fixed = TRUE))
 })
 
-test_that("AD3/AD7: the stale-copy message shows when the call also wrote files, and not under suppressMessages()", {
+test_that("AD3/AD7: a stale .claude copy is updated with the other files under auto, with no stale-copy message", {
   d <- adm_proj()
   h4_agent(d, skills = c("agents", "claude"))
   adm_stale(adm_path(d, ".claude/skills/weft/SKILL.md"))
   unlink(adm_path(d, ".agents/skills/weft/references/reports.md"))
   s <- h4_say(weft::use_agent_docs(d))
   expect_match(s$text, "Wrote: ", fixed = TRUE)
-  expect_match(s$text, ADM_STALE_NOTE, fixed = TRUE)
+  expect_false(grepl("was not updated", s$text, fixed = TRUE))
   expect_silent(suppressMessages(weft::use_agent_docs(d)))
 })
