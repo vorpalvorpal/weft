@@ -34,47 +34,48 @@ lists every rule:
 ``` r
 
 lint_rules()[, c("id", "tier", "scope", "what")]
-#>                   id tier   scope
-#> 1            numeral    1    file
-#> 2          construct    1    file
-#> 3               read    1    file
-#> 4        block-start    1    file
-#> 5           lone-bar    2    file
-#> 6            if-zero    2    file
-#> 7               name    2    file
-#> 8        inert-check    1    file
-#> 9         long-guard    2    file
-#> 10          cite-key    1    file
-#> 11         cite-bare    1    file
-#> 12      citation-key    1    file
-#> 13        claim-word    2    file
-#> 14     literal-value    1    file
-#> 15    value-constant    2    file
-#> 16      value-format    2    file
-#> 17              xref    1 project
-#> 18      anchor-twice    1 project
-#> 19         ref-label    1    file
-#> 20     anchor-unused    2 project
-#> 21         xref-code    2    file
-#> 22    section-anchor    1    file
-#> 23       chunk-label    1    file
-#> 24          tar-name    1    file
-#> 25       dict-assign    1    file
-#> 26         file-link    1    file
-#> 27       above-setup    1    file
-#> 28          dict-key    1    file
-#> 29         tar-cache    1    file
-#> 30      config-place    1 project
-#> 31            engine    1 project
-#> 32            figure    1    file
-#> 33     table-caption    1    file
-#> 34      guest-inline    1    file
-#> 35        guest-call    1    file
-#> 36        guest-read    2    file
-#> 37         ojs-value    2    file
-#> 38 named-unpublished    2    file
-#> 39    publish-hidden    1    file
-#> 40     string-markup    2    file
+#>                     id tier   scope
+#> 1              numeral    1    file
+#> 2            construct    1    file
+#> 3                 read    1    file
+#> 4          block-start    1    file
+#> 5             lone-bar    2    file
+#> 6              if-zero    2    file
+#> 7                 name    2    file
+#> 8          inert-check    1    file
+#> 9           long-guard    2    file
+#> 10            cite-key    1    file
+#> 11           cite-bare    1    file
+#> 12        citation-key    1    file
+#> 13          claim-word    2    file
+#> 14       literal-value    1    file
+#> 15      value-constant    2    file
+#> 16        value-format    2    file
+#> 17                xref    1 project
+#> 18        anchor-twice    1 project
+#> 19           ref-label    1    file
+#> 20       anchor-unused    2 project
+#> 21           xref-code    2    file
+#> 22      section-anchor    1    file
+#> 23         chunk-label    1    file
+#> 24            tar-name    1    file
+#> 25         dict-assign    1    file
+#> 26           file-link    1    file
+#> 27         above-setup    1    file
+#> 28            dict-key    1    file
+#> 29           tar-cache    1    file
+#> 30        config-place    1 project
+#> 31              engine    1 project
+#> 32 front-matter-quarto    1    file
+#> 33              figure    1    file
+#> 34       table-caption    1    file
+#> 35        guest-inline    1    file
+#> 36          guest-call    1    file
+#> 37          guest-read    2    file
+#> 38           ojs-value    2    file
+#> 39   named-unpublished    2    file
+#> 40      publish-hidden    1    file
+#> 41       string-markup    2    file
 #>                                                                   what
 #> 1  A number typed in prose, a caption, front matter, a string or math.
 #> 2                           An error the scanner finds in a construct.
@@ -107,15 +108,16 @@ lint_rules()[, c("id", "tier", "scope", "what")]
 #> 29                             A chunk that reads a target and caches.
 #> 30             A project setting in a place that is not the project's.
 #> 31                     A document with constructs that is not knitr's.
-#> 32                        A figure with no label, caption or alt text.
-#> 33                                            A table with no caption.
-#> 34          Inline code in another language, which knitr does not run.
-#> 35                    A weft function called from Python through `r.`.
-#> 36         A value read from Python or Julia that weft does not check.
-#> 37               An Observable value computed in the reader's browser.
-#> 38 A name used by a named value or filter span that nothing publishes.
-#> 39          A chunk that publishes values where its output is dropped.
-#> 40         Weft markup in an R string that does not go through weft().
+#> 32     A `---` block Quarto reads as front matter and Pandoc does not.
+#> 33                        A figure with no label, caption or alt text.
+#> 34                                            A table with no caption.
+#> 35          Inline code in another language, which knitr does not run.
+#> 36                    A weft function called from Python through `r.`.
+#> 37         A value read from Python or Julia that weft does not check.
+#> 38               An Observable value computed in the reader's browser.
+#> 39 A name used by a named value or filter span that nothing publishes.
+#> 40          A chunk that publishes values where its output is dropped.
+#> 41         Weft markup in an R string that does not go through weft().
 ```
 
 A rule’s **scope** is `file` when it reads one document at a time, and
@@ -333,6 +335,7 @@ when the heading’s words change.
 | `tar-cache` | a chunk that reads a target and has `cache: true` |
 | `file-link` | a link or image to a file that is not there |
 | `config-place` | a `weft:` key in `_quarto.yml`, or a project setting in a document |
+| `front-matter-quarto` | a `---` block in a `.qmd` that Quarto reads as front matter and Pandoc does not: text directly above it, or inside a `~~~` fence |
 | `read` | a file that is not UTF-8 |
 
 ## Python, Julia and Observable

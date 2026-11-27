@@ -2,6 +2,38 @@
 
 ## weft (development version)
 
+- **Behaviour change:** the knit (its settings under `weft:`, `lang`,
+  and the `dict_local` named in front matter),
+  [`arms()`](https://vorpalvorpal.github.io/weft/reference/arms.md) and
+  [`status()`](https://vorpalvorpal.github.io/weft/reference/status.md)
+  now read a document’s front matter by the rule the lints,
+  [`verify()`](https://vorpalvorpal.github.io/weft/reference/verify.md)
+  and
+  [`checks()`](https://vorpalvorpal.github.io/weft/reference/checks.md)
+  already used, which is Pandoc’s and what Quarto does for its own
+  options: every metadata block counts, not only the first, and when two
+  blocks set one top-level key the later wins and replaces the whole
+  value (a later `weft:` replaces an earlier one, with no merge inside
+  it). Front matter may follow blank lines at the top of the file, and
+  `---` followed by a blank line is not front matter. `engine:`,
+  `knitr:` and `jupyter:` are read from the first block alone, as Quarto
+  reads them, by the knit’s scanner,
+  [`status()`](https://vorpalvorpal.github.io/weft/reference/status.md)
+  and the lints (`engine`, `tar-cache`, `above-setup`), so the
+  front-matter activation route counts only there and a later block’s
+  `engine:` or `knitr:` counts for nothing; `execute:` and every other
+  key still come from all the blocks. A block inside an HTML comment is
+  not front matter. The knit reads the source file and not
+  [`rmarkdown::metadata`](https://pkgs.rstudio.com/rmarkdown/reference/metadata.html),
+  which holds the first block only. The Python and Julia modules read
+  `chunk_claims`, and the Quarto filter its `weft:` settings, by the
+  same rule. Rule 2.1.6.
+- New lint `front-matter-quarto` (tier 1, rule 5.8.10): a `---` block in
+  a `.qmd` that Quarto reads as front matter and Pandoc does not, so the
+  knit, the lints and the filter do not read it either: one with text
+  directly above it (“put a blank line above it”), and one inside a
+  `~~~` fence (“move it out of the `~~~` fence”). A setext heading
+  underline is not reported.
 - **Behaviour change:** weft follows `{{< include >}}` as Quarto
   (1.11.9) expands it, everywhere it follows includes: the knit’s line
   map, the Lua filter’s line search and ledger header, the names R and
@@ -22,6 +54,9 @@
 - A `file=` values file named in an included file is now read against
   the main document’s folder by the `named-unpublished` lint too, as
   Quarto and the Lua filter do, not against the included file’s folder.
+- The `file=` of a values block is now read as the knit reads attribute
+  values: `\` is a space, and a longer name such as `profile=` is not
+  `file=`.
 - [`lints()`](https://vorpalvorpal.github.io/weft/reference/lints.md),
   the commit gate,
   [`arms()`](https://vorpalvorpal.github.io/weft/reference/arms.md),

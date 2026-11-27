@@ -133,47 +133,48 @@ weft</td>
 <p><code><a href="../reference/lint_rules.html">lint_rules()</a></code> lists every rule:</p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/lint_rules.html">lint_rules</a></span><span class="op">(</span><span class="op">)</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"id"</span>, <span class="st">"tier"</span>, <span class="st">"scope"</span>, <span class="st">"what"</span><span class="op">)</span><span class="op">]</span></span>
-<span><span class="co">#&gt;                   id tier   scope</span></span>
-<span><span class="co">#&gt; 1            numeral    1    file</span></span>
-<span><span class="co">#&gt; 2          construct    1    file</span></span>
-<span><span class="co">#&gt; 3               read    1    file</span></span>
-<span><span class="co">#&gt; 4        block-start    1    file</span></span>
-<span><span class="co">#&gt; 5           lone-bar    2    file</span></span>
-<span><span class="co">#&gt; 6            if-zero    2    file</span></span>
-<span><span class="co">#&gt; 7               name    2    file</span></span>
-<span><span class="co">#&gt; 8        inert-check    1    file</span></span>
-<span><span class="co">#&gt; 9         long-guard    2    file</span></span>
-<span><span class="co">#&gt; 10          cite-key    1    file</span></span>
-<span><span class="co">#&gt; 11         cite-bare    1    file</span></span>
-<span><span class="co">#&gt; 12      citation-key    1    file</span></span>
-<span><span class="co">#&gt; 13        claim-word    2    file</span></span>
-<span><span class="co">#&gt; 14     literal-value    1    file</span></span>
-<span><span class="co">#&gt; 15    value-constant    2    file</span></span>
-<span><span class="co">#&gt; 16      value-format    2    file</span></span>
-<span><span class="co">#&gt; 17              xref    1 project</span></span>
-<span><span class="co">#&gt; 18      anchor-twice    1 project</span></span>
-<span><span class="co">#&gt; 19         ref-label    1    file</span></span>
-<span><span class="co">#&gt; 20     anchor-unused    2 project</span></span>
-<span><span class="co">#&gt; 21         xref-code    2    file</span></span>
-<span><span class="co">#&gt; 22    section-anchor    1    file</span></span>
-<span><span class="co">#&gt; 23       chunk-label    1    file</span></span>
-<span><span class="co">#&gt; 24          tar-name    1    file</span></span>
-<span><span class="co">#&gt; 25       dict-assign    1    file</span></span>
-<span><span class="co">#&gt; 26         file-link    1    file</span></span>
-<span><span class="co">#&gt; 27       above-setup    1    file</span></span>
-<span><span class="co">#&gt; 28          dict-key    1    file</span></span>
-<span><span class="co">#&gt; 29         tar-cache    1    file</span></span>
-<span><span class="co">#&gt; 30      config-place    1 project</span></span>
-<span><span class="co">#&gt; 31            engine    1 project</span></span>
-<span><span class="co">#&gt; 32            figure    1    file</span></span>
-<span><span class="co">#&gt; 33     table-caption    1    file</span></span>
-<span><span class="co">#&gt; 34      guest-inline    1    file</span></span>
-<span><span class="co">#&gt; 35        guest-call    1    file</span></span>
-<span><span class="co">#&gt; 36        guest-read    2    file</span></span>
-<span><span class="co">#&gt; 37         ojs-value    2    file</span></span>
-<span><span class="co">#&gt; 38 named-unpublished    2    file</span></span>
-<span><span class="co">#&gt; 39    publish-hidden    1    file</span></span>
-<span><span class="co">#&gt; 40     string-markup    2    file</span></span>
+<span><span class="co">#&gt;                     id tier   scope</span></span>
+<span><span class="co">#&gt; 1              numeral    1    file</span></span>
+<span><span class="co">#&gt; 2            construct    1    file</span></span>
+<span><span class="co">#&gt; 3                 read    1    file</span></span>
+<span><span class="co">#&gt; 4          block-start    1    file</span></span>
+<span><span class="co">#&gt; 5             lone-bar    2    file</span></span>
+<span><span class="co">#&gt; 6              if-zero    2    file</span></span>
+<span><span class="co">#&gt; 7                 name    2    file</span></span>
+<span><span class="co">#&gt; 8          inert-check    1    file</span></span>
+<span><span class="co">#&gt; 9           long-guard    2    file</span></span>
+<span><span class="co">#&gt; 10            cite-key    1    file</span></span>
+<span><span class="co">#&gt; 11           cite-bare    1    file</span></span>
+<span><span class="co">#&gt; 12        citation-key    1    file</span></span>
+<span><span class="co">#&gt; 13          claim-word    2    file</span></span>
+<span><span class="co">#&gt; 14       literal-value    1    file</span></span>
+<span><span class="co">#&gt; 15      value-constant    2    file</span></span>
+<span><span class="co">#&gt; 16        value-format    2    file</span></span>
+<span><span class="co">#&gt; 17                xref    1 project</span></span>
+<span><span class="co">#&gt; 18        anchor-twice    1 project</span></span>
+<span><span class="co">#&gt; 19           ref-label    1    file</span></span>
+<span><span class="co">#&gt; 20       anchor-unused    2 project</span></span>
+<span><span class="co">#&gt; 21           xref-code    2    file</span></span>
+<span><span class="co">#&gt; 22      section-anchor    1    file</span></span>
+<span><span class="co">#&gt; 23         chunk-label    1    file</span></span>
+<span><span class="co">#&gt; 24            tar-name    1    file</span></span>
+<span><span class="co">#&gt; 25         dict-assign    1    file</span></span>
+<span><span class="co">#&gt; 26           file-link    1    file</span></span>
+<span><span class="co">#&gt; 27         above-setup    1    file</span></span>
+<span><span class="co">#&gt; 28            dict-key    1    file</span></span>
+<span><span class="co">#&gt; 29           tar-cache    1    file</span></span>
+<span><span class="co">#&gt; 30        config-place    1 project</span></span>
+<span><span class="co">#&gt; 31              engine    1 project</span></span>
+<span><span class="co">#&gt; 32 front-matter-quarto    1    file</span></span>
+<span><span class="co">#&gt; 33              figure    1    file</span></span>
+<span><span class="co">#&gt; 34       table-caption    1    file</span></span>
+<span><span class="co">#&gt; 35        guest-inline    1    file</span></span>
+<span><span class="co">#&gt; 36          guest-call    1    file</span></span>
+<span><span class="co">#&gt; 37          guest-read    2    file</span></span>
+<span><span class="co">#&gt; 38           ojs-value    2    file</span></span>
+<span><span class="co">#&gt; 39   named-unpublished    2    file</span></span>
+<span><span class="co">#&gt; 40      publish-hidden    1    file</span></span>
+<span><span class="co">#&gt; 41       string-markup    2    file</span></span>
 <span><span class="co">#&gt;                                                                   what</span></span>
 <span><span class="co">#&gt; 1  A number typed in prose, a caption, front matter, a string or math.</span></span>
 <span><span class="co">#&gt; 2                           An error the scanner finds in a construct.</span></span>
@@ -206,15 +207,16 @@ weft</td>
 <span><span class="co">#&gt; 29                             A chunk that reads a target and caches.</span></span>
 <span><span class="co">#&gt; 30             A project setting in a place that is not the project's.</span></span>
 <span><span class="co">#&gt; 31                     A document with constructs that is not knitr's.</span></span>
-<span><span class="co">#&gt; 32                        A figure with no label, caption or alt text.</span></span>
-<span><span class="co">#&gt; 33                                            A table with no caption.</span></span>
-<span><span class="co">#&gt; 34          Inline code in another language, which knitr does not run.</span></span>
-<span><span class="co">#&gt; 35                    A weft function called from Python through `r.`.</span></span>
-<span><span class="co">#&gt; 36         A value read from Python or Julia that weft does not check.</span></span>
-<span><span class="co">#&gt; 37               An Observable value computed in the reader's browser.</span></span>
-<span><span class="co">#&gt; 38 A name used by a named value or filter span that nothing publishes.</span></span>
-<span><span class="co">#&gt; 39          A chunk that publishes values where its output is dropped.</span></span>
-<span><span class="co">#&gt; 40         Weft markup in an R string that does not go through weft().</span></span></code></pre></div>
+<span><span class="co">#&gt; 32     A `---` block Quarto reads as front matter and Pandoc does not.</span></span>
+<span><span class="co">#&gt; 33                        A figure with no label, caption or alt text.</span></span>
+<span><span class="co">#&gt; 34                                            A table with no caption.</span></span>
+<span><span class="co">#&gt; 35          Inline code in another language, which knitr does not run.</span></span>
+<span><span class="co">#&gt; 36                    A weft function called from Python through `r.`.</span></span>
+<span><span class="co">#&gt; 37         A value read from Python or Julia that weft does not check.</span></span>
+<span><span class="co">#&gt; 38               An Observable value computed in the reader's browser.</span></span>
+<span><span class="co">#&gt; 39 A name used by a named value or filter span that nothing publishes.</span></span>
+<span><span class="co">#&gt; 40          A chunk that publishes values where its output is dropped.</span></span>
+<span><span class="co">#&gt; 41         Weft markup in an R string that does not go through weft().</span></span></code></pre></div>
 <p>A rule’s <strong>scope</strong> is <code>file</code> when it reads
 one document at a time, and <code>project</code> when it reads them all,
 as cross-references do.</p>
@@ -508,6 +510,12 @@ stable when the heading’s words change.</p>
 setting in a document</td>
 </tr>
 <tr class="odd">
+<td><code>front-matter-quarto</code></td>
+<td>a <code>---</code> block in a <code>.qmd</code> that Quarto reads as
+front matter and Pandoc does not: text directly above it, or inside a
+<code>~~~</code> fence</td>
+</tr>
+<tr class="even">
 <td><code>read</code></td>
 <td>a file that is not UTF-8</td>
 </tr>
