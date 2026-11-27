@@ -296,9 +296,15 @@ test_that("I6 + P4 (R engine lint): an include on line 1 with engine: markdown m
 })
 
 # ruling 27 Nov: with no engine key, Quarto picks the engine from the chunks of the include-expanded text
-test_that("P4 (R engine lint): with no engine key, an r chunk in an included file makes the document knitr", {
-  x <- ifm_engine(list("a.qmd" = c("Intro.", "", IFM_INC, "", IFM_RVAL), "inc.qmd" = c("```{r}", "x <- 1", "```")))
-  expect_identical(nrow(x), 0L)
+# (the engine lint still asks for engine: knitr in the document's own front matter, 9.2.8, so the
+# engine choice itself is what is tested)
+test_that("P4 (R): with no engine key, an r chunk in an included file makes Quarto's engine knitr", {
+  d <- withr::local_tempdir()
+  writeLines(c("```{r}", "x <- 1", "```"), file.path(d, "inc.qmd"))
+  doc <- c("Intro.", "", IFM_INC, "", "Prose.")
+  writeLines(doc, file.path(d, "a.qmd"))
+  expect_identical(weft:::quarto_engine(doc, file.path(d, "a.qmd")), "knitr")
+  expect_identical(weft:::quarto_engine(c("Intro.", "", "Prose."), file.path(d, "a.qmd")), "markdown")
 })
 
 test_that("I6 + P4 (R engine lint): blank lines above the line-1 include do not matter (F2); the included block is first", {
