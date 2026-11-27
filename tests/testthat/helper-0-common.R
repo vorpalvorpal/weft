@@ -53,7 +53,10 @@ skip_if_no_git <- function() {
 
 # Isolate git for the calling test: no user or system configuration, an invented identity and fixed dates,
 # no inherited repository variables. `env` is the frame the settings last until.
+# R_USER_CACHE_DIR is pinned to the session's value first: HOME moves tools::R_user_dir(), and a cold cache
+# (the udunits disk cache) would change what the tests exercise.
 git_env <- function(env = parent.frame()) {
+  cache_base <- dirname(dirname(tools::R_user_dir("weft", "cache")))
   empty_g <- withr::local_tempfile(.local_envir = env, lines = character())
   empty_s <- withr::local_tempfile(.local_envir = env, lines = character())
   home <- withr::local_tempdir(.local_envir = env)
@@ -64,7 +67,7 @@ git_env <- function(env = parent.frame()) {
     GIT_COMMITTER_NAME = "Test Writer", GIT_COMMITTER_EMAIL = "writer@example.invalid",
     GIT_AUTHOR_DATE = "2026-01-02T03:04:05+0000", GIT_COMMITTER_DATE = "2026-01-02T03:04:05+0000",
     GIT_DIR = NA, GIT_WORK_TREE = NA, GIT_INDEX_FILE = NA, GIT_COMMON_DIR = NA, GIT_PREFIX = NA,
-    GIT_EDITOR = "true", GIT_TERMINAL_PROMPT = "0",
+    GIT_EDITOR = "true", GIT_TERMINAL_PROMPT = "0", R_USER_CACHE_DIR = cache_base,
     .local_envir = env)
   invisible(NULL)
 }

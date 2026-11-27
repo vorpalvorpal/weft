@@ -136,9 +136,15 @@ d2_render_to <- function(dir, input, output_file, params = NULL, env = NULL) {
 
 # a temporary git repository: `dir` initialised, with a local identity only
 d2_git <- function(dir, ...) {
-  system2("git", c("-C", shQuote(dir), ...), stdout = TRUE, stderr = TRUE)
+  out <- suppressWarnings(system2("git", c("-C", shQuote(dir), ...), stdout = TRUE, stderr = TRUE))
+  st <- attr(out, "status")
+  if (!is.null(st) && !identical(as.integer(st), 0L)) {
+    stop("git failed: ", paste(c(...), collapse = " "), "\n", paste(out, collapse = "\n"))
+  }
+  out
 }
-d2_git_init <- function(dir) {
+d2_git_init <- function(dir, env = parent.frame()) {
+  git_env(env)
   d2_git(dir, "init", "-q")
   d2_git(dir, "config", "user.name", "Test Writer")
   d2_git(dir, "config", "user.email", "test@example.invalid")

@@ -1,7 +1,7 @@
 # Helpers for the package 4a tests (the commit gate, gate()). Contract: dev/design-4.md G1-G20, H1-H16.
 # Built on helper-3.R (f3_write, lint_proj, lf_*, read_src, F3_BAD_*) and helper-3d.R (F3D_CLAIMS).
-# Names follow section 4 of the design ("Test helpers"): git_env(), g_repo(), g_write(), g_add(),
-# g_commit(), g_gate(), skip_if_no_git(). ASCII only: write non-ASCII as \uXXXX. Invented content only.
+# Names follow section 4 of the design ("Test helpers"): g_repo(), g_write(), g_add(), g_commit(), g_gate().
+# git_env(), g_git(), g_ok_git() and skip_if_no_git() are in helper-0-common.R. ASCII only: write non-ASCII as \uXXXX. Invented content only.
 #
 # Nothing here reads the user's git configuration or the network, and nothing touches any repository
 # but the temporary ones it makes (GIT_CONFIG_GLOBAL and GIT_CONFIG_SYSTEM are empty temporary files,

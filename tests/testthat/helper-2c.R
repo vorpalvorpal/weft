@@ -158,10 +158,8 @@ c2_expect_na_iff_detail <- function(res) {
 # a temporary git repository, with an `origin` when `remote` is given
 c2_git_repo <- function(remote = NULL, env = parent.frame()) {
   dir <- c2_proj(list(), env)
-  system2("git", c("-C", shQuote(dir), "init", "-q"), stdout = FALSE, stderr = FALSE)
-  if (!is.null(remote)) {
-    system2("git", c("-C", shQuote(dir), "remote", "add", "origin", shQuote(remote)),
-            stdout = FALSE, stderr = FALSE)
-  }
+  git_env(env)
+  g_ok_git(dir, "init", "-q")
+  if (!is.null(remote)) g_ok_git(dir, "remote", "add", "origin", remote)
   dir
 }

@@ -88,7 +88,15 @@ e2x_write <- function(path, lines) {
   invisible(path)
 }
 
-e2x_git <- function(dir, ...) system2("git", c("-C", shQuote(dir), ...), stdout = TRUE, stderr = TRUE)
+# git in `dir`: the output lines; stops on a non-zero exit status (a failed builder step must not pass quietly)
+e2x_git <- function(dir, ...) {
+  out <- suppressWarnings(system2("git", c("-C", shQuote(dir), ...), stdout = TRUE, stderr = TRUE))
+  st <- attr(out, "status")
+  if (!is.null(st) && !identical(as.integer(st), 0L)) {
+    stop("git failed: ", paste(c(...), collapse = " "), "\n", paste(out, collapse = "\n"))
+  }
+  out
+}
 
 # a temporary project folder holding `_weft.yml`; a git repository (local identity only) when `git`;
 # removed when the calling test ends
@@ -97,6 +105,7 @@ e2x_project <- function(git = TRUE, set_up = TRUE, env = parent.frame()) {
   dir <- normalizePath(dir, winslash = "/")
   if (set_up) e2x_write(file.path(dir, "_weft.yml"), "draft: false")
   if (git) {
+    git_env(env)
     e2x_git(dir, "init", "-q")
     e2x_git(dir, "config", "user.name", "Test Writer")
     e2x_git(dir, "config", "user.email", "test@example.invalid")

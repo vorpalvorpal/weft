@@ -442,9 +442,15 @@ test_that("3a L39: print() shows a verdict that is not ok", {
 # ---- commit and source --------------------------------------------------------------------------------------
 
 git_in <- function(repo, ...) {
-  system2("git", c("-C", shQuote(repo), "-c", "user.name=tester", "-c", "user.email=tester@example.invalid",
+  git_env(environment())
+  out <- system2("git", c("-C", shQuote(repo), "-c", "user.name=tester", "-c", "user.email=tester@example.invalid",
                    "-c", "commit.gpgsign=false", "-c", "init.defaultBranch=main", ...),
           stdout = TRUE, stderr = TRUE)
+  st <- attr(out, "status")
+  if (!is.null(st) && !identical(as.integer(st), 0L)) {
+    stop("git failed: ", paste(c(...), collapse = " "), "\n", paste(out, collapse = "\n"))
+  }
+  out
 }
 
 tree_state <- function(dir) {
@@ -463,6 +469,7 @@ test_that("3a L37: the source folder is left untouched by a lint", {
 test_that("3a L37: commit lints the archive of that commit, in a temporary folder that is gone afterwards", {
   skip_if(Sys.which("git") == "", "git is not installed")
   repo <- lint_proj(list("A.qmd" = REC_A))
+  git_env()
   git_in(repo, "init", "-q")
   git_in(repo, "add", "A.qmd")
   git_in(repo, "commit", "-q", "-m", "first")
@@ -487,6 +494,7 @@ test_that("3a L37: commit lints the archive of that commit, in a temporary folde
 test_that("3a L37: commit accepts a hash and a branch name", {
   skip_if(Sys.which("git") == "", "git is not installed")
   repo <- lint_proj(list("A.qmd" = REC_A))
+  git_env()
   git_in(repo, "init", "-q")
   git_in(repo, "add", "A.qmd")
   git_in(repo, "commit", "-q", "-m", "first")
@@ -534,6 +542,7 @@ test_that("3a L39: a source that is not a folder is a weft_tool_error", {
 test_that("3a L39: an unknown commit is a weft_tool_error", {
   skip_if(Sys.which("git") == "", "git is not installed")
   repo <- lint_proj(list("A.qmd" = REC_A))
+  git_env()
   git_in(repo, "init", "-q")
   git_in(repo, "add", "A.qmd")
   git_in(repo, "commit", "-q", "-m", "first")
