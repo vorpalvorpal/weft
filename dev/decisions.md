@@ -916,3 +916,35 @@ behaviour went through test-first.
   `quarto inspect` per rehearsal (would mean faking Quarto's execute-info
   file). The post-hoc `breaks` substitution (low value, risk to hard
   breaks).
+- **One attribute decoder** (Robin accepted, 27 Nov). The lints' `attr_value()`
+  (the `file=` of a values block, `cite=`) decodes a quoted value with the
+  scanner's `read_quoted_value()` (`\ ` a space, a line break one space) and
+  matches a key only as a whole name, so `profile=` is not `file=`. The
+  governor and `cite=` readers already read right; tests now guard them.
+- **One front-matter rule, following Quarto** (Robin accepted, 27 Nov;
+  experiments with Quarto 1.11.9 and Pandoc 3.10). F1: the front matter is
+  every metadata block, merged in order (Quarto joins all blocks; a `weft:`,
+  `lang` or `execute:` in a later block takes effect). F2: a block is Pandoc's:
+  `---` at the top after only blank lines or after a blank line, next line not
+  blank, closed by `---`/`...`, a YAML mapping, not in a fence, an HTML comment
+  or indented code. F3: a later block wins per top-level key and replaces the
+  whole value, `weft:` included. F4: the same for .Rmd (rmarkdown's own
+  `output:` reads the first block only, but weft reads the source itself).
+  F6: `engine:`, `knitr:` and `jupyter:` come from the first block only, as in
+  Quarto. The knit's first-block reader and `use_weft()`'s reader are gone; the
+  Python, Julia and Lua readers follow the same rules. Two test fixtures that
+  put `engine: knitr` at the end of a document were wrong under F6 and were
+  moved to the top. F5: where Quarto reads a block Pandoc does not (text
+  directly above `---`; a block in a `~~~` fence, which Quarto's fence strip
+  misses), weft follows Pandoc and the new lint `front-matter-quarto` reports
+  it. Alternative: follow Quarto there too; refused because the filter reads
+  Pandoc's metadata, so the knit and the filter would disagree in one render.
+- **`<<-` is gone from R/ but for six lines** (Robin, 27 Nov: avoid it unless
+  removing it makes the code objectively worse). 88 sites became returned
+  values or named environments (`tbl <- new.env(parent = emptyenv())`, the
+  style Robin chose for appenders). Kept, each with `# <<- ok: <reason>` on its
+  line: the four emitters of `plain_read_chars()`'s character loop (a named
+  environment made it 55% slower) and two one-line condition handlers.
+  `tests/testthat/test-code-style.R` fails on a `<<-` without a reason, and,
+  through codetools, on a kept `<<-` whose target no enclosing function binds
+  (which would write the global environment without an error).

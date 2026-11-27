@@ -521,6 +521,10 @@ Status (26 Nov, overnight build):
   tests and golden comparisons. Whole suite at the end (26 Nov): 7,450
   tests, 69,990 expectations, 0 failures after restoring two `\u`
   escapes in resolve.R (the ASCII check).
+- **27 Nov:** `<<-` cut to six justified lines, with a guard test; one
+  attribute decoder; one front-matter rule following Quarto (F1-F6) in R,
+  Python, Julia and Lua, plus the `front-matter-quarto` lint. See
+  `dev/decisions.md`, end of "Simplify pass".
 
 ## Goal noted: weft everywhere (14 Nov, from Robin; superseded 25 Nov)
 
