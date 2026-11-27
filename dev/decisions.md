@@ -1073,6 +1073,15 @@ behaviour went through test-first.
   block quote ends with the quote; a YAML block in a fence, and a fence in an HTML comment, do not
   count. Alternative refused: keep five finders, each right for its own caller, because they
   disagree on the same text and the lints, the knit and the filter then see different documents.
+  **Amended the same evening:** those CommonMark rules hold for plain fences only. An executable
+  chunk (`{r}`, `{python}`, ... header) is found as the engine finds it: knitr's own chunk
+  patterns (`knitr::all_patterns$md`), which take any indent and `>` markers, a backtick in the
+  header, a chunk inside an HTML comment, and a `> ```` line as a closer. knitr swaps each chunk
+  for its output before Pandoc reads the text, so in a knitr document the chunks knitr finds are the
+  document's chunks; reading them by CommonMark would lint a different document from the one that
+  runs (an indented chunk in a list is common and runs). An unclosed chunk still ends at line n,
+  and a quoted unclosed plain fence closes at its quote's last line. Alternative refused: one
+  CommonMark reading for both kinds, which is simpler but wrong about what executes.
 - **Script claims tests.** `claim(x, interactive())` is an inert check in a script as in a chunk
   (it never looks at the value); a literal `decision =` is not a check (3.10.1), fixed in
   inert-check for chunks too; the E4 "no note" test follows the new M2 note.
