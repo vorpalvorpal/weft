@@ -787,6 +787,37 @@ pd_parent <- function(ix, id) {
   if (r == 0L) integer() else ix$pd$parent[r]
 }
 
+# Is node `id` of the parse data `pd` dead code (rule 3.11.1, SC6): inside the body of an `if` whose
+# condition, with parentheses that enclose the whole of it removed, is the constant `FALSE`? The `else` arm
+# is live. It reads the `id`, `parent`, `token` and `text` columns and the start of each node, which both
+# tree forms keep (`pd_index()` and `pd_tree()`), so the claim readers and `checks()` share it; a comment
+# between `)` and the body is skipped by its token.
+pd_dead_if <- function(pd, id) {
+  if (!any(pd$token == "IF") || !any(pd$text == "FALSE")) return(FALSE)
+  # the children of node `p`, comments left out, in source order
+  kids <- function(p) {
+    k <- which(pd$parent == p & pd$token != "COMMENT")
+    k[order(pd$line1[k], pd$col1[k])]
+  }
+  # is row `r` the constant FALSE, within parentheses that enclose all of it?
+  is_false <- function(r) {
+    k <- kids(pd$id[r])
+    if (length(k) == 3L && pd$token[k[1L]] == "'('" && pd$token[k[3L]] == "')'") return(is_false(k[2L]))
+    length(k) == 1L && pd$token[k] == "NUM_CONST" && pd$text[k] == "FALSE"
+  }
+  cur <- id
+  repeat {
+    up <- pd$parent[match(cur, pd$id)]
+    if (is.na(up) || up <= 0L) return(FALSE)
+    k <- kids(up)
+    if (length(k) >= 5L && pd$token[k[1L]] == "IF" && pd$token[k[4L]] == "')'" && pd$id[k[5L]] == cur &&
+        is_false(k[3L])) {
+      return(TRUE)
+    }
+    cur <- up
+  }
+}
+
 # The value of a constant token as written (`"a"`, `1L`, `r"(x)"`), or NULL when it does not evaluate.
 token_value <- function(tok) {
   tryCatch(eval(parse(text = tok, keep.source = FALSE)[[1L]]), error = function(e) NULL)

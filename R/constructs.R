@@ -13,7 +13,8 @@ construct_empty <- function() {
 
 gate_ws <- function(x) gsub("[ \t\r\n]+", " ", trimws(x))
 
-# The `claim()` and `weft::claim()` calls in R code: a data frame of the call's
+# The `claim()` and `weft::claim()` calls in R code, less those in the body of
+# an `if (FALSE)` (3.11.1): a data frame of the call's
 # first line (1-based, within `code`) and its source text. For `engine` python
 # or julia, the token patterns of N59 (no parser): each match on a line whose
 # first non-blank character is not `#`. `pd` is the parse data of `code` when
@@ -41,6 +42,10 @@ claim_calls <- function(code, engine = "r", pd = NULL) {
   sfc <- sfc[keep, , drop = FALSE]
   if (!nrow(sfc)) return(none)
   call_id <- pd$parent[match(sfc$parent, pd$id)]
+  # a claim in the body of `if (FALSE)` is switched off, and does not count (rule 3.11.1, SC6)
+  live <- !vapply(call_id, function(id) pd_dead_if(pd, id), NA)
+  call_id <- call_id[live]
+  if (!length(call_id)) return(none)
   call <- pd[match(call_id, pd$id), , drop = FALSE]
   txt <- vapply(call$id, function(id) {
     tryCatch(paste(utils::getParseText(pd, id), collapse = "\n"), error = function(e) "claim(...)")
@@ -172,6 +177,8 @@ claim_decisions <- function(code, pd = NULL) {
   for (i in seq_len(nrow(sfc))) {
     if (!claim_pkg_ok(ix, sfc$parent[i])) next
     call_id <- pd$parent[match(sfc$parent[i], pd$id)]
+    # a claim switched off by `if (FALSE)` is not a use of its decision (3.11.1)
+    if (pd_dead_if(pd, call_id)) next
     kids <- pd_kid_rows(ix, call_id)
     sub <- which(kids$token == "SYMBOL_SUB" & kids$text == "decision")
     if (!length(sub)) next

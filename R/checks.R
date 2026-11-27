@@ -469,6 +469,8 @@ checks_read <- function(src) {
     for (i in all_exprs(t)) {
       ci <- call_info(t, i)
       if (!is_fn(ci, "claim", "weft") || !length(ci$args)) next
+      # a claim in the body of `if (FALSE)` is switched off: not a check (3.11.1)
+      if (pd_dead_if(t$pd, t$pd$id[i])) next
       level <- "fail"
       lv <- which(vapply(ci$args, function(a) identical(a$name, "level"), NA))
       if (length(lv)) {

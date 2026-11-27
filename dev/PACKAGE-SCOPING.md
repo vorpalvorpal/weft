@@ -623,7 +623,8 @@ so the lints and the gate see it (2.10.2).
 - Only inline R is read in these places. A bracket in them is never a span
   (1.9.1). A named value there is resolved by the filter (2.13.16).
 - A bare value (1.1.8) prints as stock prints it, in math and in raw LaTeX
-  alike. Only a construct's output is TeX. In raw LaTeX that output is wrapped
+  alike, except a self-formatting value (3.12.8). Only a construct's output is
+  TeX. In raw LaTeX that output is wrapped
   in `\ensuremath{...}`, markers included (below), so that it is safe in text
   and in math mode; a bare value is not wrapped, so a string in a `tabular`
   cell stays text.
@@ -1338,6 +1339,7 @@ with it. `.val` is a construct: a missing value is "no value", a check
 counts, and the ledger records it. `digits` on `.val` is ignored. R prints `.val` from the value's
 record (3.8.4), so it prints what the filter prints for that record; a value whose record is refused
 or an error (a `units` quantity, a data frame, a list, a function) is a value error under `.val`.
+A self-formatting value prints its own format under `.val` where R reads the name (3.12.8).
 
 **1.12.3** A code span with a weft class whose text is neither a name nor
 inline R is a construct error.
@@ -3057,8 +3059,9 @@ attribute `markdown` holds the markdown.
 | `knitr::knit_print(x)` | the markdown elements joined by a blank line |
 
 `length()`, `names()`, `is.na()`, `nchar()`, `==`, `grepl()`, `cat()` and
-`writeLines()` act on the plain text. `paste()`, `sprintf("%s", )`, `toString()`,
-`message()` and `glue::glue()` call `as.character()`. `x[i]`, `x[[i]]` and
+`writeLines()` act on the plain text. `paste()` and `sprintf("%s", )` use the
+plain text, which is the object's content; `toString()`, `message()` and
+`glue::glue()` call `as.character()`, which gives the same. `x[i]`, `x[[i]]` and
 `rev(x)` give a `weft` object holding those elements; `rep()`, `unique()` and
 `sort()` give a plain character vector. `c()` and `[<-` take `weft` objects (both
 forms) and character vectors (text as it is: not markup, not evaluated; plain and
@@ -3224,6 +3227,7 @@ with `results = "asis"` prints its block into the chunk's output at once.
 | an atomic vector of length 0 or 2 or more of the kinds above, or a named vector of length 1 | list; names give `keys` |
 | `integer64` | int, its digits |
 | a `units` object | refused: named values carry no units |
+| a self-formatting value (3.12) | refused: named values carry no format (E46) |
 | anything else (a data frame, a list, a `POSIXct`, a function, a `complex`, a `raw`) | error |
 
 A named vector of length 1 is a list of one with its name as the key, as in
@@ -3709,6 +3713,11 @@ call of `claim`, `weft::claim` or `weft:::claim` in the script's code is a
 lambda, a pipe or a loop. Not script claims: a call in a comment or a string;
 `claim` qualified by another package; `claim` not in call position; a claim
 inside the expression of a `weft()` literal, which is read as 3.6.7 says.
+A claim in the body of an `if` whose condition is the constant `FALSE`,
+parentheses that enclose the whole condition removed, is not a script claim
+and not a check, and its `decision` is not collected; the `else` arm is read.
+`F`, `0` and `FALSE && x` are not the constant. The same holds in R chunk code
+(6.3.1).
 
 **3.11.2** Nothing changes when a script claim runs. Outside a knit it stops,
 or warns at level `warn`; in a running target it stops; in a script that a
@@ -3745,6 +3754,113 @@ outside the project root or left out by `scripts_skip`; chunk options
 written in a script's comments (`#+`, `#|`); whether a claim's function is
 ever called. Script claims have no ledger entries (7.1.1), and `changes()`
 does not list them.
+
+### 3.12 Self-formatting values
+
+**3.12.1** `val_num()`, `val_pct()`, `val_sci()` and `val_p()` return a
+**self-formatting value**: the number given, with the class `weft_val` put
+before its classes and a format that prints it as the function of the same
+name in `fmt_*()` would. They take the arguments of that function except
+`target` and the collapse arguments: `val_num(x, digits = NULL, sigfig =
+NULL, unit = NULL, unit_form = NULL, plus = FALSE)`, `val_pct(x, digits =
+NULL, sigfig = NULL, unit = NULL, plus = FALSE)`, `val_sci(x, digits = NULL,
+sigfig = NULL, unit = NULL, unit_form = NULL)`, `val_p(x, digits = NULL,
+label = NULL)`. They are exported and attached (2.1.8), and visible to
+`weft()` markup (3.6.2). An argument that `fmt_*()` refuses is refused with
+the same error, naming the function called.
+
+**3.12.2** `x` is a double, an integer, an `integer64`, a `weft_year`, a
+`units` quantity, or a self-formatting value, whose number is then given the
+new format. Anything else is a `weft_construct_error`: "`%s()` takes a number
+or a quantity; got a %s. To print text, use `weft()`." An element that is
+`NA`, `NaN`, `Inf` or `-Inf` is kept and is not formatted: its text is `NA`,
+`"NaN"`, `"Inf"` or `"-Inf"`. An `integer64` prints every digit, as
+`fmt_num()` prints it.
+
+**3.12.3** The texts are made when the value is made, under the
+configuration `fmt_*()` would use there (3.6.6): the markdown form, the plain
+form (the markdown read by PL, 1.4.24), and the TeX form for a class that has
+one (3.4.11). `[`, `[[`, `rev()`, `rep()`, `sort()`, `unique()`, `head()`,
+`tail()` and `as.list()` keep them. `c()`, `[<-`, `min()`, `max()`,
+`range()`, `mean()` and `median()` make them again for the result, under the
+configuration in force at that call. A ladder (4.4.23) picks one rung for the
+vector the texts are made for.
+
+**3.12.4** The check of 2.6.11 runs when the texts are made, never when they
+are printed: a value made with the default digits that prints a number that
+is not zero as zero records one warned check, or outside a knit signals one
+`weft_zero_warning`. `digits` or `sigfig` given to the constructor silences
+it.
+
+**3.12.5** What a self-formatting value gives:
+
+| Call | Gives |
+|---|---|
+| `as.character(v)` | plain (1.4.24); names kept; `NA` for an `NA` element |
+| `format(v)`, `format(v, target = "plain")` | plain; `NA` is `"NA"`; other arguments are ignored |
+| `format(v, target = "markdown")`, `"tex"`, `"ansi"` | markdown; TeX (3.4.11's error for a class with none); plain |
+| `format(v, target = other)` | `weft_construct_error`: "`target` must be \"plain\", \"markdown\", \"tex\" or \"ansi\"; got %s." |
+| `print(v)` | one line `<weft_val CLASS KEY=VALUE ...>`, then the plain texts unquoted, with names; returns `v` invisibly; a length-0 value prints `<weft_val[0] CLASS ...>` |
+| `knitr::knit_print(v, inline = TRUE)` | the markdown elements joined by ", " |
+| `knitr::knit_print(v)` | the markdown elements, one per line |
+| `cli_format(v)` | plain |
+
+`paste()`, `toString()`, `sprintf("%s", )`, `glue::glue()`, `message()`,
+`warning()`, `stop()`, a ggplot2 label, a printed data frame and
+`knitr::kable()` give the plain text. `cat()` prints the number underneath,
+as it prints a `Date`, and `writeLines()` refuses the value: give them
+`format(v)`. A `for` loop over the value reads the numbers.
+
+**3.12.6** Vector operations are those of the table in
+`dev/design-self-formatting.md` section 4.4. `c()` and `[<-` of values whose
+formats differ, or with anything that is not a number (`NA`s of any type are
+allowed), are a `weft_construct_error`: "Values with different formats cannot
+be combined: %s and %s. Give them one format, or combine the numbers with
+as.numeric()." A format is named as `` `.num digits=1` ``, anything else as
+"a CLASS". Two formats are the same when their class and their keys, defaults
+filled in, are equal. When vctrs is loaded, `vec_c()` and the dplyr verbs
+follow the same rules, and a value combined with a plain number gives a plain
+number.
+
+**3.12.7** Arithmetic, `Math` and every `Summary` function except `min()`,
+`max()` and `range()` give the result for the number underneath, without the
+format: a double, or what the class underneath gives (`units`, `weft_year`).
+`min()`, `max()`, `range()`, `mean()` and `median()` keep the format. A
+comparison gives a logical. With another classed operand R's
+`chooseOpsMethod()` chooses weft's method, which hands the operation to the
+classes underneath. `units::drop_units(v)` keeps the format without its
+`unit` and `unit_form`.
+
+**3.12.8** Where weft formats a self-formatting value (a construct, a
+governor, a named value R reads, a `fmt_*()` call) its format is put
+together with what is written there. A key written there replaces the
+format's key of that name; `digits` and `sigfig` replace each other. A
+number-stage class written there that differs from the format's replaces
+it, and all the format's keys go with it. Otherwise the format's class and
+keys apply, and the stages ii to iv written there act on its text. Digits
+that come from the format count as given for 1.4.13. A bare value that holds
+a self-formatting value prints its markdown, and in math or raw LaTeX its
+TeX, which in raw LaTeX is wrapped in `\ensuremath{...}`. `.val` on it prints
+its own format (its TeX in math).
+
+**3.12.9** The ledger records a self-formatting value where it records any
+value: inline R, a construct, a named value R reads, a caption, a `weft()`
+string (7.1.1, 7.1.2). Its raw value is the number underneath and its unit
+the quantity's. Making it, converting it to text and printing it record
+nothing, and text built from it outside weft's constructs reaches the ledger
+only as the chunk's `table` entry (7.1.1).
+
+**3.12.10** A self-formatting value is not a named value's record (3.8.4,
+E46). `weft_values_write()` stops with a `weft_values_error`: "`NAME` is a
+self-formatting value; named values carry no format. Publish the number with
+as.numeric() and write its classes where it is used (rule 3.8.4)."
+Automatic publishing writes an error record with that text, as for E44. A
+phrase function uses its number and ignores its format. A `claim()` judges
+its number, and a failure shows the number.
+
+**3.12.11** Stage 2: `val_word()`, `val_count()`, `val_ord()`, `val_no()`,
+`val_date()` and `val_as(x, class, ...)` for a project formatter of the
+number stage. A collapse class or a text class is never a format.
 
 ---
 
@@ -4755,8 +4871,9 @@ each distinct pointer once, the pointers of `dict.yml` and of the documents it
 verifies: every `decision` on a `.weft-literal` or a `cite` span in the
 source, and every `claim()` call in an R chunk or in inline code whose
 `decision` argument is a literal string or number, except in a chunk that is
-statically not evaluated (1.8.12), and every script claim (3.11.1) of the
-scripts verified, with `file` the script. A computed argument is not
+statically not evaluated (1.8.12) or in the body of an `if (FALSE)` (3.11.1),
+and every script claim (3.11.1) of the scripts verified, with `file` the
+script. A computed argument is not
 checked. Each document pointer is a row of the table of 4.5.3: `file` the
 document, `line` the construct's line, and `key` one of `.weft-literal`,
 `cite="<value>"` or `claim()`.
@@ -5750,7 +5867,8 @@ elsewhere in one commit nets to zero.
 `HEAD` version: inline R values, with or without an attribute block; weft
 spans (1.1.5); and `claim()` calls anywhere in the file, chunk code
 included, except in a chunk that is statically not evaluated (`eval: false`,
-in R as in a guest engine). A value whose expression holds a
+in R as in a guest engine), and except in the body of an R `if (FALSE)`
+(3.11.1). A value whose expression holds a
 `claim()` counts once as a value and once as a call. A named value counts as a
 value, and a span in a document the filter resolves counts as a span. `claim(`
 in a Python chunk and `@claim` in a Julia chunk count as `claim()` calls, by
@@ -5905,7 +6023,8 @@ raw value is the expression's own, before any formatter or unit conversion.
 Its unit is written as `units::deparse_unit()` writes it, and is `null` for a
 plain number. A
 construct that failed in draft mode is recorded with its failure kind, and has
-no printed text, arm, raw value or unit. The sentence is found by sentence-boundary
+no printed text, arm, raw value or unit. A self-formatting value is recorded as
+any value is, where weft resolves it (3.12.9). The sentence is found by sentence-boundary
 rules for the document's language (a table's is its caption, below): ICU's, through `stringi` (an `Imports`
 package), for the document's `lang` (`en` when unset). They are applied to the
 block of markdown that holds the construct's text, after what is not prose is
@@ -7950,7 +8069,11 @@ record of claims that ran is evidence of an earlier version of the code, and
 would make `claim()` write files from inside the author's loops and workers.
 A script that stops parsing loses its claims, as it loses its `weft()`
 strings, and the gate names the file, because a syntax error in `R/` would
-otherwise read as a puzzling list of removals.
+otherwise read as a puzzling list of removals. A claim under `if (FALSE)` is
+not counted because wrapping code in `if (FALSE)` is how a script switches it
+off; counted, it would be a way to drop a check with no trailer. Only the
+literal counts as off: `F` can be rebound, and `0` or `FALSE && x` is not how
+code is switched off.
 
 **4.1.2** The key is a plain token in the parsed expression, so a static lint
 verifies every read without running R (5.8 rule 6).
