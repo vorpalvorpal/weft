@@ -207,8 +207,10 @@ test_that("T8 M3: files naming a non-script file or a missing one is a weft_lint
     e <- f2_cond(lints(root, files = bad))
     expect_true(inherits(e, "weft_lint_error"), label = bad)
     msg <- e4_clean(conditionMessage(e))
-    expect_true(grepl("`files` must name existing .qmd, .Rmd or .R files under the project root; not so: ",
-                      msg, fixed = TRUE), label = bad)
+    expect_true(grepl("`files` must name existing", msg, fixed = TRUE), label = bad)
+    expect_true(grepl(".ipynb", msg, fixed = TRUE), label = bad)
+    expect_true(grepl("percent script", msg, fixed = TRUE), label = bad)
+    if (bad == "R/a.py") expect_true(grepl("not a document Quarto renders", msg, fixed = TRUE), label = bad)
     expect_true(grepl(bad, msg, fixed = TRUE), label = bad)
     expect_true(grepl("(rule 5.1.1)", msg, fixed = TRUE), label = bad)
   }

@@ -404,3 +404,228 @@ test_that("notebooks verify render: an .ipynb with execute: enabled: true is exe
   r <- v4_verify(dir)
   expect_true(nbs_marker(dir), label = "the notebook was executed")
 })
+
+# ==== notebook files: files = and skipped folders (formerly test-notebook-files.R) ====
+# Two gaps left by the notebook surfaces (test-notebook-surfaces.R). ASCII only. Invented content only.
+#
+# 1. `files =` of lints(), checks() and verify() takes an .ipynb and a percent .py as well as .qmd, .Rmd and .R
+#    (ruling 27 Nov 2026). A .py that is not a percent script (Quarto's isJupyterPercentScript: a
+#    `# %% [markdown]` or `# %% [raw]` line) is refused as not a document Quarto renders. Its message, like the
+#    message for a missing file, names .ipynb and percent scripts.
+# 2. Folders Quarto leaves out of a project's inputs. MEASURED 27 Nov 2026 with `quarto inspect`, Quarto 1.11.9,
+#    and read in the bundled quarto.js (projectInputFilesInternal, engineIgnoreDirs): the rule is NOT
+#    `pyvenv.cfg` (only a hint message for an unactivated environment uses that, via isEnvDir). Quarto skips a
+#    folder by its NAME, at any depth, whatever it holds: node_modules, and each engine's ignoreDirs: renv,
+#    packrat, rsconnect (knitr) and venv, env (julia engine). Case is significant (not testable on a
+#    case-insensitive disk). Not skipped: a folder holding pyvenv.cfg under any other name ("myenv"), a
+#    conda environment (a conda-meta folder) under any other name, "envx", "environment". Dot folders (.venv)
+#    and `_` folders are skipped as before. Inside a skipped folder a .qmd is skipped too.
+#    decisions.md says the rule is `pyvenv.cfg`; the test follows Quarto, and the decision text is wrong.
+
+NBF_GUARDS <- c("x > 5", "y < 2")
+# a notebook cell holding a construct error and two guards, so every surface has something to report
+nbf_body <- function() c("Prose.", "", NBS_BAD, "", NBS_GUARD(NBF_GUARDS[[1]], "one"), "", NBS_GUARD(NBF_GUARDS[[2]], "two"))
+nbf_ipynb <- function() nbs_ipynb(list(nbs_md(nbf_body()), nbs_code("x = 1")))
+nbf_pys <- function() nbs_py(list(nbs_code("x = 1"), nbs_md(nbf_body())))
+
+# the three documents put in each folder of the fixture
+nbf_docs <- function(dir) {
+  setNames(list(nbf_ipynb()$lines, nbf_pys()$lines, nbf_body()),
+           file.path(dir, c("n.ipynb", "p.py", "b.qmd")))
+}
+NBF_SKIPPED <- c("env", "venv", "renv", "packrat", "rsconnect", "node_modules", "pk/env", "deep/venv", ".venv")
+NBF_READ <- c("myenv", "envx", "environment", "conda_env")
+nbf_fixture <- function() {
+  skipped <- do.call(c, lapply(NBF_SKIPPED, nbf_docs))
+  read <- do.call(c, lapply(NBF_READ, nbf_docs))
+  c(list("top.qmd" = nbf_body()), skipped, read,
+    list("env/pyvenv.cfg" = "home = /usr", "myenv/pyvenv.cfg" = "home = /usr",
+         ".venv/pyvenv.cfg" = "home = /usr", "conda_env/conda-meta/history" = "# none"))
+}
+nbf_files <- function(dirs, kinds = c("n.ipynb", "p.py", "b.qmd")) {
+  as.vector(outer(kinds, dirs, function(k, d) file.path(d, k)))
+}
+nbf_df <- function(x) {
+  d <- as.data.frame(unclass(x), stringsAsFactors = FALSE)
+  rownames(d) <- NULL
+  d
+}
+nbf_msg <- function(e) cli::ansi_strip(conditionMessage(e))
+
+# ---- the runners: the data frame of findings or rows each function gives, with or without files ---------------
+
+nbf_lints <- function(root, files = NULL) nbf_df(lints(root, files = files, rules = "construct", tier = 1:2))
+nbf_checks <- function(root, files = NULL) nbf_df(checks(root, files = files))
+nbf_verify <- function(root, files = NULL) {
+  r <- v4_verify(root, static = TRUE, files = files)
+  list(err = r$err, df = nbs_errs(r))
+}
+nbf_only <- function(d, file) {
+  d <- d[d$file == file, , drop = FALSE]
+  rownames(d) <- NULL
+  d
+}
+
+# ---- 1. files = ----------------------------------------------------------------------------------------------
+
+NBF_PROJECT <- function() list("nb.ipynb" = nbf_ipynb()$lines, "script.py" = nbf_pys()$lines,
+                               "util.py" = nbs_module(), "a.qmd" = nbf_body())
+
+nbf_check_refusal <- function(e, what, ordinary = FALSE) {
+  expect_false(is.null(e), label = paste(what, "raised"))
+  msg <- nbf_msg(e)
+  expect_true(grepl("`files` must name existing", msg, fixed = TRUE), label = paste(what, msg))
+  expect_true(grepl(".ipynb", msg, fixed = TRUE), label = paste(what, ".ipynb named"))
+  expect_true(grepl("percent script", msg, fixed = TRUE), label = paste(what, "percent scripts named"))
+  if (ordinary) expect_true(grepl("not a document Quarto renders", msg, fixed = TRUE), label = paste(what, msg))
+}
+
+test_that("notebook files lints: files = an .ipynb gives what lints() gives for it, with no files", {
+  root <- lint_proj(NBF_PROJECT())
+  x <- nbf_lints(root, "nb.ipynb")
+  expect_gt(nrow(x), 0L)
+  expect_identical(unique(x$file), "nb.ipynb")
+  expect_identical(x, nbf_only(nbf_lints(root), "nb.ipynb"))
+})
+
+test_that("notebook files lints: files = a percent .py gives what lints() gives for it, with no files", {
+  root <- lint_proj(NBF_PROJECT())
+  expect_identical(nbf_lints(root, "script.py"), nbf_only(nbf_lints(root), "script.py"))
+})
+
+test_that("notebook files lints: control, files = a .qmd is as before", {
+  root <- lint_proj(NBF_PROJECT())
+  x <- nbf_lints(root, "a.qmd")
+  expect_gt(nrow(x), 0L)
+  expect_identical(x, nbf_only(nbf_lints(root), "a.qmd"))
+})
+
+test_that("notebook files lints: an ordinary .py, and a missing file, are refused with the message that names notebooks", {
+  root <- lint_proj(NBF_PROJECT())
+  nbf_check_refusal(f2_cond(lints(root, files = "util.py")), "util.py", ordinary = TRUE)
+  nbf_check_refusal(f2_cond(lints(root, files = "gone.ipynb")), "gone.ipynb")
+  expect_true(grepl("gone.ipynb", nbf_msg(f2_cond(lints(root, files = "gone.ipynb"))), fixed = TRUE))
+})
+
+test_that("notebook files checks: files = an .ipynb or a percent .py gives its rows of checks() with no files", {
+  root <- lint_proj(NBF_PROJECT())
+  all <- nbf_checks(root)
+  for (f in c("nb.ipynb", "script.py", "a.qmd")) {
+    x <- nbf_checks(root, f)
+    expect_identical(unique(x$file), f, label = f)
+    expect_identical(x$cond, NBF_GUARDS, label = f)
+    expect_identical(x, nbf_only(all, f), label = f)
+  }
+})
+
+test_that("notebook files checks: an ordinary .py, and a missing file, are refused", {
+  root <- lint_proj(NBF_PROJECT())
+  nbf_check_refusal(f2_cond(checks(root, files = "util.py")), "util.py", ordinary = TRUE)
+  nbf_check_refusal(f2_cond(checks(root, files = "gone.ipynb")), "gone.ipynb")
+})
+
+test_that("notebook files verify: files = an .ipynb or a percent .py reports what verify() reports for it, with no files", {
+  v4_env()
+  p <- v4_proj(NBF_PROJECT())
+  all <- nbf_verify(p$root)$df
+  for (f in c("nb.ipynb", "script.py", "a.qmd")) {
+    x <- nbf_verify(p$root, f)
+    expect_false(is.null(x$err), label = paste(f, "raised"))
+    expect_identical(unique(x$df$file), f, label = f)
+    expect_identical(x$df, nbf_only(all, f), label = f)
+  }
+})
+
+test_that("notebook files verify: an ordinary .py, and a missing file, are refused", {
+  v4_env()
+  p <- v4_proj(NBF_PROJECT())
+  nbf_check_refusal(nbf_verify(p$root, "util.py")$err, "util.py", ordinary = TRUE)
+  nbf_check_refusal(nbf_verify(p$root, "gone.ipynb")$err, "gone.ipynb")
+})
+
+# ---- 2. virtual-environment and other folders Quarto skips -----------------------------------------------------
+
+nbf_expected <- function(kinds) c("top.qmd", nbf_files(NBF_READ, kinds))
+
+test_that("notebook folders lints: skips the folders Quarto skips, reads the others (a .py is not linted, 6.1.2)", {
+  root <- lint_proj(nbf_fixture())
+  x <- nbf_lints(root)
+  expect_true(all(nbf_expected(c("n.ipynb", "b.qmd")) %in% x$file), label = "control: the folders Quarto reads are read")
+  expect_setequal(unique(x$file), nbf_expected(c("n.ipynb", "b.qmd")))
+})
+
+test_that("notebook folders checks: skips the folders Quarto skips, reads the others", {
+  root <- lint_proj(nbf_fixture())
+  x <- nbf_checks(root)
+  expect_true(all(nbf_expected(c("n.ipynb", "p.py", "b.qmd")) %in% x$file), label = "control: the folders Quarto reads are read")
+  expect_setequal(unique(x$file), nbf_expected(c("n.ipynb", "p.py", "b.qmd")))
+})
+
+test_that("notebook folders verify (static): skips the folders Quarto skips, reads the others", {
+  v4_env()
+  p <- v4_proj(nbf_fixture())
+  x <- nbf_verify(p$root)
+  expect_true(all(nbf_expected(c("n.ipynb", "p.py", "b.qmd")) %in% x$df$file), label = "control: the folders Quarto reads are read")
+  expect_setequal(unique(x$df$file), nbf_expected(c("n.ipynb", "p.py", "b.qmd")))
+})
+
+test_that("notebook folders verify (static): files = names a document in a folder Quarto reads (the controls hold once files = takes .ipynb)", {
+  v4_env()
+  p <- v4_proj(nbf_fixture())
+  # control: a document in a folder Quarto reads
+  x <- nbf_verify(p$root, "myenv/n.ipynb")
+  expect_identical(unique(x$df$file), "myenv/n.ipynb")
+})
+
+test_that("notebook folders gate: a guard removed from a document is reported unless it sits in a folder Quarto skips", {
+  before <- function() {
+    docs <- list("top.qmd" = j7_gdoc(c("n1 > 1", "n2 > 3")))
+    for (d in c(NBF_SKIPPED, NBF_READ)) {
+      docs[[file.path(d, "n.ipynb")]] <- nbs_ipynb(nbs_gate_cells(c("n1 > 1", "n2 > 3")))$lines
+      docs[[file.path(d, "p.py")]] <- nbs_py(list(nbs_code("x = 1"), nbs_md(j7_gdoc(c("n1 > 1", "n2 > 3")))))$lines
+      docs[[file.path(d, "b.qmd")]] <- j7_gdoc(c("n1 > 1", "n2 > 3"))
+    }
+    c(docs, list("env/pyvenv.cfg" = "home = /usr", "myenv/pyvenv.cfg" = "home = /usr",
+                 "conda_env/conda-meta/history" = "# none"))
+  }
+  after <- function() {
+    docs <- list("top.qmd" = j7_gdoc("n1 > 1"))
+    for (d in c(NBF_SKIPPED, NBF_READ)) {
+      docs[[file.path(d, "n.ipynb")]] <- nbs_ipynb(nbs_gate_cells("n1 > 1"))$lines
+      docs[[file.path(d, "p.py")]] <- nbs_py(list(nbs_code("x = 1"), nbs_md(j7_gdoc("n1 > 1"))))$lines
+      docs[[file.path(d, "b.qmd")]] <- j7_gdoc("n1 > 1")
+    }
+    docs
+  }
+  res <- g_gate(g_scenario(before(), after()))
+  expect_true(all(nbf_expected(c("n.ipynb", "p.py", "b.qmd")) %in% res$checks$file), label = "control: the folders Quarto reads are read")
+  expect_setequal(unique(res$checks$file), nbf_expected(c("n.ipynb", "p.py", "b.qmd")))
+})
+
+test_that("notebook folders status: a notebook only in folders Quarto skips gives no python row", {
+  docs <- do.call(c, lapply(NBF_SKIPPED, function(d) setNames(list(nbf_ipynb()$lines), file.path(d, "n.ipynb"))))
+  st <- nbs_status(c(list("a.qmd" = u4_qmd()), docs, list("env/pyvenv.cfg" = "home = /usr")))
+  expect_false(has_python_row(st))
+})
+
+test_that("notebook folders status: a percent script only in folders Quarto skips gives no python row", {
+  docs <- do.call(c, lapply(NBF_SKIPPED, function(d) setNames(list(nbf_pys()$lines), file.path(d, "p.py"))))
+  st <- nbs_status(c(list("a.qmd" = u4_qmd()), docs, list("env/pyvenv.cfg" = "home = /usr")))
+  expect_false(has_python_row(st))
+})
+
+test_that("notebook folders status: control, a notebook in a folder Quarto reads gives the python row", {
+  for (d in NBF_READ) {
+    files <- c(list("a.qmd" = u4_qmd(), "myenv/pyvenv.cfg" = "home = /usr"),
+               setNames(list(nbf_ipynb()$lines), file.path(d, "n.ipynb")))
+    expect_true(has_python_row(nbs_status(files)), label = d)
+  }
+})
+
+test_that("notebook folders status: control, a percent script in a folder Quarto reads gives the python row", {
+  for (d in NBF_READ) {
+    files <- c(list("a.qmd" = u4_qmd(), "myenv/pyvenv.cfg" = "home = /usr"),
+               setNames(list(nbf_pys()$lines), file.path(d, "p.py")))
+    expect_true(has_python_row(nbs_status(files)), label = d)
+  }
+})

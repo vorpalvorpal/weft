@@ -178,8 +178,10 @@ test_that("K17: verify(files = 'x.txt') gives M3's text, as checks() does", {
   r <- v4_verify(p$root, static = TRUE, files = "x.txt")
   expect_false(is.null(r$err))
   msg <- k_clean(conditionMessage(r$err))
-  expect_true(grepl("`files` must name existing .qmd, .Rmd or .R files under the project root; not so: ",
-                    msg, fixed = TRUE))
+  expect_true(grepl("`files` must name existing", msg, fixed = TRUE))
+  expect_true(grepl(".ipynb", msg, fixed = TRUE))
+  expect_true(grepl("percent script", msg, fixed = TRUE))
+  expect_true(grepl("not a document Quarto renders", msg, fixed = TRUE))
   expect_true(grepl("x.txt", msg, fixed = TRUE))
   expect_true(grepl("(rule 5.1.1)", msg, fixed = TRUE))
 })
