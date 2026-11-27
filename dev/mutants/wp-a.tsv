@@ -1,0 +1,6 @@
+id	file	old	new	filter
+a1-conditions-ledger-listed	R/changes.R	out[grepl("\\.jsonl$", out) & !grepl("\\.conditions\\.jsonl$", out)]	out[grepl("\\.jsonl$", out)]	^changes$
+a2-rename-source-not-mapped	R/changes.R	tx$file[tx$file == a$source] <- b$source	tx$file[FALSE] <- b$source	^changes$
+a3-since-ignored	R/changes.R	commit <- rv[[1L]]	commit <- NA_character_	^changes$
+a4-gate-ignores-staged	R/gate-git.R	out[stage == "0", , drop = FALSE]	out[FALSE, , drop = FALSE]	^gate-sides$
+a5-show-ignores-rev	R/ledger.R	paste0(rev, ":./", path)	paste0("HEAD", ":./", path)	^changes$
