@@ -91,11 +91,11 @@ test_that("val 48: format(v, target = 'ansi') equals format(v)", {
   expect_identical(format(v, target = "ansi"), format(v))
 })
 
-test_that("val 49: format(v, target = 'html') is the construct error", {
-  e <- val_err(format(val_two(), target = "html"))
+test_that("val 49: format(v, target = 'docx') is the construct error", {
+  e <- val_err(format(val_two(), target = "docx"))
   expect_s3_class(e, "weft_construct_error")
-  expect_match(conditionMessage(e), "`target` must be \"plain\", \"markdown\", \"tex\" or \"ansi\"; got", fixed = TRUE)
-  expect_match(conditionMessage(e), "html", fixed = TRUE)
+  expect_match(conditionMessage(e), "`target` must be \"plain\", \"markdown\", \"tex\", \"ansi\", \"html\" or \"marquee\"; got", fixed = TRUE)
+  expect_match(conditionMessage(e), "docx", fixed = TRUE)
 })
 
 test_that("val 51: print() writes the header naming .num and digits=1, then the text with its name", {
