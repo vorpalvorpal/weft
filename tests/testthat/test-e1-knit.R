@@ -126,5 +126,6 @@ test_that("T9 FT: a scale whose labels are fmt_num(target = 'plain') builds with
   p <- ggplot2::ggplot(data.frame(x = c(1, 2), y = c(0.0001, 0.0002)), ggplot2::aes(x, y)) +
     ggplot2::geom_point() +
     ggplot2::scale_y_continuous(labels = function(b) fmt_num(b, target = "plain"))
-  expect_no_error(ggplot2::ggplotGrob(p))
+  # weft warns, by design, that 0.0001 prints as 0.0 at the default sigfig; that is not under test
+  expect_warning(expect_no_error(ggplot2::ggplotGrob(p)), "printed as 0.0", fixed = TRUE)
 })

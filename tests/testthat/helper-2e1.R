@@ -55,6 +55,18 @@ e1_put <- function(dir, files) {
 # branches replaced by their pattern and without `dict_*`.
 e1_libpath <- function() c(weft_test_lib(), .libPaths())
 
+# The warnings the fixture pipelines raise on purpose (E1_PLAIN, the edge/branch/Hessian scripts in
+# test-tar-ledger-reads.R). In-process make re-raises them in the test; targets keeps them in its
+# meta either way. Only these exact messages are muffled, so any other warning still surfaces.
+FIXTURE_WARNINGS <- c("upstream warned 3 times", "first 5", "second", "other warned",
+                      "base warned", "branch warned", "non-positive-definite Hessian matrix")
+
+e1_muffle_fixture <- function(expr) {
+  withCallingHandlers(expr, warning = function(w) {
+    if (conditionMessage(w) %in% FIXTURE_WARNINGS) invokeRestart("muffleWarning")
+  })
+}
+
 e1_make <- function(dir, plain = FALSE) {
   lib <- if (!plain) e1_libpath()   # before the working folder changes: it finds the package from there
   withr::local_dir(dir)
@@ -65,7 +77,8 @@ e1_make <- function(dir, plain = FALSE) {
       targets::tar_option_reset()
       rm(list = setdiff(ls(globalenv(), all.names = TRUE), had), envir = globalenv())
     })
-    eval(quote(targets::tar_make(callr_function = NULL, reporter = "silent")), envir = globalenv())
+    e1_muffle_fixture(
+      eval(quote(targets::tar_make(callr_function = NULL, reporter = "silent")), envir = globalenv()))
   } else {
     targets::tar_make(callr_arguments = list(libpath = lib),
                       reporter = "silent")
@@ -179,7 +192,9 @@ e1_pipe <- function(script, vals = list(a = 1, b = 2), defs = list(a = "First.")
 }
 
 # tar_make() in callr; returns the error (or NULL) instead of stopping
-e1_try_make <- function(dir) {
-  lib <- e1_libpath()
-  withr::with_dir(dir, e1_err(targets::tar_make(callr_arguments = list(libpath = lib), reporter = "silent")))
+# `stderr` is where the callr process's stderr goes (NULL leaves callr's default; a file path keeps it for the caller, and callr's echo is off)
+e1_try_make <- function(dir, stderr = NULL) {
+  args <- list(libpath = e1_libpath())
+  if (!is.null(stderr)) args <- c(args, list(stderr = stderr, show = FALSE))
+  withr::with_dir(dir, e1_err(targets::tar_make(callr_arguments = args, reporter = "silent")))
 }

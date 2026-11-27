@@ -37,10 +37,13 @@ cl_units_clean <- function(env = parent.frame()) {
 cl_report_seq <- function(key, script, files, edit_vals = list(a = 1, b = 9)) e1_memo(key, function() {
   cl_need_pipe()
   d <- e1_pipe(script, files = files)
-  out <- list(dir = d, err = e1_try_make(d))
+  # tar_render() (tarchetypes, in the make's callr process) prints knitr's "object 'part' not found" for
+  # a computed child= while it reads the report's code; keep the process's stderr in a file, not on the console
+  errf <- tempfile("weft-stderr-")
+  out <- list(dir = d, err = e1_try_make(d, errf), stderr = errf)
   if (!is.null(out$err)) return(out)
   e1_dict(d, edit_vals, list(a = "A new definition."))
-  out$err3 <- e1_try_make(d)
+  out$err3 <- e1_try_make(d, errf)
   out$after_val <- withr::with_dir(d, e1_built())
   out
 })
