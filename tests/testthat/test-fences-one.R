@@ -101,7 +101,8 @@ test_that("R1 (chunk, metadata): a block inside a chunk with a backtick in its h
 })
 
 test_that("R1 (lints): a chunk with a backtick in its header is a chunk and gets its chunk finding", {
-  r <- fo_lint(c("```{r a`b}", "x <- 1", "```"))
+  # (ruling 27 Nov: `{r a`b}` is labelled "a`b", so an unlabelled header is what tests it)
+  r <- fo_lint(c("```{r, fig.cap = \"a`b\"}", "x <- 1", "```"))
   expect_true(any(r$rule == "chunk-label" & r$line == 1L))
   # the plain twin is text and gets none
   r2 <- fo_lint(c("``` a`b", "x <- 1", "```"))
@@ -268,9 +269,11 @@ test_that("R4 (scan_text, find_fences): a metadata block after a quoted unclosed
   expect_gte(nrow(fo_scan(plain)), 1L)
 })
 
+# (ruling 27 Nov: knitr runs inline R in a plain fence, test-scan.R "inline R in a fenced block that
+# is not a chunk is read", so a bracketed span, which a fence does hide, tests the rule)
 test_that("R4 (scan_text, find_fences): a quoted line does not close an outside fence, so its text is not scanned", {
-  expect_equal(nrow(fo_scan(c("```", "> ```", "`r x`{.num}"))), 0L)
-  r <- fo_scan(c("```", "> ```", "`r x`{.num}", "```", "`r y`{.num}"))
+  expect_equal(nrow(fo_scan(c("```", "> ```", "[a | b]{if=\"x\"}"))), 0L)
+  r <- fo_scan(c("```", "> ```", "[a | b]{if=\"x\"}", "```", "[c | d]{if=\"y\"}"))
   expect_identical(r$line, 5L)
 })
 
