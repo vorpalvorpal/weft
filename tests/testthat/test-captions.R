@@ -289,8 +289,8 @@ test_that("1.10.1 (rmarkdown): a caption with no construct is byte-identical to 
   plain <- c(rmd_head, rmd_setup,
              "```{r fig-plain, echo=FALSE, fig.cap=\"A plain caption\", fig.alt=\"A plain alt\"}", "plot(2)", "```", "",
              "```{r tab, echo=FALSE}", "knitr::kable(data.frame(x = 1), caption = 'Plain table')", "```", "")
-  on <- render_rmd(plain, setup = FALSE, format = "knit")
-  off <- render_rmd(sub("weft::weft_setup()", "invisible(NULL)", plain, fixed = TRUE), setup = FALSE, format = "knit")
+  on <- render_rmd(plain, setup = FALSE, format = "knit", in_process = FALSE)
+  off <- render_rmd(sub("weft::weft_setup()", "invisible(NULL)", plain, fixed = TRUE), setup = FALSE, format = "knit", in_process = FALSE)
   expect_false(on$failed, label = on$message)
   expect_identical(on$text, off$text)
 })

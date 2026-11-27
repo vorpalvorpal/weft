@@ -132,7 +132,7 @@ test_that("review F #5: in a knit, ci() and pm() have one warned row each (rulin
 
 test_that("review F #6: warned checks are reported on stderr when the knit stops on a plain chunk error (2.6.10; ruling 6)", {
   res <- render_rmd(c("W `r claim(3, . > 5, level = 'warn')` and `r 0.04`{.num}.", "",
-                      "```{r boom}", "stop('plain error')", "```"))
+                      "```{r boom}", "stop('plain error')", "```"), in_process = FALSE)
   expect_true(res$failed)
   expect_match(res$message, "plain error", fixed = TRUE)
   expect_match(paste(res$log, collapse = "\n"), "weft: 2 warned check\\(s\\)")
@@ -140,7 +140,7 @@ test_that("review F #6: warned checks are reported on stderr when the knit stops
 
 test_that("review F #6: warned checks are reported on stderr when a bare value errors (2.6.10; ruling 6)", {
   res <- render_rmd(c("W `r claim(3, . > 5, level = 'warn')` and `r 0.04`{.num}.", "",
-                      "Then `r stop('bare')`."))
+                      "Then `r stop('bare')`."), in_process = FALSE)
   expect_true(res$failed)
   expect_match(paste(res$log, collapse = "\n"), "weft: 2 warned check\\(s\\)")
 })

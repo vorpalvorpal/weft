@@ -273,7 +273,7 @@ test_that("3.7.2: nothing is written in a plain folder, with a cache=TRUE chunk 
   expect_equal(r$cases$one$chosen$role, "one")
   # control: an ordinary knit of the same document writes a cache and a figure
   # (rendered, not knitted bare: a bare knit defines no `params`)
-  ctl <- render_rmd(E1_WRITE_LINES, setup = FALSE, format = "md")
+  ctl <- render_rmd(E1_WRITE_LINES, setup = FALSE, format = "md", in_process = FALSE)
   ctl_files <- e1_snapshot(ctl$dir)
   expect_false(ctl$failed, label = ctl$message)
   expect_true(any(grepl("cache", ctl_files)))

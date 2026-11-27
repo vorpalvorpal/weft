@@ -260,7 +260,7 @@ test_that("1i zero: a weft() call in chunk code records the warning in the knit"
 # ---- the reports ------------------------------------------------------------------
 
 test_that("1i zero: the warnings are printed to stderr under 'weft: N warned check(s)', and the render succeeds", {
-  res <- render_rmd(I1_LINES, code = "k <- 3")          # a child process: stderr is in the log
+  res <- render_rmd(I1_LINES, code = "k <- 3", in_process = FALSE)          # a child process: stderr is in the log
   expect_false(res$failed, label = res$message)
   log <- paste(res$log, collapse = "\n")
   expect_match(log, sprintf("weft: %d warned check\\(s\\)", length(I1_WARNED)))

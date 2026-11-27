@@ -302,7 +302,7 @@ test_that("2.4.5: a failed check that stops the knit prints every failure collec
 test_that("2.4.2 + 2.5.1: with the hooks never installed, a failed claim in inline R stops the knit", {
   src <- c("---", "title: t", "---", "", "```{r setup, include=FALSE}", "library(weft)", "k <- 3", "```", "",
            "Value `r claim(k, . > 100)`{.num}.")
-  res <- render_rmd(src, setup = FALSE)
+  res <- render_rmd(src, setup = FALSE, in_process = FALSE)
   expect_true(res$failed)
   expect_true("weft_claim_failed" %in% res$error$class)
   expect_match(res$message, ". > 100", fixed = TRUE)
@@ -311,7 +311,7 @@ test_that("2.4.2 + 2.5.1: with the hooks never installed, a failed claim in inli
 test_that("2.5.1: with the hooks never installed and claim() not found, the knit stops", {
   src <- c("---", "title: t", "---", "", "```{r setup, include=FALSE}", "k <- 3", "```", "",
            "Value `r claim(k, . > 1)`{.num}.")
-  res <- render_rmd(src, setup = FALSE)
+  res <- render_rmd(src, setup = FALSE, in_process = FALSE)
   expect_true(res$failed)
   expect_match(res$message, "claim", fixed = TRUE)
 })

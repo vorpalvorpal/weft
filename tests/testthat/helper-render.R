@@ -1,6 +1,7 @@
 # Render helpers for the package-B tests (the knitr runtime).
 #
-# render_rmd()  one document through rmarkdown (a fresh R process, or this one)
+# render_rmd()  one document through rmarkdown (this process by default, restoring
+#               the state it touches; in_process = FALSE for a fresh R process)
 # render_qmd()  one document through `quarto render --to markdown`
 # both()        a case under each engine
 # batch_cases() / split_cases()  many cases in one document, split on markers
@@ -102,12 +103,53 @@ weft_restore_knitr <- function() {
   knitr::opts_chunk$restore()
 }
 
+# What an in-process render can leave in the test session, saved before it and
+# put back after: weft's own state (weft_env and the unit-defaults state), the
+# search path (weft_setup() attaches "weft:functions"), the options, and the
+# objects `pre` defines in the global environment. The environment variables
+# and the working directory are restored by withr in run_rmd_file(), and the
+# knitr hooks and options by weft_restore_knitr().
+weft_snapshot_session <- function() {
+  ns <- asNamespace("weft")
+  list(
+    weft_env = as.list(ns$weft_env, all.names = TRUE),
+    ud_state = as.list(ns$ud_state, all.names = TRUE),
+    search = search(),
+    options = options(),
+    globals = ls(globalenv(), all.names = TRUE)
+  )
+}
+
+weft_restore_session <- function(snap) {
+  ns <- asNamespace("weft")
+  reset_env <- function(env, saved) {
+    rm(list = ls(env, all.names = TRUE), envir = env)
+    list2env(saved, envir = env)
+  }
+  reset_env(ns$weft_env, snap$weft_env)
+  reset_env(ns$ud_state, snap$ud_state)
+  for (nm in setdiff(search(), snap$search)) {
+    if (nm == "weft:functions") try(detach(nm, character.only = TRUE), silent = TRUE)
+  }
+  now <- options()
+  gone <- setdiff(names(now), names(snap$options))
+  if (length(gone)) options(stats::setNames(rep(list(NULL), length(gone)), gone))
+  options(snap$options)
+  extra <- setdiff(ls(globalenv(), all.names = TRUE), snap$globals)
+  if (length(extra)) rm(list = extra, envir = globalenv())
+  invisible()
+}
+
 run_rmd_file <- function(input, output, format, in_process, env, pre = "",
                          restore = TRUE) {
   if (in_process) {
     withr::local_envvar(env)
     withr::local_dir(dirname(input))
-    if (restore) withr::defer(weft_restore_knitr())
+    if (restore) {
+      withr::defer(weft_restore_knitr())
+      # what a render may leave behind in this session (a fresh child has none)
+      withr::defer(weft_restore_session(weft_snapshot_session()))
+    }
     eval(parse(text = .weft_core_src))
     res <- weft_test_core(basename(input), basename(output), format, pre)
     res$knit <- tryCatch(weft:::last_knit(), error = function(e) NULL)
@@ -225,7 +267,7 @@ finish <- function(res, text, d) {
 # format = "md": through rmarkdown and Pandoc (markdown variant, no wrapping).
 # format = "knit": plain knitr::knit(), the raw text weft produced.
 render_rmd <- function(lines, setup = TRUE, code = NULL, front = NULL,
-                       files = NULL, env = NULL, in_process = FALSE,
+                       files = NULL, env = NULL, in_process = TRUE,
                        format = c("md", "knit"), name = "doc",
                        bom = FALSE, eol = "\n", final_newline = TRUE,
                        dir = NULL, pre = "", keep_yaml = FALSE,

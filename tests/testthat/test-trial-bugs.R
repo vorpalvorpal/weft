@@ -21,11 +21,11 @@ test_that("trial 1 + 2.5 + 1.10.1: a construct in fig.cap in a single rmarkdown 
     alt       = doc("```{r e, echo=FALSE, fig.cap='Plain', fig.alt='Alt [a | b]{if=\"TRUE\"}'}")
   )
   for (nm in names(cases)) {
-    res <- render_rmd(cases[[nm]], setup = FALSE, format = "knit")
+    res <- render_rmd(cases[[nm]], setup = FALSE, format = "knit", in_process = FALSE)
     expect_never_raw(res, label = nm)
   }
   # the legal one resolved, so the invariant is not met by failing everything
-  res <- render_rmd(cases$literal, setup = FALSE, format = "knit")
+  res <- render_rmd(cases$literal, setup = FALSE, format = "knit", in_process = FALSE)
   expect_false(res$failed, label = res$message)
   expect_match(res$md, "Cap a", fixed = TRUE)
   # control: a hand-made raw case does trip the helper

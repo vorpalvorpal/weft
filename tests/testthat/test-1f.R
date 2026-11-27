@@ -183,7 +183,7 @@ W2_LINES <- c(
 )
 
 test_that("1f claim level: the warnings are printed to stderr under 'weft: N warned check(s)' even when the render fails; the error lists failures only", {
-  res <- render_rmd(W2_LINES, code = PRE_1F)          # a child process: stderr is in the log
+  res <- render_rmd(W2_LINES, code = PRE_1F, in_process = FALSE)          # a child process: stderr is in the log
   expect_true(res$failed)
   log <- paste(res$log, collapse = "\n")
   expect_match(log, "weft: 1 warned check\\(s\\)")
@@ -196,7 +196,7 @@ test_that("1f claim level: the warnings are printed to stderr under 'weft: N war
 })
 
 test_that("1f claim level: a render that only warns also prints the warnings to stderr, and succeeds", {
-  res <- render_rmd(c("Only `r claim(k, . > 779, level = \"warn\")`{.num} warned."), code = PRE_1F)
+  res <- render_rmd(c("Only `r claim(k, . > 779, level = \"warn\")`{.num} warned."), code = PRE_1F, in_process = FALSE)
   expect_false(res$failed, label = res$message)
   log <- paste(res$log, collapse = "\n")
   expect_match(log, "weft: 1 warned check\\(s\\)")

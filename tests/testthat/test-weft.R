@@ -189,7 +189,7 @@ test_that("3.6 interface: with no weft_setup() weft() works, and behaves as outs
     "k <- 3",
     "cat('Found', weft::weft('[a site | # sites]{n=\"k\"}'), 'here.\\n')",
     "```", "")
-  res <- render_rmd(ok, setup = FALSE, format = "knit")
+  res <- render_rmd(ok, setup = FALSE, format = "knit", in_process = FALSE)
   expect_false(res$failed, label = res$message)
   expect_match(res$md, "Found 3 sites here.", fixed = TRUE)
   bad <- c(str_head,
@@ -197,7 +197,7 @@ test_that("3.6 interface: with no weft_setup() weft() works, and behaves as outs
     "k <- 3",
     "cat(weft::weft('`r claim(k, . > 100)`'))",
     "```", "")
-  res <- render_rmd(bad, setup = FALSE)   # knit() alone prints a chunk error and carries on
+  res <- render_rmd(bad, setup = FALSE, in_process = FALSE)   # knit() alone prints a chunk error and carries on
   expect_true(res$failed)
   expect_match(res$message, ". > 100", fixed = TRUE)
 })

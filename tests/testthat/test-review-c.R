@@ -261,11 +261,11 @@ test_that("review C #5: a collection file left by the aborted render is not used
   expect_true(file.exists(file.path(s$dir, ".weft")), label = "the aborted render left its files")
   # a clean document is fine (control)
   ok <- render_rmd(c("Note `r claim(n, . > 1)`{.num}."), code = "n <- 3",
-                   dir = s$dir, name = "notes_ok")
+                   dir = s$dir, name = "notes_ok", in_process = FALSE)
   expect_false(ok$failed, info = ok$message)
   # a failing claim fails the knit; it is not parked in the stale file
   bad <- render_rmd(c("Note `r claim(n, . > 50)`{.num}."), code = "n <- 3",
-                    dir = s$dir, name = "notes")
+                    dir = s$dir, name = "notes", in_process = FALSE)
   expect_true(bad$failed)
   expect_match(bad$message, "claim", ignore.case = TRUE)
   expect_match(bad$message, at_line(bad, 1))
@@ -281,7 +281,7 @@ test_that("review C #5: a collection file older than an hour with no run id is i
   writeLines("", f)
   Sys.setFileTime(f, Sys.time() - 3 * 3600)
   bad <- render_rmd(c("Note `r claim(n, . > 50)`{.num}."), code = "n <- 3",
-                    dir = dir, name = "notes")
+                    dir = dir, name = "notes", in_process = FALSE)
   expect_true(bad$failed, label = "the failure was not silently parked in the old file")
   expect_match(bad$message, "claim", ignore.case = TRUE)
 })

@@ -102,7 +102,7 @@ test_that("T10 WS13: in a knit where the hooks were never installed the first fa
     "k <- 3",
     "cat(as.character(weft::weft('`r claim(k, . > 100)`')))",
     "```", "")
-  res <- render_rmd(lines, setup = FALSE)
+  res <- render_rmd(lines, setup = FALSE, in_process = FALSE)
   expect_true(res$failed)
   expect_match(res$message, "weft: chunk a: ", fixed = TRUE)
   expect_match(res$message, ". > 100", fixed = TRUE)

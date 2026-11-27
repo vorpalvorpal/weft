@@ -50,9 +50,20 @@ parity_doc <- function(engine, activate) {
   c(yaml, chunk, parity_body)
 }
 
+# The stock knit of the document without the hooks, once for the file: the two
+# tests that compare against it read the same render.
+parity_cache <- new.env()
+parity_stock_knit <- function() {
+  if (is.null(parity_cache$stock_knit)) {
+    parity_cache$stock_knit <- render_rmd(parity_doc("rmd", FALSE), setup = FALSE,
+                                          format = "knit", in_process = FALSE)
+  }
+  parity_cache$stock_knit
+}
+
 test_that("21 Stock parity + 1.3.1 + 1.1.10: no attribute blocks, byte-identical with and without the hooks (rmarkdown)", {
-  with <- render_rmd(parity_doc("rmd", TRUE), setup = FALSE, keep_yaml = TRUE)
-  without <- render_rmd(parity_doc("rmd", FALSE), setup = FALSE, keep_yaml = TRUE)
+  with <- render_rmd(parity_doc("rmd", TRUE), setup = FALSE, keep_yaml = TRUE, in_process = FALSE)
+  without <- render_rmd(parity_doc("rmd", FALSE), setup = FALSE, keep_yaml = TRUE, in_process = FALSE)
   expect_false(without$failed, label = without$message)
   expect_false(with$failed, label = with$message)
   expect_identical(with$text, without$text)
@@ -63,8 +74,8 @@ test_that("21 Stock parity + 1.3.1 + 1.1.10: no attribute blocks, byte-identical
 })
 
 test_that("21 Stock parity + 2.1.7: plain knitr::knit() output is the same with the hooks installed (setup chunk)", {
-  with <- render_rmd(parity_doc("rmd", TRUE), setup = FALSE, format = "knit")
-  without <- render_rmd(parity_doc("rmd", FALSE), setup = FALSE, format = "knit")
+  with <- render_rmd(parity_doc("rmd", TRUE), setup = FALSE, format = "knit", in_process = FALSE)
+  without <- parity_stock_knit()
   expect_false(without$failed, label = without$message)
   expect_false(with$failed, label = with$message)
   expect_identical(with$text, without$text)
@@ -72,8 +83,8 @@ test_that("21 Stock parity + 2.1.7: plain knitr::knit() output is the same with 
 
 test_that("2.1.7 + 21: plain knitr::knit() output is the same with the hooks installed before the knit", {
   doc <- parity_doc("rmd", FALSE)
-  with <- render_rmd(doc, setup = FALSE, format = "knit", pre = "weft::weft_setup()")
-  without <- render_rmd(doc, setup = FALSE, format = "knit")
+  with <- render_rmd(doc, setup = FALSE, format = "knit", pre = "weft::weft_setup()", in_process = FALSE)
+  without <- parity_stock_knit()
   expect_false(with$failed, label = with$message)
   expect_identical(with$text, without$text)
 })
@@ -90,7 +101,7 @@ test_that("21 Stock parity + 1.3.1: under Quarto, bare `{r} x` and `r x` print a
 
 test_that("1.3.1 + 1.3.4: a bare NA prints as stock knitr prints it, beside a formatted missing value in draft mode", {
   src <- c("Mean `r NA_real_` m.", "", "Other `r NA_real_`{.num} m.")
-  res <- render_rmd(src, code = PRE_X, env = c(WEFT_DRAFT = "1"), format = "knit")
+  res <- render_rmd(src, code = PRE_X, env = c(WEFT_DRAFT = "1"), format = "knit", in_process = FALSE)
   expect_false(res$failed, label = res$message)
   expect_true(any(res$text == "Mean NA m."))
   expect_true(any(grepl("^Other <<weft: no value, line [0-9]+>> m\\.$", res$text)))
@@ -104,7 +115,7 @@ test_that("2.1.3 + 9.2.6: library(weft) alone installs nothing; the attribute bl
   src <- c("---", "title: t", "---", "",
            "```{r setup, include=FALSE}", "library(weft)", PRE_X, "```", "",
            "Value `r k`{.num} and [a | b]{if=\"flag\"}.")
-  res <- render_rmd(src, setup = FALSE)
+  res <- render_rmd(src, setup = FALSE, in_process = FALSE)
   expect_false(res$failed, label = res$message)
   expect_equal(canon_md(res$md), canon_md(stock_text))
 })
@@ -114,7 +125,7 @@ test_that("2.1.3: loading the namespace and using its functions installs nothing
            "```{r setup, include=FALSE}", "requireNamespace('weft', quietly = TRUE)",
            PRE_X, "y <- weft::claim(k, . > 0)", "f <- weft::fmt_num(1.2)", "```", "",
            "Value `r k`{.num} and [a | b]{if=\"flag\"}.")
-  res <- render_rmd(src, setup = FALSE)
+  res <- render_rmd(src, setup = FALSE, in_process = FALSE)
   expect_false(res$failed, label = res$message)
   expect_equal(canon_md(res$md), canon_md(stock_text))
 })
@@ -135,7 +146,7 @@ test_that("9.2.1: activation from the document's front matter (rmarkdown), no se
   src <- c("---", "title: t", "knitr:", "  opts_knit:", "    weft: !expr weft::weft_setup()", "---", "",
            "```{r data, include=FALSE}", PRE_X, "```", "",
            "Value `r k`{.word} and [a | b]{if=\"flag\"}.")
-  res <- render_rmd(src, setup = FALSE)
+  res <- render_rmd(src, setup = FALSE, in_process = FALSE)
   expect_false(res$failed, label = res$message)
   expect_equal(canon_md(res$md), "Value three and a.")
 })
@@ -158,7 +169,7 @@ test_that("9.2.1: activation from a setup chunk, under both engines", {
 test_that("2.1.3: weft_setup() called before the knit starts installs the hooks too", {
   src <- c("---", "title: t", "---", "", "```{r d, include=FALSE}", PRE_X, "```", "",
            "Value `r k`{.word}.")
-  res <- render_rmd(src, setup = FALSE, pre = "weft::weft_setup()")
+  res <- render_rmd(src, setup = FALSE, pre = "weft::weft_setup()", in_process = FALSE)
   expect_false(res$failed, label = res$message)
   expect_equal(canon_md(res$md), "Value three.")
 })
@@ -201,7 +212,7 @@ test_that("2.1.2: the hooks installed before weft_setup() still run (text and do
     "document = function(x) c(x, 'PRIOR-DOC-HOOK'))"
   )
   src <- c("Text PRIORWORD here and `r k`{.word}.", "", "```{r}", "1", "```")
-  res <- render_rmd(src, code = PRE_X, pre = pre)
+  res <- render_rmd(src, code = PRE_X, pre = pre, in_process = FALSE)
   expect_false(res$failed, label = res$message)
   expect_equal(res$text[1], "Text prior-saw-it here and three.")      # weft resolved it and the earlier hook ran
   expect_equal(res$text[length(res$text)], "PRIOR-DOC-HOOK")

@@ -46,7 +46,7 @@ options_doc <- c(
 test_that("2.8.1: with warning/message shown or hidden, the output is identical to a stock render (rmarkdown, both outputs)", {
   for (fmt in c("md", "knit")) {
     with <- render_rmd(options_doc, code = PRE_C, format = fmt)
-    without <- render_rmd(options_doc, setup = "stock", code = PRE_C, format = fmt)
+    without <- render_rmd(options_doc, setup = "stock", code = PRE_C, format = fmt, in_process = FALSE)
     expect_false(without$failed, label = without$message)
     expect_false(with$failed, label = with$message)
     expect_identical(with$text, without$text, label = paste("format", fmt))
@@ -120,7 +120,7 @@ test_that("2.8.2: a condition raised by a value in prose is logged with its line
 test_that("2.8.2: the bare value's document is the stock document", {
   src <- c("Intro.", "", "Bare `r noisy()` here.")
   with <- render_rmd(src, code = PRE_C)
-  without <- render_rmd(src, setup = "stock", code = PRE_C)
+  without <- render_rmd(src, setup = "stock", code = PRE_C, in_process = FALSE)
   expect_identical(with$text, without$text)
   expect_equal(without$text[length(without$text)], "Bare 5 here.")
 })
