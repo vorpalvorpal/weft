@@ -97,6 +97,7 @@ test_that("names 8: the shown text still matches per element after slicing", {
 test_that("names 9: a dplyr mutate() and filter() round trip keeps the names", {
   skip_if_not_installed("vctrs")
   skip_if_not_installed("dplyr")
+  skip_if_not_installed("tibble")
   v <- named_val()
   p <- plain_of(v)
   got <- dplyr::filter(dplyr::mutate(tibble::tibble(x = v), k = 1), k == 1)
