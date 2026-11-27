@@ -8,8 +8,8 @@
 #   backticks and spaces, at any indent, with or without a `>`, of any length (a shorter or a longer one
 #   closes; "``` y" does not); an unquoted chunk is closed by a quoted "> ```" line, and a quoted chunk by
 #   an unquoted one; a quoted chunk with no closer runs to the end of the file (not to the end of its
-#   quote); an unclosed chunk runs to the end; tilde `~~~{r}` is not a chunk. Surprise: a `~~~` line also
-#   ended a `{r}` chunk when knitted.
+#   quote); an unclosed chunk runs to the end; tilde `~~~{r}` is not a chunk, and a `~~~` line does not
+#   end a `{r}` chunk (knitr runs it as R code; checked by the orchestrator, 27 Nov).
 # The rulings for plain fences:
 #   R1  a backtick fence whose info string holds a backtick is not an opener; a tilde fence's may
 #   R2  a closer has the same character, is at least as long, and has only spaces after it; a fence is
@@ -151,10 +151,10 @@ test_that("R2 (chunk): a chunk closer is 3 or more backticks and spaces, of any 
   expect_identical(fo_ch_close(l6, 1L), 3L)
 })
 
-test_that("R2 (chunk): knitr ends a {r} chunk at a `~~~` line (a surprise; checked by knitting)", {
+test_that("R2 (chunk): a `~~~` line does not end a {r} chunk; knitr's end pattern is backticks only", {
   l <- c("```{r}", "x", "~~~", "y", "```")
-  expect_identical(fo_fb_close(l, 1L), 3L)
-  expect_identical(fo_ch_close(l, 1L), 3L)
+  expect_identical(fo_fb_close(l, 1L), 5L)
+  expect_identical(fo_ch_close(l, 1L), 5L)
 })
 
 test_that("R2 (chunk): a chunk may be indented 3 spaces, 4 spaces, or sit in a list item, as knitr runs it", {
