@@ -5,7 +5,7 @@
 #              column 1 with `chunk_claims`, optional spaces or tabs, then `:`. The value is the rest
 #              of the line, a `#` comment that follows white space removed, trimmed, one pair of
 #              surrounding quotes removed.
-#   document   when the source ends .qmd or .md: the key `chunk_claims` of the `weft:` mapping of its
+#   document   when the source ends .qmd, .md, .ipynb or .py: the key `chunk_claims` of the `weft:` mapping of its
 #              front matter, in block or flow form. The front matter is every metadata block, as Pandoc
 #              and weft's R side read them (rule 2.1.6 of dev/PACKAGE-SCOPING.md): a line that is exactly
 #              `---` at the top (only blank lines above) or after a blank line, a next line that is not
@@ -14,6 +14,8 @@
 #              is read from the last block with a top-level `weft:` key. The blocks are read with the
 #              document's includes expanded as Quarto expands them (rule P5, include.jl): an included
 #              file's blocks sit where its include sits. The document's value, when it has one, wins.
+#              A notebook's or a percent script's front matter is read from its raw and markdown cells
+#              (rule P7, notebook.jl).
 #
 # The result is "collect" exactly when the value that applies is `collect`, else "stop".
 
@@ -198,7 +200,9 @@ end
 function _cc_front_value(source::AbstractString)
     lines = _cc_lines(source)
     (lines === nothing || isempty(lines)) && return nothing
-    lines = _inc_expanded(source, lines, _cc_lines)
+    low = lowercase(source)
+    lines = endswith(low, ".ipynb") ? _nb_lines(join(lines, "\n")) :
+            endswith(low, ".py") ? _pc_lines(join(lines, "\n")) : _inc_expanded(source, lines, _cc_lines)
     weft = filter(b -> any(l -> occursin(_CC_WEFT_KEY, l), b), _cc_blocks(lines))
     isempty(weft) && return nothing
     _cc_weft_value(last(weft))
@@ -247,7 +251,7 @@ value that applies, the document's front matter first, then the nearest `_weft.y
 function chunk_claims_setting(source::AbstractString, folder::AbstractString)::String
     try
         v = nothing
-        if any(e -> endswith(lowercase(source), e), (".qmd", ".md"))
+        if any(e -> endswith(lowercase(source), e), (".qmd", ".md", ".ipynb", ".py"))
             v = _cc_front_value(source)
         end
         v === nothing && (v = _cc_yml_value(folder))

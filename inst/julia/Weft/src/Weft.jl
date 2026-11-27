@@ -21,6 +21,7 @@ module Weft
 
 include("record.jl")
 include("include.jl")
+include("notebook.jl")
 include("config.jl")
 
 export @claim, @put
