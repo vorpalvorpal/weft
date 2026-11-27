@@ -7,7 +7,7 @@ kept: a kernel's environment can go stale, and the files cannot. Standard librar
              column 1 with `chunk_claims`, optional spaces or tabs, then `:`. The value is the rest
              of the line, a `#` comment that follows white space removed, trimmed, and one pair of
              surrounding quotes removed.
-  document   when `source` ends .qmd or .md: its front matter, the key `chunk_claims` of its `weft:`
+  document   when `source` ends .qmd, .md, .ipynb or .py: its front matter, the key `chunk_claims` of its `weft:`
              mapping, in block or flow form. The front matter is every metadata block, as Pandoc and
              weft's R side read them (rule 2.1.6 of dev/PACKAGE-SCOPING.md): a line that is exactly
              `---` at the top (only blank lines above) or after a blank line, a next line that is not
@@ -16,12 +16,18 @@ kept: a kernel's environment can go stale, and the files cannot. Standard librar
              is read from the last block with a top-level `weft:` key. The blocks are read with the
              document's includes expanded as Quarto expands them (rule P5; the include rules I1 to I6,
              by the package's own include reader): an included file's blocks sit where its include
-             sits. The document's value, when it has one, wins over _weft.yml.
+             sits. The document's value, when it has one, wins over _weft.yml. A notebook's front
+             matter is read from its cells (rule P7): the source of each raw and markdown cell, in
+             cell order, each followed by a blank line; a percent script's from its `# %% [markdown]`
+             and `# %% [raw]` cells, the leading `#` and one white-space character off each line (or
+             the lines inside a cell's triple-quote lines). Code cells hold none, and neither expands
+             includes.
 
 The result is "collect" exactly when the value that applies is `collect`; anything else, an absent
 key, `Collect`, `true` or an empty value, is "stop".
 """
 
+import json as _json
 import os as _os
 import re as _re
 
@@ -233,11 +239,85 @@ def _expanded(source, lines):
     return out
 
 
+def _text(path):
+    """The text of a file, as _lines() reads it; None when it cannot be read."""
+    lines = _lines(path)
+    return None if lines is None else "\n".join(lines)
+
+
+def _notebook_lines(text):
+    """The lines a notebook's JSON `text` gives its front matter (rule P7; the twin of R's notebook_view()):
+    the source of each raw and markdown cell, in cell order, each followed by a blank line."""
+    try:
+        nb = _json.loads(text)
+    except ValueError:
+        return []
+    cells = nb.get("cells") if isinstance(nb, dict) else None
+    out = []
+    for cell in cells if isinstance(cells, list) else []:
+        if not isinstance(cell, dict) or cell.get("cell_type") not in ("markdown", "raw"):
+            continue
+        src = cell.get("source", "")
+        if isinstance(src, list):
+            src = "".join(p for p in src if isinstance(p, str))
+        s = src if isinstance(src, str) else ""
+        if s:
+            out.extend((s[:-1] if s.endswith("\n") else s).split("\n"))
+        out.append("")
+    return out
+
+
+_PERCENT_SCRIPT = _re.compile(r"^\s*#\s*%%+\s+\[(markdown|raw)\]", _re.M)
+_PERCENT_HEADER = _re.compile(r"^\s*#\s*%%+\s*(?:\[(markdown|raw)\])?\s*(.*)?$")
+_TRIPLE_QUOTE = _re.compile(r'^"{3,}\s*$')
+
+
+def _percent_lines(text):
+    """The lines a percent script's `text` gives its front matter (rule P7; the twin of R's percent_view()):
+    each markdown and raw cell, its empty lines at either end dropped, the leading `#` and one white-space
+    character off each line (or the lines inside its triple-quote lines), then a blank line. A raw cell that names a
+    format is raw output, fenced; code cells and the text above the first `# %%` line are left out. A script
+    with no markdown or raw cell is no Quarto document: no lines."""
+    text = text.strip()
+    if not _PERCENT_SCRIPT.search(text):
+        return []
+    cells = []
+    for line in text.split("\n"):
+        m = _PERCENT_HEADER.match(line)
+        if m:
+            cells.append((m.group(1) or "code", m.group(2) or "", []))
+        elif cells:
+            cells[-1][2].append(line)
+    out = []
+    for kind, attrs, body in cells:
+        if kind == "code":
+            continue
+        while body and not body[0].strip():
+            body = body[1:]
+        while body and not body[-1].strip():
+            body = body[:-1]
+        if len(body) > 2 and _TRIPLE_QUOTE.match(body[0]) and _TRIPLE_QUOTE.match(body[-1]):
+            body = body[1:-1]
+        else:
+            body = [_re.sub(r"^#\s?", "", line) for line in body]
+        if kind == "raw" and _re.search(r"(^|\s)(format|raw_mimetype)=", attrs):
+            body = ["```{=raw}"] + body + ["```"]
+        out.extend(body + [""])
+    return out
+
+
 def _front_value(source):
-    lines = _lines(source)
-    if not lines:
-        return None
-    lines = _expanded(source, lines)
+    low = source.lower()
+    if low.endswith((".ipynb", ".py")):
+        text = _text(source)
+        if text is None:
+            return None
+        lines = _notebook_lines(text) if low.endswith(".ipynb") else _percent_lines(text)
+    else:
+        lines = _lines(source)
+        if not lines:
+            return None
+        lines = _expanded(source, lines)
     weft = [b for b in _blocks(lines) if any(_WEFT_KEY.match(line) for line in b)]
     if not weft:
         return None
@@ -282,7 +362,7 @@ def chunk_claims(source, folder):
     """"collect" when `chunk_claims` is collect for the document `source` in `folder`, else "stop"."""
     try:
         v = None
-        if source and str(source).lower().endswith((".qmd", ".md")):
+        if source and str(source).lower().endswith((".qmd", ".md", ".ipynb", ".py")):
             v = _front_value(str(source))
         if v is None:
             v = _yml_value(folder)
