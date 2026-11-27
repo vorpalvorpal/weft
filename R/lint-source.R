@@ -930,11 +930,11 @@ read_source <- function(path, root, cfg, bytes = NULL, text = NULL) {
   # metadata
   meta <- meta_blocks_yaml(lines, mb)
   front <- merge_front(meta)
-  lang <- NA_character_
-  if (is.character(front$lang) && length(front$lang) == 1L) lang <- front$lang
-  if (is.na(lang)) lang <- quarto_yml_lang(root)
+  # `lang` as Quarto merges it: the document over the project files (rules P1, P2)
+  lang <- quarto_doc_view(path, front)[["lang"]]
+  if (!(is.character(lang) && length(lang) == 1L)) lang <- NA_character_
   # rows
-  rows <- scan_document(lines, file = rel, config = cfg, project = project_type(path), cr = cr)
+  rows <- scan_document(lines, file = rel, config = cfg, project = project_type(path), cr = cr, path = path)
   if (nrow(rows)) {
     ci <- findInterval(rows$line, chunks$open)
     inchunk <- ci > 0L & rows$line <= chunks$close[pmax(ci, 1L)]
@@ -978,17 +978,6 @@ read_source <- function(path, root, cfg, bytes = NULL, text = NULL) {
                          front, lang)
   src$code_regions <- cr
   src
-}
-
-# The `lang` of the `_quarto.yml` (or `_quarto.yaml`) at `root`, or NA; read once per root in a walk.
-quarto_yml_lang <- function(root) {
-  walk_memo("quarto_lang", root, function() {
-    qp <- file.path(root, QUARTO_MARKERS)
-    qp <- qp[file.exists(qp)]
-    if (!length(qp)) return(NA_character_)
-    y <- yaml_text(read_source_text_or_null(qp[1L]) %||% "")
-    if (is.list(y) && is.character(y$lang) && length(y$lang) == 1L) y$lang else NA_character_
-  })
 }
 
 # The rest of reading a source, shared by documents and scripts (D1): the regions, the prose mask and the

@@ -1683,6 +1683,63 @@ the JSON file named by the environment variable `QUARTO_EXECUTE_INFO`. Where
 that variable is not set it calls `quarto::quarto_inspect()` on the source
 file, once per document.
 
+The lints run outside a render, so they read Quarto's project metadata
+themselves, by these rules (the evidence is in
+`dev/quarto-project-metadata.md`). Quarto's own keys that weft reads (`lang`,
+`execute:`, `bibliography`, the engine keys) mean what Quarto makes of them;
+`weft:` is weft's own key, with its own project file.
+
+- **P1. Quarto's layers, for Quarto's keys.** Lowest to highest:
+  `_quarto.yml`; the active `_quarto-<name>.yml` profiles (the first named
+  wins); `_quarto.yml.local`; the `_metadata.yml` of each folder from the first
+  folder below the project root down to the document's (the nearest wins; the
+  root's own counts only for a document in the root); the document (all its
+  blocks, items 1 to 3). One spelling per folder, `.yml` before `.yaml`. With
+  no `_quarto.yml`, the document's own folder's `_metadata.yml` counts. Within
+  one file, `format: html: <key>` beats `<key>`, as the lints read the html
+  format; across files the layer order comes first, so a document's `lang`
+  beats `format: html: lang` in `_quarto.yml`. Not followed: `metadata-files`
+  and `-M`.
+- **P2. Across files the merge is deep; within a document it is not.** Maps
+  merge at every depth; lists concatenate, the project's first, duplicates
+  dropped; a scalar against a list joins it; a scalar, `null` or `false`
+  replaces a map; an empty list does not clear an inherited list.
+  `bibliography` always adds up across files, each path read from the folder
+  of the file that names it. A document's blocks combine per top-level key
+  first (item 3), then merge deeply over the files, so a later block's
+  `bibliography` replaces the document's earlier one but not the project's.
+  Where Quarto's merged view (`quarto inspect`, `QUARTO_EXECUTE_INFO`) and
+  Pandoc's `doc.meta` differ, weft follows the merged view.
+- **P3. `weft:` comes from `_weft.yml` and the document only**, never from
+  `_quarto.yml`, `_metadata.yml`, a profile, `_quarto.yml.local`, a
+  `metadata-files` target or `format: <fmt>: weft:`. The lint `config-place`
+  reports it in each of those, active or not, and under `format: <fmt>:` in a
+  document's front matter (9.1.1, 5.8 rule 8).
+- **P4. Engine keys come from the first block of the include-expanded text,
+  never from project files** (item 4). An include on line 1 supplies that
+  block; one further down never does. `.ipynb` and `.py` are always Jupyter.
+  Other `execute:` options come through P1's layers. (The include part is to
+  be built.)
+- **P5. An included file's front matter is part of the document**, its blocks
+  at the include's position after full expansion, the later block winning per
+  top-level key. The included file's folder `_metadata.yml` does not apply.
+  Every reader expands includes before reading blocks. (To be built.)
+- **P6. A later block in a Jupyter-engine `.qmd`** (written or included)
+  follows P5, and `front-matter-quarto` reports it: under the Jupyter engine
+  Quarto applies the block but also prints its text. (To be built.)
+- **P7. Notebooks and scripts have front matter.** In an `.ipynb`, every raw
+  or markdown cell whose source is a `---` block is a block, in cell order. In
+  a percent `.py`, the same for `# %% [markdown]` and `# %% [raw]` cells, the
+  leading `# ` stripped. All readers read them. (To be built.)
+- **P8. Under rmarkdown or plain knitr there are no layers**: weft reads
+  `_weft.yml` and the document only. At knit time the renderer is known
+  (`QUARTO_EXECUTE_INFO`). For the lints, `.qmd`, `.ipynb` and `.py` are
+  Quarto's; an `.Rmd` (or `.md`) is Quarto's when a `_quarto.yml` is found
+  above it, else rmarkdown's.
+- **P9. Profiles in the lints** are active as Quarto makes them: those named
+  in `QUARTO_PROFILE` (comma-separated, as `quarto render --profile` sets it),
+  else `profile: default` in `_quarto.yml.local`, else in `_quarto.yml`.
+
 **2.1.7** Installing the hooks leaves a plain `knitr::knit()` call producing
 the output it produces without them. knitr sets its markdown output hooks
 only when its default hooks are untouched as the knit starts. So outside a
@@ -5508,9 +5565,12 @@ named and missing is one finding, at the line that names it.
 
 **5.4.4** The bibliography is every file named by `bibliography:`, and every
 entry under `references:`, in the document's front matter and in the project
-(`_quarto.yml`, `_metadata.yml`), plus any file named by `bibliography:` in
-the configuration (§9.1). At knit time the project's part comes from Quarto's
-merged metadata (2.1.6); the static check reads the files.
+files that apply to it (2.1.6 P1: `_quarto.yml`, the active profiles,
+`_quarto.yml.local`, the `_metadata.yml` of its folders), plus any file named
+by `bibliography:` in the configuration (§9.1). Within the document a later
+block's `bibliography:` replaces an earlier one's (2.1.6 item 3); across files
+they add up (P2). At knit time the project's part comes from Quarto's merged
+metadata (2.1.6); the static check reads the files.
 
 **5.4.5** Keys are read in R from BibTeX, BibLaTeX, CSL JSON and CSL YAML
 files. Pandoc is not called for this.
@@ -5650,7 +5710,7 @@ nothing, and no finding says so. Without the setting nothing changes.
 | 5 | `above-setup` | in a document activated from a setup chunk, no construct sits above that chunk | 1 |
 | 6 | `dict-key` | every `dict$key` and `dict_local$key` read names a key that exists, under the rules of §4.3 | 1 |
 | 7 | `tar-cache` | a chunk that reads a pipeline target (`tar_read()`, `tar_load()`) does not have `cache: true` | 1 |
-| 8 | `config-place` | no `weft:` key in `_quarto.yml` or `_metadata.yml` (9.1.1); where `_weft.yml` exists, no `draft` and no part switched off in a document's front matter (9.1.4) | 1 |
+| 8 | `config-place` | no `weft:` key in Quarto's project files, nor under `format: <fmt>:` in them or in front matter (9.1.1); where `_weft.yml` exists, no `draft` and no part switched off in a document's front matter (9.1.4) | 1 |
 | 9 | `engine` | a `.qmd` that holds a construct, and is rendered on its own rather than included or knit as a child, has `engine: knitr` in its own front matter (9.2.8), or holds only named values and spans in the grammar of 1.12.4 and has the resolver installed | 1 |
 | 10 | `front-matter-quarto` | in a `.qmd`, no `---` block that Quarto reads as front matter and Pandoc does not (2.1.6): one with text directly above its `---` line, and one inside a `~~~` fence | 1 |
 
@@ -6673,9 +6733,11 @@ variable, not through the text of the command.
 document overrides it with a top-level `weft:` key in its front matter
 (2.1.6: in any metadata block, and a later block's `weft:` replaces an
 earlier one's whole). weft merges the two setting by setting, except as 9.1.4
-says. A `weft:` key
-in `_quarto.yml` or `_metadata.yml` is an error found from the source (5.8
-rule 8), and its message names `_weft.yml`.
+says. A `weft:` key in any of Quarto's project files (`_quarto.yml`,
+`_metadata.yml`, a `_quarto-<name>.yml` profile, `_quarto.yml.local`, a
+`metadata-files` target), or under `format: <fmt>:` there or in a document's
+front matter, is an error found from the source (5.8 rule 8, 2.1.6 P3), and
+its message names `_weft.yml`.
 
 **9.1.2** It sets:
 

@@ -969,16 +969,8 @@ yaml_cache <- function(y) {
   cache_flag(v)
 }
 
-# the cache a project file sets for a document: `_metadata.yml` of its folder and the
-# folders above it, then `_quarto.yml`
-file_cache <- function(src, ctx) {
-  for (f in project_meta_files(ctx$root, dirname(src$file))$path) {
-    y <- tryCatch(yaml_read_file(f), error = function(e) NULL)
-    v <- yaml_cache(y)
-    if (!is.na(v)) return(v)
-  }
-  NA
-}
+# the cache the project files set for a document, in Quarto's merged view of them (rules P1, P2)
+file_cache <- function(src, ctx) yaml_cache(quarto_project_view(src$path))
 
 # each earlier `knitr::opts_chunk$set(cache = <literal>)` of a chunk piece, as TRUE, FALSE
 # or NA (not literal); NULL when the chunk sets none

@@ -364,17 +364,6 @@ project_index <- function(ctx) {
 
 # ---- bibliography (L32) ---------------------------------------------------------------------------------
 
-dl_yaml_file <- function(ctx, path) {
-  cache <- lint_cache(ctx)
-  key <- paste0("yaml:", path)
-  if (is.null(cache[[key]])) {
-    y <- tryCatch(yaml_text(read_source_text(path)),
-                  error = function(e) NULL)
-    cache[[key]] <- if (is.list(y)) y else list()
-  }
-  cache[[key]]
-}
-
 dl_bib_keys <- function(ctx, path) {
   cache <- lint_cache(ctx)
   key <- paste0("bibkeys:", path)
@@ -382,74 +371,36 @@ dl_bib_keys <- function(ctx, path) {
   cache[[key]]
 }
 
-# The project's metadata files that exist, in the order Quarto reads them for a document in the folder
-# `dir` (relative to `root`, `.` for the root): each folder's `_metadata.yml` and `_metadata.yaml` from
-# `dir` up to the root, then `_quarto.yml` and `_quarto.yaml`. `base` is the folder a file sits in.
-project_meta_files <- function(root, dir = ".") {
-  dirs <- character()
-  d <- dir
-  repeat {
-    dirs <- c(dirs, if (d == "") "." else d)
-    if (d %in% c(".", "")) break
-    d <- dirname(d)
-  }
-  cand <- rbind(
-    data.frame(base = rep(dirs, each = length(METADATA_MARKERS)), name = METADATA_MARKERS,
-               kind = "metadata", stringsAsFactors = FALSE),
-    data.frame(base = ".", name = QUARTO_MARKERS, kind = "quarto", stringsAsFactors = FALSE))
-  cand$path <- ifelse(cand$base == ".", file.path(root, cand$name), file.path(root, cand$base, cand$name))
-  cand <- cand[file.exists(cand$path), c("path", "base", "kind"), drop = FALSE]
-  rownames(cand) <- NULL
-  cand
-}
-
-# The keys of a document's bibliography and the bibliography files its own front matter names
-# that do not exist.
+# The keys of a document's bibliography and the bibliography files its own front matter names that do not
+# exist. The bibliography is Quarto's merged one (rules P1 and P2): the document's, its blocks combined per
+# top-level key so that a later block's replaces an earlier one's (F3), then those of the project files that
+# apply to it (quarto_project_view()), which add up; and the settings' own.
 doc_bib <- function(src, ctx) {
   cache <- lint_cache(ctx)
   key <- paste0("bib:", src$file)
   if (!is.null(cache[[key]])) return(cache[[key]])
-  root <- ctx$root
-  dir_rel <- dl_dir(src$file)
-  keys <- character()
-  missing <- character()
-  resolve <- function(p, base) {
-    if (grepl("^(/|~|[A-Za-z]:[/\\\\])", p)) return(path.expand(p))
-    if (base %in% c(".", "")) file.path(root, p) else file.path(root, base, p)
+  base <- dirname(normalizePath(src$path, winslash = "/", mustWork = FALSE))
+  # the keys of the files `paths` (named `named`) that exist, and the names of those that do not
+  read_files <- function(paths, named = paths) {
+    ok <- file.exists(paths)
+    list(keys = unlist(lapply(paths[ok], function(p) dl_bib_keys(ctx, p))), missing = named[!ok])
   }
-  # the keys of the bibliography files `files` that exist, and those of the document's `own` files that do not
-  read_files <- function(files, base, own) {
-    found <- list(keys = character(), missing = character())
-    for (f in files[!is.na(files) & nzchar(files)]) {
-      path <- resolve(f, base)
-      if (file.exists(path)) {
-        found$keys <- c(found$keys, dl_bib_keys(ctx, path))
-      } else if (own) {
-        found$missing <- c(found$missing, f)
-      } else {
-        ctx$note(sprintf("The bibliography file %s named for %s was not found (rule 5.4.4).", f, src$file))
-      }
-    }
-    found
+  own <- metadata_bibliography(quarto_layer_view(src$front))
+  rf <- read_files(q_resolve(own$files, base), own$files)
+  proj <- metadata_bibliography(quarto_project_view(src$path))
+  pf <- read_files(proj$files)
+  for (f in pf$missing) {
+    ctx$note(sprintf("The bibliography file %s named for %s was not found (rule 5.4.4).",
+                     lint_rel_path(f, ctx$root), src$file))
   }
-  for (m in src$meta) {
-    mb <- metadata_bibliography(m$yaml)
-    rf <- read_files(mb$files, dir_rel, TRUE)
-    keys <- c(keys, rf$keys, mb$keys)
-    missing <- c(missing, rf$missing)
+  cfg_files <- as.character(unlist(src$cfg$bibliography))
+  cfg_files <- cfg_files[!is.na(cfg_files) & nzchar(cfg_files)]
+  cf <- read_files(q_resolve(cfg_files, ctx$root), cfg_files)
+  for (f in cf$missing) {
+    ctx$note(sprintf("The bibliography file %s named for %s was not found (rule 5.4.4).", f, src$file))
   }
-  # the project's `_quarto` file, then the `_metadata` file of each folder from the document's up; of
-  # the two spellings in one place the first counts
-  pm <- project_meta_files(root, dir_rel)
-  q <- pm[pm$kind == "quarto", , drop = FALSE]
-  use <- rbind(q[seq_len(min(1L, nrow(q))), , drop = FALSE],
-               pm[pm$kind == "metadata" & !duplicated(pm$base), , drop = FALSE])
-  for (i in seq_len(nrow(use))) {
-    mb <- metadata_bibliography(dl_yaml_file(ctx, use$path[i]))
-    keys <- c(keys, read_files(mb$files, use$base[i], FALSE)$keys, mb$keys)
-  }
-  keys <- c(keys, read_files(as.character(unlist(src$cfg$bibliography)), ".", FALSE)$keys)
-  res <- list(keys = unique(as.character(keys)), missing = unique(missing))
+  keys <- c(rf$keys, own$keys, pf$keys, proj$keys, cf$keys)
+  res <- list(keys = unique(as.character(keys)), missing = unique(rf$missing))
   cache[[key]] <- res
   res
 }
@@ -800,25 +751,47 @@ lint_file_link <- function(src, ctx) {
              "Correct the path, which is read from this document's folder.")
 }
 
-# project files a `weft:` key must not sit in, and the keys of a document's `weft:` that belong in
-# `_weft.yml`
+# project files a `weft:` key must not sit in, a `weft:` under `format: <fmt>:`, and the keys of a
+# document's `weft:` that belong in `_weft.yml`. weft reads `weft:` from `_weft.yml` and a document's top
+# level only (rule P3), so the key is flagged in every Quarto project file (`_quarto.yml`, the profiles,
+# `_quarto.yml.local`, each `_metadata.yml`, and the targets of `metadata-files:`), active or not, and under
+# `format: <fmt>:` there and in a document's front matter.
 lint_config_place <- function(ctx) {
   root <- ctx$root
-  out <- list()
-  yfiles <- project_doc_paths(root, "lint", "^(_quarto|_metadata)\\.ya?ml$")
-  for (f in yfiles) {
-    lines <- tryCatch(read_source_lines(file.path(root, f)), error = function(e) character())
-    h <- which(grepl("^weft[ \t]*:", lines))
-    if (!length(h)) next
-    out[[length(out) + 1L]] <- new_findings(
+  docs <- lapply(ctx$report, function(f) lint_source_or_fault(ctx, f, "the place of its `weft:` settings was not checked"))
+  names(docs) <- ctx$report
+  docs <- Filter(function(src) !is.null(src) && !isTRUE(src$invalid), docs)
+  file_finding <- function(f, h, where) {
+    new_findings(
       file = f, line = h, col = 1L, end_line = h, rule = "config-place", context = "project", text = "weft",
-      message = sprintf("The `weft:` key is in %s; project settings belong in _weft.yml (rule 5.8.8).", basename(f)),
-      hint = "Move the settings to _weft.yml, or to a document's own front matter.")
+      message = sprintf("The `weft:` key is %sin %s; project settings belong in _weft.yml (rule 5.8.8).",
+                        where, basename(f)),
+      hint = "Move the settings to _weft.yml, or to the top level of a document's own front matter.")
+  }
+  yfiles <- quarto_project_files(root, lapply(docs, function(src) src$front))
+  out <- lapply(yfiles, function(f) {
+    lines <- tryCatch(read_source_lines(file.path(root, f)), error = function(e) character())
+    top <- which(grepl("^weft[ \t]*:", lines))
+    fmt <- if (has_format_weft(quarto_layer_yaml(norm_path(file.path(root, f))))) format_weft_lines(lines) else integer()
+    bind_findings(list(if (length(top)) file_finding(f, top, ""),
+                       if (length(fmt)) file_finding(f, fmt, "under `format:` ")))
+  })
+  # `format: <fmt>: weft:` in a document's front matter, which weft does not read
+  for (src in docs) {
+    for (m in src$meta) {
+      if (!has_format_weft(m$yaml) || m$close - m$open < 2L) next
+      idx <- (m$open + 1L):(m$close - 1L)
+      for (ln in idx[format_weft_lines(src$lines[idx])]) {
+        pos <- src$line_start[ln] + regexpr("weft", src$lines[ln], fixed = TRUE) - 1L
+        out[[length(out) + 1L]] <- finding_at(
+          src, pos, pos + 3L, "config-place", "weft",
+          "The `weft:` key is under `format:`, where weft does not read it; its settings belong in _weft.yml or at the top level of the front matter (rule 5.8.8).",
+          "Move the settings to the top-level `weft:` key, or to _weft.yml.", context = "front-matter")
+      }
+    }
   }
   if (is_set_up(root)) {
-    for (f in ctx$report) {
-      src <- lint_source_or_fault(ctx, f, "its project-only settings were not checked")
-      if (is.null(src) || isTRUE(src$invalid)) next
+    for (src in docs) {
       for (m in src$meta) {
         w <- m$yaml$weft
         if (!is.list(w) || is.null(names(w))) next

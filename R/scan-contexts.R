@@ -224,17 +224,21 @@ project_type <- function(path) {
   })
 }
 
-# The chunk options the document sets for every chunk: `knitr: opts_chunk:`,
-# read from the front block alone as Quarto reads `knitr:`, then `execute:`
-# over it, read from the front matter as a whole. Option names are as written;
-# a dot and a hyphen are the same name.
-doc_execute <- function(lines) {
+# The chunk options set for every chunk of a document: `knitr: opts_chunk:` then `execute:` over it, first of
+# the project files that apply to the document at `path` (Quarto's merged view, rules P1 and P2; none when
+# `path` is NULL), then of the document, `knitr:` read from the front block alone as Quarto reads it and
+# `execute:` from the front matter as a whole. Option names are as written; a dot and a hyphen are the same
+# name.
+doc_execute <- function(lines, path = NULL) {
+  pv <- quarto_project_view(path)
   kn <- front_block_yaml(lines)$knitr
-  oc <- if (is.list(kn)) kn$opts_chunk else NULL
   ex <- doc_front_lines(lines)$execute
-  out <- if (is.list(oc)) oc else list()
-  if (is.list(ex)) for (n in names(ex)) out[[n]] <- ex[[n]]
-  out
+  opts_chunk <- function(k) if (is.list(k)) k$opts_chunk else NULL
+  sets <- list(opts_chunk(pv[["knitr"]]), pv[["execute"]], opts_chunk(kn), ex)
+  Reduce(function(out, o) {
+    if (is.list(o) && !is.null(names(o))) out[names(o)] <- o
+    out
+  }, sets, list())
 }
 
 # The value of a chunk option written as a constant, or NULL when it is not
@@ -1263,14 +1267,14 @@ bind_scan_rows <- function(parts) {
 
 # The rows of the places beside prose in a document's lines: front matter,
 # captions and weft() strings. `cr` is the document's code regions (chunk_code_regions()) when the
-# caller has them.
+# caller has them; `path` as for scan_document().
 scan_extra_rows <- function(lines, file = NA_character_, config = NULL, project = "", filter_doc = FALSE,
-                            named_filter = NULL, cr = NULL) {
+                            named_filter = NULL, cr = NULL, path = NULL) {
   if (is.null(named_filter)) named_filter <- document_names_from(lines, file, config) %in% c("python", "julia")
   fm <- scan_front_matter_rows(lines, file, config, project, filter_doc, named_filter)
   caps <- list()
   strs <- list()
-  doc_exec <- doc_execute(lines)
+  doc_exec <- doc_execute(lines, path)
   if (is.null(cr)) cr <- chunk_code_regions(lines)
   scan <- function(rg, label) {
     scan_weft_code(rg$code, rg$first, label, file, config, rg$ls, rg$option, lit = region_literals(rg, "weft"))
@@ -1332,12 +1336,13 @@ filter_resolves <- function(lines, file = NA_character_) {
 
 # All the rows of a document, in textual order, each with its context. Prose
 # is judged as the knit judges it: an id a caption defines is known, and a
-# file with children is lenient about the ids it cannot see.
-scan_document <- function(lines, file = NA_character_, config = NULL, project = "", cr = NULL) {
+# file with children is lenient about the ids it cannot see. `path` is the document's file, whose project
+# files set chunk options too (doc_execute()); NULL: none are read.
+scan_document <- function(lines, file = NA_character_, config = NULL, project = "", cr = NULL, path = NULL) {
   text <- paste(lines, collapse = "\n")
   fd <- filter_resolves(lines, file)
   nf <- document_names_from(lines, file, config) %in% c("python", "julia")
-  extra <- scan_extra_rows(lines, file, config, project, fd, nf, cr)
+  extra <- scan_extra_rows(lines, file, config, project, fd, nf, cr, path)
   prose <- scan_text(blank_front_matter(text), file = file, config = config,
                      lenient = has_child_chunk(lines), known = caption_ids(extra), filter_doc = fd,
                      named_filter = nf)
