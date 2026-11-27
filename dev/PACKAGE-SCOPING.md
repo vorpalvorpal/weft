@@ -1863,6 +1863,9 @@ After knitting, the render fails on:
   or `{r}`, and any code span whose text begins `r ` (5.3.4)
 - any leftover placeholder character
 - any marker `<<weft:` (2.9.5)
+- a failure marker in raw HTML (a `RawInline` or `RawBlock` whose format is
+  `html`), written `<<weft:` or `&lt;&lt;weft:` (the html target's form,
+  1.4.25), so a marker in a gt or reactable cell is found too
 - a named value left in math or raw TeX (E106, 2.13.16): the finding says that
   math holds a named value the filter did not resolve
 
@@ -5597,6 +5600,13 @@ also lists a bare value in math or raw LaTeX whose outermost call is a `fmt_*()`
 of weft without `target = "tex"`, which writes markdown there: "The value in
 math is formatted with `%s()`, which writes markdown (rule 5.6.4)." The hint is
 "Give it a class block, `` `r x`{.num} ``, which writes TeX in math."
+It also lists a bare value in prose whose outermost call is a `fmt_*()` of weft
+with `target = "html"` or `target = "marquee"` given as a literal: "The value
+in prose is formatted with `%s(target = \"%s\")`, which writes %s; a document
+shows its marks or drops its tags (rule 5.6.4)." The third `%s` is `HTML` or
+`marquee text`, and the hint is "Give it a class block, `` `r x`{.num} ``, which
+writes markdown." A bare `format(w, target = "html")` is already listed as a
+`format()`.
 
 ### 5.7 Cross-references
 

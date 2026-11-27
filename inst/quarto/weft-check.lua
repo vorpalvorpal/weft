@@ -9,7 +9,7 @@
 --   * a code span with an attribute block whose text begins `r `, `R ` or
 --     `{r}`, and any code span whose text begins `r `
 --   * a leftover placeholder (private-use) character
---   * the marker text `<<weft:` (rule 2.9.5)
+--   * the marker text `<<weft:` (rule 2.9.5), and in raw HTML also `&lt;&lt;weft:` (RS4)
 --   * in a document weft.lua resolved: text that shows `]{KEY=` for a weft key, which is a span Pandoc
 --     did not read (its value starts with a space), so that nothing resolved it
 --   * a named value in a front-matter field weft.lua does not resolve (rule 2.13.2)
@@ -279,6 +279,7 @@ local function check_tex(text)
 end
 
 local function is_tex_format(f) return f == "tex" or f == "latex" end
+local function is_html_format(f) return f == "html" or f == "html4" or f == "html5" end
 
 -- the text of a list of inlines: its direct text only (nested elements are
 -- visited on their own), in two forms. `plain` leaves out code, math and raw
@@ -308,6 +309,19 @@ local function check_marker_text(all)
       add("marker", "the text `<<weft:` is in the document", "<<weft:")
     end
   end
+end
+
+-- Raw HTML (a gt or reactable cell, say) holds a marker written as it is or with its angle brackets
+-- as entities, as weft's html target writes it (rule 2.5.3, RS4).
+local function check_html(s)
+  local decoded = s:gsub("&lt;", "<"):gsub("&gt;", ">"):gsub("&#0*60;", "<"):gsub("&#0*62;", ">")
+      :gsub("&#[xX]0*3[cC];", "<"):gsub("&#[xX]0*3[eE];", ">")
+  check_marker_text(decoded)
+end
+
+local function check_raw(el)
+  if is_tex_format(el.format) then check_tex(el.text)
+  elseif is_html_format(el.format) then check_html(el.text) end
 end
 
 -- A code block is chunk output (a block with no language class, or with a
@@ -496,8 +510,8 @@ function Pandoc(full)
     Span = function(el) check_span(el) end,
     Code = function(el) check_code(el) end,
     Math = function(el) check_tex(el.text) end,
-    RawInline = function(el) if is_tex_format(el.format) then check_tex(el.text) end end,
-    RawBlock = function(el) if is_tex_format(el.format) then check_tex(el.text) end end,
+    RawInline = check_raw,
+    RawBlock = check_raw,
     CodeBlock = function(el) check_codeblock(el) end,
   })
   -- the metadata (title and the rest) carries inlines too
@@ -511,7 +525,7 @@ function Pandoc(full)
         Span = function(el) check_span(el) end,
         Code = function(el) check_code(el, key) end,
         Math = function(el) check_tex(el.text) end,
-        RawInline = function(el) if is_tex_format(el.format) then check_tex(el.text) end end,
+        RawInline = check_raw,
       })
     end
   end)

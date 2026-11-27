@@ -980,3 +980,29 @@ behaviour went through test-first.
   reasons, are in that file: reading `weft:` from Quarto's merged metadata;
   modelling `doc.meta` instead of Quarto's view; a lint in place of
   following I6; `metadata-files`.
+
+## An html target and rich plot text (2026-11-27)
+
+- **Design** `dev/design-html-target.md`, decisions D86 to D104, built as
+  stages H1 to H3. Two new targets, `"html"` (rule 1.4.25) and `"marquee"`
+  (rule 1.4.26), both renderers over the runs the plain reader makes, as
+  `"ansi"` is (D87); every class has both forms. `"plain"` is not widened
+  (D100); nothing changes in the ledger or the gate (D99).
+- **Rulings (orchestrator, under Robin's delegation).** All five "For Robin"
+  items as recommended: `<i>`/`<b>` (D89); `<sup>`/`<sub>` tags, not Unicode
+  first (D90); raw HTML in a `weft()` string is text (D93); `format(x, target
+  = "html")` alone has class `c("html", "character")` (D98); values inside
+  `{=html}` blocks later (D101). `check_targets()` refuses `targets:
+  [markdown, plain]`, as rule 1.4.8 says (D104).
+- **H0 probe (27 Nov), accepted whole.** `format(x, target = "html")` also
+  sets `attr(x, "html") <- TRUE`, which htmltools and gt test, not the class
+  alone. marquee 1.0.0 already draws `{.sup }`, so D103, MQ6, E110 and the
+  version check are dropped. Math in marquee is text, since marquee 1.3.0
+  cannot draw `$...$` without a newer textshaping (D95 changed). HR2 also
+  escapes `'`, `"`, each `-` of a run of two or more and each `.` of a run of
+  three or more, because both markdown versions run smartypants under
+  gridtext's options.
+- **During the build.** Under html and marquee a list is its lines with no
+  block newlines around it (the forms tables write `&#45; a<br>- b`), while
+  plain keeps the newlines of 1.4.24.
+

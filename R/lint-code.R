@@ -449,6 +449,17 @@ tex_target_given <- function(t, ci) {
   FALSE
 }
 
+# The target `"html"` or `"marquee"` the call `ci` gives as a literal, or NA (RS3).
+rich_target_given <- function(t, ci) {
+  for (a in ci$args) {
+    if (identical(a$name, "target")) {
+      v <- str_value(t, a$node)
+      if (!is.na(v) && v %in% c("html", "marquee")) return(v)
+    }
+  }
+  NA_character_
+}
+
 lint_value_format <- function(src, ctx) {
   out <- list()
   for (p in lc_pieces(src, c("value", "bare"))) {
@@ -471,14 +482,24 @@ lint_value_format <- function(src, ctx) {
           i <- ci$args[[1L]]$node
           next
         }
+        weft_fmt <- !is.null(ci) && !is.na(ci$fn) && grepl("^fmt_", ci$fn) && (is.na(ci$pkg) || identical(ci$pkg, "weft"))
+        rt <- if (weft_fmt) rich_target_given(t, ci) else NA_character_
         if (is_fn(ci, FORMAT_FNS, "base")) {
           sp <- piece_span(p, ci$fpos)
           out[[length(out) + 1L]] <- finding_at(
             src, sp[1L], sp[2L], "value-format", ci$fn,
             sprintf("The value is formatted in code with `%s()` (rule 5.6.4).", ci$fn),
             "Return the raw number and use a class or `digits=` to format it.", p$context)
-        } else if (nzchar(p$tex) && !is.null(ci) && !is.na(ci$fn) && grepl("^fmt_", ci$fn) &&
-                   (is.na(ci$pkg) || identical(ci$pkg, "weft")) && !tex_target_given(t, ci)) {
+        } else if (weft_fmt && !is.na(rt)) {
+          # E111: a bare value in prose written by a weft formatter for a plot or an HTML sink (RS3)
+          sp <- piece_span(p, ci$fpos)
+          out[[length(out) + 1L]] <- finding_at(
+            src, sp[1L], sp[2L], "value-format", ci$fn,
+            sprintf(paste0("The value in prose is formatted with `%s(target = \"%s\")`, which writes %s; a document ",
+                           "shows its marks or drops its tags (rule 5.6.4)."),
+                    ci$fn, rt, if (rt == "html") "HTML" else "marquee text"),
+            "Give it a class block, `` `r x`{.num} ``, which writes markdown.", p$context)
+        } else if (nzchar(p$tex) && weft_fmt && !tex_target_given(t, ci)) {
           # a bare value in math or raw LaTeX written by a weft formatter that writes markdown (TX12)
           sp <- piece_span(p, ci$fpos)
           out[[length(out) + 1L]] <- finding_at(

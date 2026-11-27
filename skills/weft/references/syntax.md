@@ -116,7 +116,10 @@ The result gives plain text (Unicode superscripts, no markup) to a plot,
 "ansi")` the console form (emphasis in italic and bold where the console draws
 styles), which `print()` uses. In cli, `{.val {w}}` draws the console form and
 `{w}` the plain text. Tick labels: `labels = function(b) fmt_num(b, target =
-"plain")`. A failed check is collected as in prose in a knit with weft on;
+"plain")`. For rich plot text, ggtext draws `format(w, target = "html")` and
+marquee draws `format(w, target = "marquee")`; every `fmt_*()` takes the same
+two targets for tick labels. A `weft` object given to ggtext or marquee as it is
+draws its plain text. A failed check is collected as in prose in a knit with weft on;
 elsewhere the first failure stops with an error.
 Keep the markup a literal string: the lints and the commit gate read literal
 `weft()` strings in chunks and in the project's `.R` files, and skip a computed
