@@ -55,7 +55,8 @@ julia_ensure <- function(read, home = NULL) {
 # so where the system has a libunwind.so.8 Julia gets that one, and it
 # segfaults R the first time Julia records the backtrace of an exception, even
 # one caught at once. JuliaCall 0.17.6 (CRAN) does not guard against it; its
-# development version does the same as this (JuliaCall issue 238). `home` is
+# development version does the same as this (JuliaCall issue 238), and weft's
+# Remotes field installs that version. This stays for a CRAN copy. `home` is
 # the folder of Julia's binaries, as julia_setup() takes it, or NULL. Does
 # nothing elsewhere, or once a libjulia is loaded, or when the library cannot
 # be found; never fails.

@@ -14,6 +14,7 @@ BugReports: https://github.com/vorpalvorpal/weft/issues
 Depends:
     R (>= 4.3.0)
 Remotes:
+    JuliaInterop/JuliaCall,
     r-quantities/units
 Imports:
     cli,
