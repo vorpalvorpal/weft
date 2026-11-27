@@ -124,7 +124,7 @@ as.character(w)
 p + ggplot2::labs(title = w)   # the same text as a plot's title
 ```
 
-See [weft in strings](https://vorpalvorpal.github.io/weft/articles/strings.html).
+To state a number's format once and have it hold at every sink, make a self-formatting value with `val_num()`, `val_pct()`, `val_sci()` or `val_p()`. See [weft in strings](https://vorpalvorpal.github.io/weft/articles/strings.html).
 
 **Lints.** `lints()` reads a project's documents without running them and
 lists typed numbers, construct errors and other problems. See
@@ -153,7 +153,7 @@ Start with [Getting started](https://vorpalvorpal.github.io/weft/articles/weft.h
 
 ## Status
 
-weft is at version 0.1.0, its first release. It is not on CRAN, and its
+Version 0.1.0 was the first release; the development version is ahead of it, and `NEWS.md` lists what has changed. weft is not on CRAN, and its
 functions and file formats may still change. The design is in
 `dev/PACKAGE-SCOPING.md` in the repository. Please report problems at
 <https://github.com/vorpalvorpal/weft/issues>.

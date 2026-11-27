@@ -197,9 +197,11 @@ to each `.qmd` that names no engine, so that every document with
 constructs is knitted. It leaves a document that names `jupyter:` alone,
 and files and folders whose names start with `_` or `.` (included files).
 
-The key must be in each document's own front matter. An `engine:` in
-`_quarto.yml` does not count, and the lint `engine` finds a document that
-lacks it.
+The key must be in the first metadata block of the document (or in the first
+block of a file that the document includes on its first line; see below). An
+`engine:` in `_quarto.yml` or a `_metadata.yml` does not count, and nor does
+one in a later block, and the lint `engine` finds a document that lacks it. A
+`knitr:` key in the first block picks knitr too.
 
 ### When an edit is not safe
 
@@ -387,6 +389,59 @@ weft::use_hooks(remove = TRUE)
 Remove the constructs from the documents first, or render with weft still
 active. Without weft, a document that holds them prints each span as
 plain text, and `claim()` and `u()` are not found.
+
+## Where weft reads settings and front matter
+
+weft takes two kinds of setting from two places. Its own settings, the `weft:`
+key, come from `_weft.yml` and the document, and from nowhere else. Quarto's
+settings that weft needs come from Quarto's own layers.
+
+**Quarto's layers.** Outside a render, the lints build the metadata of a
+document as Quarto does. From lowest to highest:
+
+1. `_quarto.yml`;
+2. the active profiles, `_quarto-<name>.yml`, those named in the environment
+   variable `QUARTO_PROFILE` (the first named wins), else `profile: default` in
+   `_quarto.yml.local`, else in `_quarto.yml`;
+3. `_quarto.yml.local`;
+4. the `_metadata.yml` of each folder, from the first folder below the project
+   root down to the document's, the nearest winning;
+5. the document's own front matter.
+
+Maps merge at every depth, and lists add up, the project's first. With no
+`_quarto.yml`, only the `_metadata.yml` of the document's own folder counts.
+Under a render, weft reads Quarto's merged view instead, so the two agree.
+Under rmarkdown or plain knitr there are no layers: weft reads `_weft.yml` and
+the document only. The settings weft takes from the layers are `lang`,
+`execute:` (the cache setting, for the `tar-cache` lint), and `bibliography`.
+The engine keys are not among them.
+
+**Every metadata block counts.** A document's front matter is every `---`
+block in it, merged in order, as Pandoc and Quarto read it. A block opens with
+a line that is exactly `---`, at the top or after a blank line, with a line
+that is not blank after it, and closes at `---` or `...`. When two blocks set
+one key, the later wins and replaces the whole value: a later `weft:` replaces
+an earlier one, with no merge inside it. `engine:`, `knitr:` and `jupyter:` are
+the exception. They are read from the first block alone, as Quarto reads
+them.
+
+**Included files.** The front matter of a file brought in with
+`{{< include >}}` is part of the document, at the place of the include, and the
+later block wins. An include on line 1 (blank lines above it are allowed)
+supplies the first block, so the included file can pick the engine. An
+include lower down never does. The included file's folder `_metadata.yml` does
+not apply.
+
+**Notebooks and percent scripts.** In an `.ipynb`, every raw or markdown cell
+whose source is a `---` block is a front-matter block, in cell order. In a
+percent script (`.py`) the same holds for `# %% [markdown]` and `# %% [raw]`
+cells, with the leading `# ` taken off. A later cell's block wins per key.
+Code cells hold none.
+
+**`weft:` belongs in `_weft.yml`.** Never put it in `_quarto.yml`,
+`_metadata.yml`, a profile, `_quarto.yml.local` or under `format: html:`. weft
+does not read it there, and the lint `config-place` reports it in each of those
+places, active or not.
 
 ## Settings
 
