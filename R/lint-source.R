@@ -902,7 +902,9 @@ build_blocks <- function(S) {
 # ---- reading a document ------------------------------------------------------------------------
 
 # A document's source; `text` is its text when the caller has read it already (lint_open()), `bytes` a
-# script's bytes. The document's skeleton is computed once for the read (local_doc_memo()).
+# script's bytes. The document's skeleton is computed once for the read (local_doc_memo()). A notebook is
+# read as the document its cells make (notebook_view()), and keeps where each of its lines is written in
+# the JSON (`nb_places`, for nb_place_findings()).
 read_source <- function(path, root, cfg, bytes = NULL, text = NULL) {
   if (is_script_path(path)) return(read_script_source(path, root, cfg, bytes))
   local_doc_memo()
@@ -912,6 +914,12 @@ read_source <- function(path, root, cfg, bytes = NULL, text = NULL) {
   if (is.null(text)) {
     return(structure(list(file = rel, path = path, ext = ext, invalid = TRUE, cfg = cfg, text = "",
                           lines = character(), line_start = numeric()), class = "weft_source"))
+  }
+  nb <- NULL
+  if (is_notebook_path(path)) {
+    nb <- notebook_view(text, code = TRUE)
+    nb$json <- text
+    text <- paste(nb$lines, collapse = "\n")
   }
   lines <- if (nzchar(text)) strsplit(text, "\n", fixed = TRUE)[[1L]] else character()
   nl <- length(lines)
@@ -979,7 +987,9 @@ read_source <- function(path, root, cfg, bytes = NULL, text = NULL) {
   src <- source_assemble(rel, path, ext, cfg, text, lines, ls, inmeta, infence, pieces, rows, chunks, ff, meta,
                          front, lang)
   src$code_regions <- cr
-  src$first_block <- front_block_yaml(xl)
+  # a notebook is Jupyter's whatever its front matter says (J8): its blocks set no engine
+  src$first_block <- if (is.null(nb)) front_block_yaml(xl) else list()
+  if (!is.null(nb)) src$nb_places <- notebook_places(nb$json, nb)
   src
 }
 

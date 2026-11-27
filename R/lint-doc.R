@@ -855,11 +855,13 @@ project_included <- function(ctx) {
   inc
 }
 
+# A notebook is read as a .qmd is, but Quarto runs it with Jupyter whatever its front matter says (J8), so
+# no key of its marks it knitr's.
 lint_engine <- function(ctx) {
   out <- list()
   inc <- NULL
   for (f in ctx$report) {
-    if (tolower(sub("^.*\\.", "", f)) != "qmd") next
+    if (!tolower(sub("^.*\\.", "", f)) %in% c("qmd", "ipynb")) next
     if (startsWith(basename(f), "_")) next
     src <- lint_source_or_fault(ctx, f, "the engine rule did not check it")
     if (is.null(src) || isTRUE(src$invalid)) next
@@ -867,7 +869,7 @@ lint_engine <- function(ctx) {
     held <- !rw$kind %in% c("bare", "link", "literal")
     if (!nrow(rw) || !any(held)) next
     eng <- src_first_block(src)$engine
-    if (is.character(eng) && length(eng) == 1L && identical(tolower(eng), "knitr")) next
+    if (!is_notebook_path(f) && is.character(eng) && length(eng) == 1L && identical(tolower(eng), "knitr")) next
     if (is.null(inc)) inc <- project_included(ctx)
     if (f %in% inc) next
     # what the filter resolves needs no R: a named value or a span of the grammar (N146)
@@ -911,9 +913,16 @@ resolver_installed <- function(ctx, src) {
   cache$quarto_filters
 }
 
-# The message and hint of the `engine` lint, by case (rule 5.8.9): 1, another engine named in the first
-# metadata block; 2, Python chunks and no executed R chunk; 3, Julia chunks and no executed R chunk; 4, the rest.
+# The message and hint of the `engine` lint, by case (rule 5.8.9): 0, a notebook; 1, another engine named in
+# the first metadata block; 2, Python chunks and no executed R chunk; 3, Julia chunks and no executed R chunk;
+# 4, the rest. The chunks are those of the include-expanded text (rule P4).
 engine_message <- function(f, src) {
+  if (is_notebook_path(f)) {
+    return(list(
+      message = sprintf(paste0("%s holds weft constructs, and a notebook always runs on Jupyter, which does not ",
+                               "evaluate weft constructs (rule 5.8.9)."), f),
+      hint = "Move the prose that holds them to a .qmd marked `engine: knitr`."))
+  }
   front <- src_first_block(src)
   key <- function(nm) {
     v <- front[[nm]]
@@ -931,7 +940,7 @@ engine_message <- function(f, src) {
       hint = sprintf("Change it to `engine: knitr`. %s chunks then run through %s, and a %s value reaches prose as %s.",
                      lang, tool, lang, how)))
   }
-  ch <- src$chunks
+  ch <- src_engine_chunks(src)
   eng <- tolower(ch$engine)
   has_r <- any(eng == "r" & (is.na(ch$eval) | ch$eval))
   if (!has_r && any(eng == "python")) {
@@ -959,7 +968,8 @@ engine_message <- function(f, src) {
 # drops HTML comments and backtick fences, then takes any `---` line whose next line is not blank, up to the
 # next `---` or `...` line; Pandoc, and so weft, wants a blank line above the `---` and skips a `~~~` fence
 # too. A candidate is reported when it is a YAML mapping, at its `---` line: inside a `~~~` fence, or with
-# text directly above it. A setext underline is followed by a blank line, so it opens no candidate.
+# text directly above it. A setext underline is followed by a blank line, so it opens no candidate. Under the
+# Jupyter engine every block after the front block is reported as well (rule P6, fmq_jupyter_later()).
 lint_front_matter_quarto <- function(src, ctx) {
   if (!identical(tolower(src$ext), "qmd")) return(new_findings())
   lines <- src$lines
@@ -967,7 +977,8 @@ lint_front_matter_quarto <- function(src, ctx) {
   inmeta <- logical(n)
   for (m in src$meta) inmeta[m$open:m$close] <- TRUE
   dash <- grepl("^---[ \t\r]*$", lines) & !inmeta
-  if (!any(dash)) return(new_findings())
+  later <- fmq_jupyter_later(src)
+  if (!any(dash)) return(bind_findings(later))
   blank <- !nzchar(trim_ws(lines))
   # the lines Quarto drops before it looks: HTML comments and the inside of backtick fences
   hidden <- logical(n)
@@ -1000,21 +1011,74 @@ lint_front_matter_quarto <- function(src, ctx) {
       else "Without the blank line Pandoc reads the line above as a heading and the block as text, and so does weft.",
       context = "front-matter")
   }
-  bind_findings(out)
+  bind_findings(c(out, later))
+}
+
+# The metadata blocks of a .qmd on the Jupyter engine that are not its front block (rule P6 of 2.1.6;
+# findings K1, K2 and I8): Quarto applies each, as weft does (P5), but its notebook round trip takes only the
+# front block out of the text, so a later block's text is printed in the document as well. The blocks are
+# those of the include-expanded text (P4, P5): one the document writes is reported at its `---` line, one
+# from an included file at the include's line.
+fmq_jupyter_later <- function(src) {
+  if (quarto_engine(src$lines, src$path) != "jupyter") return(list())
+  x <- if (!is.null(src$path) && any(grepl("{{< ", src$lines, fixed = TRUE))) {
+    tryCatch(include_expand(src$path, src$lines), error = function(e) NULL)
+  }
+  xl <- if (is.null(x)) src$lines else x$lines
+  mb <- metadata_blocks(xl)
+  later <- seq_len(nrow(mb))
+  if (length(later) && !any(nzchar(trim_ws(xl[seq_len(mb$open[1L] - 1L)])))) later <- later[-1L]
+  here <- if (is.null(x)) NULL else norm_path(src$path)
+  lapply(later, function(b) {
+    o <- mb$open[b]
+    own <- is.null(x) || identical(x$file[o], here)
+    if (own) {
+      k <- if (is.null(x)) o else x$at[o]
+      pos <- src$line_start[k]
+      return(finding_at(
+        src, pos, pos + 2L, "front-matter-quarto", "---",
+        paste0("Quarto's Jupyter engine applies this later block but also prints its text in the document; ",
+               "move its keys into the first block (rule 5.8.10)."),
+        "Under the Jupyter engine Quarto takes only the front block out of the text, so a later block stays in it.",
+        context = "front-matter"))
+    }
+    k <- x$at[o]
+    txt <- trim_ws(src$lines[k])
+    pos <- src$line_start[k] + regexpr("[^ \t]", src$lines[k]) - 1L
+    finding_at(
+      src, pos, pos + nchar(txt) - 1L, "front-matter-quarto", txt,
+      paste0("The file this line includes holds a metadata block that is not the front block; Quarto's Jupyter ",
+             "engine applies it but also prints its text in the document; move its keys into this document's ",
+             "first block (rule 5.8.10)."),
+      "Under the Jupyter engine Quarto takes only the front block out of the text, so a later block stays in it.",
+      context = "front-matter")
+  })
 }
 
 # ---- guest languages (5.11.1, 5.11.2) and Observable (5.11.4) ---------------------------------------------
 
 # Does knitr knit this document: an .Rmd; a .qmd marked `engine: knitr`, or with an executed {r} chunk and no
-# `engine:` or `jupyter:` key (each read from the first metadata block, rule 2.1.6).
+# `engine:` or `jupyter:` key (each read from the first metadata block, rule 2.1.6; the chunks from the
+# include-expanded text, rule P4). A notebook never is (J8).
 dl_knitr_doc <- function(src) {
   if (is_rmd(src)) return(TRUE)
+  if (is_notebook_path(src$file)) return(FALSE)
   first <- src_first_block(src)
   eng <- first$engine
   if (!is.null(eng)) return(is.character(eng) && length(eng) == 1L && identical(tolower(eng), "knitr"))
   if (!is.null(first$jupyter)) return(FALSE)
-  ch <- src$chunks
+  ch <- src_engine_chunks(src)
   any(tolower(ch$engine) == "r" & (is.na(ch$eval) | ch$eval))
+}
+
+# The chunks that pick a document's engine when no key does: those of its include-expanded text (rule P4),
+# which are its own `src$chunks` when it includes nothing. Kept in the source's cache.
+src_engine_chunks <- function(src) {
+  if (is.environment(src$cache) && !is.null(src$cache$engine_chunks)) return(src$cache$engine_chunks)
+  xl <- if (is.null(src$path)) src$lines else front_source_lines(src$path, src$lines)
+  ch <- if (identical(xl, src$lines)) src$chunks else chunk_table(xl, chunk_code_regions(xl))
+  if (is.environment(src$cache)) src$cache$engine_chunks <- ch
+  ch
 }
 
 # The code spans of the prose that are not inside a .weft-literal span or div: start, end, text as written

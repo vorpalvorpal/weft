@@ -44,7 +44,9 @@ with columns \code{file}, \code{line}, \code{col}, \code{end_line}, \code{rule},
 \description{
 Reads \code{.qmd} and \code{.Rmd} documents as text and returns the typed numbers,
 construct errors and other problems the rules of \code{\link[=lint_rules]{lint_rules()}} find.
-Nothing in a document is run.
+Nothing in a document is run. A Jupyter notebook (\code{.ipynb}) is read as the
+document its cells make, its markdown cells prose and its code cells chunks,
+and a finding in it is placed at its line and column in the JSON file.
 }
 \details{
 The \code{.R} and \code{.r} files of the project (its scripts) are read too, for the

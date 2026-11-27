@@ -365,12 +365,14 @@ settings_root <- function(root, rel) {
 # `weft:` settings, `lang` and `dict_local`), the lints, verify(), checks() and arms(). The file is read as
 # source text, not through `rmarkdown::metadata`, which holds the first block only; its fields are those of
 # doc_front_lines(), read with the document's includes expanded, so an included file's blocks count where
-# its include sits (rule P5, front_source_lines()). `text` is the file's text when the caller has read it
-# already (NULL: read it here). A script, no path, and a file that is not text have none.
+# its include sits (rule P5, front_source_lines()). A notebook's or a percent script's are read from its
+# raw and markdown cells (rule P7, jupyter_front_lines()). `text` is the file's text when the caller has
+# read it already (NULL: read it here). A script, no path, and a file that is not text have none.
 read_front_matter <- function(path, text = NULL) {
   if (is.null(path) || is_script_path(path)) return(list())
   if (is.null(text)) text <- read_source_text_or_null(path)
   if (is.null(text)) return(list())
+  if (is_jupyter_path(path)) return(doc_front_lines(jupyter_front_lines(path, text)))
   doc_front_lines(front_source_lines(path, split_source_lines(text)))
 }
 
@@ -459,7 +461,9 @@ new_lint_ctx <- function(root, files, md_files, report, tier, rules, reader) {
 #'
 #' Reads `.qmd` and `.Rmd` documents as text and returns the typed numbers,
 #' construct errors and other problems the rules of [lint_rules()] find.
-#' Nothing in a document is run.
+#' Nothing in a document is run. A Jupyter notebook (`.ipynb`) is read as the
+#' document its cells make, its markdown cells prose and its code cells chunks,
+#' and a finding in it is placed at its line and column in the JSON file.
 #'
 #' The `.R` and `.r` files of the project (its scripts) are read too, for the
 #' literal strings they pass to `weft()` and for their `claim()` calls: in a
@@ -540,7 +544,8 @@ lints <- function(path = ".", files = NULL, rules = NULL, tier = 1, reader = c("
   full <- normalizePath(path, winslash = "/", mustWork = TRUE)
   root <- normalizePath(find_project_root(full), winslash = "/", mustWork = FALSE)
   local_walk_memo()
-  all_files <- lint_files_under(root)
+  # the documents, notebooks among them (rule P7)
+  all_files <- lint_files_under(root, LINT_DOC_EXT_RE)
   # the scripts, less those `scripts_skip` leaves out (C1, C2, K4), whatever the reader (K7); the settings are
   # read here, so a bad one stops the run whatever the project holds
   all_scripts <- project_script_paths(root)
@@ -660,7 +665,7 @@ lint_run <- function(root, all_files, report, sel, tier, rules, reader, notes = 
       parts[[length(parts) + 1L]] <- res
     }
   }
-  out <- bind_findings(parts)
+  out <- nb_place_findings(bind_findings(parts), ctx)
   if (nrow(out)) out <- out[out$tier %in% tier, , drop = FALSE]
   finish_findings(out, ctx$notes, length(report) + n_scripts)
 }

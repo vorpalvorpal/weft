@@ -255,6 +255,8 @@ walk_memo <- function(kind, key, compute) {
 # ---- a project's documents ------------------------------------------------------------------------
 
 DOC_EXT_RE <- "\\.(qmd|Rmd|rmd)$"
+# The documents lints() reads: those, and Jupyter notebooks (rule P7 of 2.1.6, 5.1.8).
+LINT_DOC_EXT_RE <- "\\.(qmd|Rmd|rmd|ipynb)$"
 
 # Folders that are never a project's own documents, by name: the libraries
 # a project vendors, and the folders Quarto writes to or reads from.

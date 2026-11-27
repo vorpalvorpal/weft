@@ -209,7 +209,8 @@ include_walk <- function(path, lines = NULL, root = NULL,
 # two when the include sits in an included file, as Quarto splices them. A file is expanded wherever it is
 # included, but not inside itself, so a cycle ends; an include whose file is missing, or cannot be read
 # (`read(path)` gives NULL), stays the line it is. The result is a list of `lines`, and for each the `file`
-# (absolute) and `line` it came from (an added blank line is the include's own). `main_dir` is the MAIN
+# (absolute) and `line` it came from (an added blank line is the include's own), and `at`, the line of
+# `lines` it stands for (the include's line, for an included file's lines). `main_dir` is the MAIN
 # document's folder, against which every path resolves (I4). `read` may also stop, and the call then stops.
 include_expand <- function(path, lines = NULL, main_dir = dirname(norm_path(path)), root = include_root(main_dir),
                            read = function(p) {
@@ -220,7 +221,7 @@ include_expand <- function(path, lines = NULL, main_dir = dirname(norm_path(path
   here <- norm_path(path)
   if (is.null(lines)) lines <- read(here) %||% character()
   n <- length(lines)
-  out <- list(lines = as.list(lines), file = as.list(rep(here, n)), line = as.list(seq_len(n)))
+  out <- list(lines = as.list(lines), file = as.list(rep(here, n)), line = as.list(seq_len(n)), at = as.list(seq_len(n)))
   tg <- include_targets(lines, main_dir, root, in_included = nested)
   for (j in seq_len(nrow(tg))) {
     k <- tg$line[j]
@@ -233,18 +234,22 @@ include_expand <- function(path, lines = NULL, main_dir = dirname(norm_path(path
     out$lines[[k]] <- c(sub$lines, rep("", pad))
     out$file[[k]] <- c(sub$file, rep(here, pad))
     out$line[[k]] <- c(sub$line, rep(k, pad))
+    out$at[[k]] <- rep(k, length(sub$lines) + pad)
   }
   list(lines = as.character(unlist(out$lines, use.names = FALSE)),
        file = as.character(unlist(out$file, use.names = FALSE)),
-       line = as.integer(unlist(out$line, use.names = FALSE)))
+       line = as.integer(unlist(out$line, use.names = FALSE)),
+       at = as.integer(unlist(out$at, use.names = FALSE)))
 }
 
 # The lines a document's front matter is read from (rules P4 and P5 of 2.1.6): its own `lines` with every
 # include expanded (include_expand()), so an included file's blocks sit where its include sits and an
 # include on line 1 can supply the front block. The document at `path`; NULL, or lines with no include, give
-# `lines` as they are, as does a walk that fails.
+# `lines` as they are, as does a walk that fails. A notebook's or a percent script's cells are read as they
+# are: Quarto reads their front matter with no include expanded (rule P7).
 front_source_lines <- function(path, lines) {
   if (is.null(path) || !length(lines) || !any(grepl("{{< ", lines, fixed = TRUE))) return(lines)
+  if (is_jupyter_path(path)) return(lines)
   doc_memo("front_source", c(path, lines), function(x) {
     tryCatch(include_expand(path, lines)$lines, error = function(e) lines)
   })

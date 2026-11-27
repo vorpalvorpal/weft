@@ -381,15 +381,19 @@ find_chunks_ <- function(lines) {
 
 # The engine Quarto runs a document on: "knitr", "jupyter", "julia" or
 # "markdown". An `engine:` key decides (its mapping form, `engine:` then
-# `  julia: ...`, names the first key); then a `jupyter:` key means jupyter;
+# `  julia: ...`, names the first key); then a `knitr:` key means knitr
+# (9.2.8) and a `jupyter:` key jupyter;
 # with neither, the executed chunks do: an {r} chunk is knitr, else {python}
 # is jupyter, else {julia} is julia. Only lower-case languages are executable
 # (Quarto's rule), and find_chunks() already leaves out fenced examples, so a
-# chunk shown inside a longer fence does not count. The keys are read from
-# the first block of the include-expanded text when the document's `path` is
-# given (rule P4).
+# chunk shown inside a longer fence does not count. When the document's
+# `path` is given, the keys and the chunks are read from the include-expanded
+# text (rule P4), and a notebook or a percent script is jupyter whatever it
+# says (J8).
 quarto_engine <- function(lines, path = NULL) {
-  fm <- front_block(front_source_lines(path, lines))
+  if (!is.null(path) && is_jupyter_path(path)) return("jupyter")
+  xl <- front_source_lines(path, lines)
+  fm <- front_block(xl)
   k <- grep("^engine[ \t]*:", fm)
   if (length(k)) {
     v <- sub("(^|[ \t])#.*$", "", sub("^engine[ \t]*:", "", fm[k[1L]]))
@@ -400,8 +404,9 @@ quarto_engine <- function(lines, path = NULL) {
     }
     return(if (v %in% c("knitr", "jupyter", "julia")) v else "markdown")
   }
+  if (any(grepl("^knitr[ \t]*:", fm))) return("knitr")
   if (any(grepl("^jupyter[ \t]*:", fm))) return("jupyter")
-  langs <- vapply(find_chunks(lines), function(ch) ch$engine, "")
+  langs <- vapply(find_chunks(xl), function(ch) ch$engine, "")
   if ("r" %in% langs) return("knitr")
   if ("python" %in% langs) return("jupyter")
   if ("julia" %in% langs) return("julia")
@@ -1311,10 +1316,13 @@ has_child_chunk <- function(lines) any(grepl("child[ \t]*[=:]", lines))
 # Does the Lua filter resolve the spans of this document (N14): any document the knitr hooks do not knit.
 # The hooks knit an `.Rmd`; a `.qmd` with `engine: knitr`, or with an executed {r} chunk and no `engine:` or
 # `jupyter:` key. Read from the lines with no parse: the first metadata block's top-level keys, and the
-# chunk headers. `fm` is the front block, when the caller has read it from the include-expanded text (rule
-# P4).
-filter_resolves <- function(lines, file = NA_character_, fm = front_block(lines)) {
+# chunk headers. `fm` is the front block and `chunk_lines` the lines the chunks are read from, when the
+# caller has read them from the include-expanded text (rule P4). A notebook or a percent script is Jupyter's
+# (J8), so the filter's.
+filter_resolves <- function(lines, file = NA_character_, fm = front_block(lines), chunk_lines = lines) {
   if (!is.na(file) && grepl("\\.rmd$", file, ignore.case = TRUE)) return(FALSE)
+  if (!is.na(file) && is_jupyter_path(file)) return(TRUE)
+  lines <- chunk_lines
   n <- length(lines)
   eng <- grep("^engine[ \t]*:", fm, value = TRUE)
   if (length(eng)) {
@@ -1343,7 +1351,8 @@ filter_resolves <- function(lines, file = NA_character_, fm = front_block(lines)
 # files set chunk options too (doc_execute()); NULL: none are read.
 scan_document <- function(lines, file = NA_character_, config = NULL, project = "", cr = NULL, path = NULL) {
   text <- paste(lines, collapse = "\n")
-  fd <- filter_resolves(lines, file, front_block(front_source_lines(path, lines)))
+  xl <- front_source_lines(path, lines)
+  fd <- filter_resolves(lines, file, front_block(xl), xl)
   nf <- document_names_from(lines, file, config) %in% c("python", "julia")
   extra <- scan_extra_rows(lines, file, config, project, fd, nf, cr, path)
   prose <- scan_text(blank_front_matter(text), file = file, config = config,
