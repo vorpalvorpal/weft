@@ -300,3 +300,40 @@ test_that("G5 (projects, Lua): config.source_is_knitr() follows the project's en
     expect_identical(got[[i]], if (EFA_PROJECT_CASES[[i]]$want == "knitr") "knitr" else "filter", label = EFA_PROJECT_CASES[[i]]$name)
   }
 })
+
+# ---- G6: engines: from profile files and the local file ---------------------------------------------------
+
+test_that("G6 (oracle): Quarto merges engines: from profile files and _quarto.yml.local, as the table says", {
+  efa_skip_if_no_quarto()
+  dirs <- efa_prof_write(EFA_PROFILE_CASES)
+  for (i in seq_along(EFA_PROFILE_CASES)) {
+    withr::local_envvar(c(QUARTO_PROFILE = EFA_PROFILE_CASES[[i]]$env))
+    out <- suppressWarnings(system2("quarto", c("inspect", shQuote(file.path(dirs[[i]], "doc.qmd"))), stdout = TRUE, stderr = FALSE))
+    j <- jsonlite::fromJSON(paste(out, collapse = "\n"), simplifyVector = FALSE)
+    expect_identical(j$engines[[1]], EFA_PROFILE_CASES[[i]]$want, label = EFA_PROFILE_CASES[[i]]$name)
+  }
+})
+
+test_that("G6 (R): quarto_engine(lines, file) reads the engines: list of the profiles and the local file", {
+  dirs <- efa_prof_write(EFA_PROFILE_CASES)
+  for (i in seq_along(EFA_PROFILE_CASES)) {
+    withr::local_envvar(c(QUARTO_PROFILE = EFA_PROFILE_CASES[[i]]$env))
+    f <- file.path(dirs[[i]], "doc.qmd")
+    expect_identical(weft:::quarto_engine(readLines(f), f), EFA_PROFILE_CASES[[i]]$want, label = EFA_PROFILE_CASES[[i]]$name)
+  }
+})
+
+test_that("G6 (Lua): config.source_is_knitr() reads the engines: list of the profiles and the local file", {
+  skip_if_no_lua_pandoc()
+  dirs <- efa_prof_write(EFA_PROFILE_CASES)
+  script <- file.path(dirname(dirs[[1]]), "driver-knitr.lua")
+  writeLines(EFA_LUA_KNITR, script)
+  lib <- file.path(dirname(filter_path("weft.lua")), "weftlib")
+  for (i in seq_along(dirs)) {
+    # one process per case: QUARTO_PROFILE is part of the environment the filter runs in
+    withr::local_envvar(c(QUARTO_PROFILE = EFA_PROFILE_CASES[[i]]$env))
+    res <- lua_run(script, c(lib, dirs[[i]]))
+    expect_identical(res$stdout, if (EFA_PROFILE_CASES[[i]]$want == "knitr") "knitr" else "filter",
+                     label = paste(EFA_PROFILE_CASES[[i]]$name, res$stderr))
+  }
+})

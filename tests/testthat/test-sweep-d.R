@@ -50,18 +50,22 @@ ENGINE_DOCS <- list(
   r_only             = list(c(fm(), chunk("r")), "knitr"),
   python_only        = list(c(fm(), chunk("python")), "jupyter"),
   julia_only         = list(c(fm(), chunk("julia")), "julia"),
-  r_and_julia        = list(c(fm(), chunk("julia"), chunk("r")), "knitr"),
+  # Quarto 1.11.9 `quarto inspect`: the engine order is julia, knitr, jupyter, so julia wins over r and python
+  r_and_julia        = list(c(fm(), chunk("julia"), chunk("r")), "julia"),
   r_and_python       = list(c(fm(), chunk("python"), chunk("r")), "knitr"),
-  python_and_julia   = list(c(fm(), chunk("julia"), chunk("python")), "jupyter"),
+  python_and_julia   = list(c(fm(), chunk("julia"), chunk("python")), "julia"),
   engine_julia_vs_r  = list(c(fm("engine: julia"), chunk("r")), "julia"),
   engine_knitr_vs_py = list(c(fm("engine: knitr"), chunk("python")), "knitr"),
   engine_jupyter     = list(c(fm("engine: jupyter"), "prose"), "jupyter"),
   engine_markdown    = list(c(fm("engine: markdown"), chunk("r")), "markdown"),
   engine_quoted      = list(c(fm("engine: \"julia\"  # comment"), chunk("r")), "julia"),
+  # Quarto refuses this document (schema error: "engine ... must instead be a string"); weft reads the first key
+  # of the mapping, which is the author's plain intent, and the render fails loudly anyway
   engine_mapping     = list(c(fm("engine:", "  julia:", "    env: [\"A=1\"]"), chunk("r")), "julia"),
   jupyter_key        = list(c(fm("jupyter: python3"), "prose"), "jupyter"),
   jupyter_key_vs_r   = list(c(fm("jupyter: python3"), chunk("r")), "jupyter"),
-  fence_in_4_ticks   = list(c(fm(), "````", fence("python"), "1", "```", "````", "prose"), "markdown"),
+  # Quarto's chunk scan does not track the outer fence: the python chunk inside it still claims jupyter
+  fence_in_4_ticks   = list(c(fm(), "````", fence("python"), "1", "```", "````", "prose"), "jupyter"),
   four_ticks_real    = list(c(fm(), "````", fence("python"), "````", chunk("julia")), "julia"),
   upper_python       = list(c(fm(), chunk("Python")), "jupyter"),
   upper_julia        = list(c(fm(), chunk("Julia")), "julia"),

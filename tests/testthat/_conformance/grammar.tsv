@@ -168,7 +168,7 @@ doc	```{r,%20eval=FALSE}%0Ax%20<-%201%0A```%0A%0A```{r}%0Ay%20<-%202%0A```	knitr
 doc	---%0Aengine:%20knitr%0A---%0A%0AProse.	knitr	
 doc	---%0Aengine:%20'knitr'%0A---%0A%0AProse.	knitr	
 doc	---%0Aengine:%20knitr%20#%20note%0A---%0A%0AProse.	knitr	
-doc	---%0Aengine:%20Knitr%0A---%0A%0AProse.	knitr	
+doc	---%0Aengine:%20Knitr%0A---%0A%0AProse.	filter	
 doc	---%0D%0Aengine:%20knitr%0D%0A---%0D%0A%0AProse.	knitr	
 doc	---%0Aengine:%20knitr%0A...%0A%0AProse.	knitr	
 doc	---%0Aengine:%20jupyter%0A---%0A%0A```{r}%0Ax%20<-%201%0A```	filter	
@@ -177,7 +177,7 @@ doc	---%0Aengine:%20knitr%0A---%0A%0A```{r,%20eval=FALSE}%0Ax%20<-%201%0A```	kni
 doc	---%0Ajupyter:%20python3%0A---%0A%0A```{r}%0Ax%20<-%201%0A```	filter	
 doc	---%0Atitle:%20t%0A---%0A%0A```{r}%0Ax%20<-%201%0A```	knitr	
 doc	---%0Aformat:%0A%20%20html:%0A%20%20%20%20engine:%20knitr%0A---%0A%0AProse.	filter	
-doc	---%0A%20%20engine:%20knitr%0A---%0A%0AProse.	filter	
+doc	---%0A%20%20engine:%20knitr%0A---%0A%0AProse.	knitr	
 doc	---%0Aengine:%20knitr%0A%0AProse%20with%20no%20closing%20fence.	filter	
 doc	Prose%20first.%0A---%0Aengine:%20knitr%0A---	filter	
 doc	---%0Atitle:%20t%0A---%0A%0A---%0Aengine:%20knitr%0A---	filter	

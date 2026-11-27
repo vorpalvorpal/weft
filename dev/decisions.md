@@ -1215,3 +1215,18 @@ behaviour went through test-first.
 - **Not changed.** The Lua filter and the Python and Julia ports follow a
   document's includes, not the project's input folders;
   `julia_project_files()` filters the files Julia loaded, a different question.
+
+## Engine tests corrected to Quarto 1.11.9 (2026-11-28)
+- **Oracle, not the old reading.** `quarto inspect` is the answer for every
+  engine expectation. Corrected: julia beats r and python in one document; a
+  python chunk inside a four-tick plain fence still claims jupyter; `engine: Knitr`
+  (capital) claims nothing, so markdown; an indented `engine: knitr` is knitr.
+  `engine:` written as a mapping is a Quarto schema error; the test keeps
+  "julia" (the first key) and says so.
+- **Header across lines.** Quarto's language regex lets `[^}]*` cross a line end,
+  so `{r` with its `}` on a later line is an r chunk (knitr, by line, runs none).
+  Table rows added; weft must follow Quarto's engine.
+- **Local and profile files.** Quarto merges `_quarto-<profile>.yml|yaml` for each
+  active profile, then `_quarto.yml.local|yaml.local` (not `_quarto.local.yml`),
+  lists joined base first. A profile comes from QUARTO_PROFILE, `_environment[.local]`,
+  or `profile: default:` in `_quarto.yml` or the local file.

@@ -210,7 +210,20 @@ EFA_HDR_CASES <- list(
   # comma after the name. They disagree on these three.
   efa_hdr("dash-after-name", efa_body("```{r-x}"), "knitr", FALSE),
   efa_hdr("equals-after-name", efa_body("```{r=1}"), "knitr", FALSE),
-  efa_hdr("dot-in-name-is-another-language", efa_body("```{r.x}"), "jupyter", FALSE)
+  efa_hdr("dot-in-name-is-another-language", efa_body("```{r.x}"), "jupyter", FALSE),
+  # a header that runs across lines: Quarto's language regex lets `[^}]*` cross a line end, so the opener `{r` with
+  # its `}` on a later line is a chunk of language r (`quarto inspect`, 1.11.9); knitr's pattern works line by
+  # line, so it runs no such chunk. Quarto's engine is the answer; weft must agree with it.
+  efa_hdr("multiline-r-header", c("```{r", "echo=FALSE}", "1 + 1", "```"), "knitr", FALSE),
+  efa_hdr("multiline-r-header-after-a-comma", c("```{r,", "echo=FALSE}", "1 + 1", "```"), "knitr", FALSE),
+  efa_hdr("multiline-r-header-brace-three-lines-on", c("```{r", "x <- 1", "y <- 2", "}", "```"), "knitr", FALSE),
+  efa_hdr("multiline-r-header-blank-line-between", c("```{r", "", "echo=FALSE}", "1 + 1", "```"), "knitr", FALSE),
+  efa_hdr("multiline-python-header", c("```{python", "echo=FALSE}", "1 + 1", "```"), "jupyter", FALSE),
+  efa_hdr("multiline-julia-header", c("```{julia", "echo=FALSE}", "1 + 1", "```"), "julia", FALSE),
+  efa_hdr("multiline-python-then-r-chunk", c("```{python", "echo=FALSE}", "1", "```", "", efa_body("```{r}")), "knitr", TRUE),
+  efa_hdr("multiline-space-before-name-is-no-chunk", c("```{ r", "}", "1 + 1", "```"), "markdown", FALSE),
+  efa_hdr("multiline-text-after-first-brace-is-no-chunk", c("```{r} x", "}", "1 + 1", "```"), "markdown", FALSE),
+  efa_hdr("opener-with-no-closing-brace-is-no-chunk", c("```{r", "1 + 1", "```"), "markdown", FALSE)
 )
 
 # an unclosed chunk: knitr runs it (to the end of the file), but Quarto's engine choice does not see it (checked
@@ -379,6 +392,56 @@ efa_project_write <- function(cases, env = parent.frame()) {
   base <- normalizePath(withr::local_tempdir(.local_envir = env), winslash = "/")
   vapply(seq_along(cases), function(i) {
     d <- file.path(base, sprintf("p%02d", i))
+    for (nm in names(cases[[i]]$files)) f3_write(file.path(d, nm), cases[[i]]$files[[nm]])
+    d
+  }, "")
+}
+
+# ---- group 6: the project's `engines:` list from profile files and the local file -------------------------
+
+# Quarto merges, into _quarto.yml, the file `_quarto-<profile>.yml` (or .yaml) of each active profile, and then
+# `_quarto.yml.local` (or `_quarto.yaml.local`; NOT `_quarto.local.yml`, which it never reads). Lists are joined:
+# the base file's entries first. A profile is active through QUARTO_PROFILE, `_environment` or `_environment.local`
+# (a QUARTO_PROFILE= line), `profile: default:` in `_quarto.yml.local`, or `profile: default:` in `_quarto.yml`
+# (all checked with `quarto inspect`, 1.11.9, and in the bundled quarto.js: mergeProfiles, localProjectConfigFile).
+# The document claims both `knitr:` and `jupyter:`: it is knitr unless the project lists jupyter first.
+EFA_PROF_FM <- c("jupyter: python3", "knitr: true")
+efa_prof <- function(name, want, files, env = NA_character_) {
+  base <- list("_quarto.yml" = c("project:", "  title: p"), "doc.qmd" = c("---", EFA_PROF_FM, "---", "", EFA_PROSE))
+  list(name = name, want = want, env = env, files = utils::modifyList(base, files))
+}
+EFA_JUP <- "engines: [jupyter]"
+EFA_PROFILE_CASES <- list(
+  efa_prof("control-no-engines-is-knitr", "knitr", list()),
+  efa_prof("profile-file-active", "jupyter", list("_quarto-prof.yml" = EFA_JUP), env = "prof"),
+  efa_prof("profile-file-not-active", "knitr", list("_quarto-prof.yml" = EFA_JUP)),
+  efa_prof("another-profile-active", "knitr", list("_quarto-prof.yml" = EFA_JUP), env = "other"),
+  efa_prof("profile-yaml-extension", "jupyter", list("_quarto-prof.yaml" = EFA_JUP), env = "prof"),
+  efa_prof("two-profiles-active", "jupyter",
+           list("_quarto-p1.yml" = "engines: [markdown]", "_quarto-p2.yml" = EFA_JUP), env = "p1,p2"),
+  efa_prof("profile-engines-follow-the-base-engines-jupyter-base", "jupyter",
+           list("_quarto.yml" = c("project:", "  title: p", EFA_JUP), "_quarto-prof.yml" = "engines: [knitr]"), env = "prof"),
+  efa_prof("profile-engines-follow-the-base-engines-knitr-base", "knitr",
+           list("_quarto.yml" = c("project:", "  title: p", "engines: [knitr]"), "_quarto-prof.yml" = EFA_JUP), env = "prof"),
+  efa_prof("local-file", "jupyter", list("_quarto.yml.local" = EFA_JUP)),
+  efa_prof("local-file-yaml-extension", "jupyter", list("_quarto.yaml.local" = EFA_JUP)),
+  efa_prof("local-file-with-a-profile-active", "jupyter",
+           list("_quarto.yml.local" = EFA_JUP, "_quarto-prof.yml" = "engines: [markdown]"), env = "prof"),
+  efa_prof("quarto-dot-local-dot-yml-is-not-read", "knitr", list("_quarto.local.yml" = EFA_JUP)),
+  efa_prof("quarto-minus-local-yml-is-not-read", "knitr", list("_quarto-local.yml" = EFA_JUP)),
+  efa_prof("profile-default-in-quarto-yml", "jupyter",
+           list("_quarto.yml" = c("project:", "  title: p", "profile:", "  default: prof"), "_quarto-prof.yml" = EFA_JUP)),
+  efa_prof("profile-default-in-the-local-file", "jupyter",
+           list("_quarto.yml.local" = c("profile:", "  default: prof"), "_quarto-prof.yml" = EFA_JUP)),
+  efa_prof("profile-from-the-environment-file", "jupyter",
+           list("_environment" = "QUARTO_PROFILE=prof", "_quarto-prof.yml" = EFA_JUP))
+)
+
+# the folders of the cases, one each (the files are written as the case says)
+efa_prof_write <- function(cases, env = parent.frame()) {
+  base <- normalizePath(withr::local_tempdir(.local_envir = env), winslash = "/")
+  vapply(seq_along(cases), function(i) {
+    d <- file.path(base, sprintf("q%02d", i))
     for (nm in names(cases[[i]]$files)) f3_write(file.path(d, nm), cases[[i]]$files[[nm]])
     d
   }, "")
