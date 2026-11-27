@@ -206,12 +206,21 @@ e_msg <- list(
 
 # ---- Quarto projects on the jupyter engine -----------------------------------------------------------
 
+# `yml` (the lines of a _quarto.yml that opens with "project:" and "  type: default") with a `render:` list of the
+# documents among `files`, in the order given, when there are two or more. Without it Quarto takes the files in
+# the folder's order, which differs between macOS and Linux.
+with_render_list <- function(yml, files) {
+  docs <- grep("\\.(qmd|ipynb|Rmd)$", names(files), value = TRUE)
+  if (length(docs) < 2L || !identical(yml[1:2], c("project:", "  type: default"))) return(yml)
+  append(yml, c("  render:", paste0("    - ", docs)), after = 2L)
+}
+
 # files: a named list of lines. The project is set up by use_quarto() (its messages dropped); `project_yml`
 # is the text of _quarto.yml.
 qm_project <- function(files, project_yml = c("project:", "  type: default", "format: html")) {
   dir <- withr::local_tempdir(.local_envir = parent.frame())
   dir <- normalizePath(dir, winslash = "/")
-  writeLines(project_yml, file.path(dir, "_quarto.yml"))
+  writeLines(with_render_list(project_yml, files), file.path(dir, "_quarto.yml"))
   put_files(dir, files)
   suppressMessages(utils::capture.output(weft::use_quarto(dir)))
   dir

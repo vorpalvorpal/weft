@@ -39,8 +39,11 @@ jobs:
       # `quarto render` of a notebook died with "No module named 'yaml'".
       - name: Install numpy, pandas and a Jupyter kernel
         run: |
-          python -m pip install numpy pandas jupyter_client ipykernel pyyaml nbformat nbclient
+          python -m pip install jupyter numpy pandas jupyter_client ipykernel pyyaml nbformat nbclient
           python -m ipykernel install --user
+          # the one Python for Quarto's Jupyter engine and for reticulate
+          echo "QUARTO_PYTHON=$pythonLocation/bin/python" >> "$GITHUB_ENV"
+          echo "RETICULATE_PYTHON=$pythonLocation/bin/python" >> "$GITHUB_ENV"
 
       - uses: julia-actions/setup-julia@v2
         with:
@@ -68,15 +71,19 @@ jobs:
           export R_HOME="$(R RHOME)"
           julia -e 'using Pkg; Pkg.add(["Suppressor", "RCall"])'
 
+      # the version this Mac uses, so that CI and local runs render alike
       - uses: quarto-dev/quarto-actions/setup@v2
+        with:
+          version: 1.11.9
 
       - name: Show what Quarto sees of Jupyter
         run: quarto check jupyter
 
       - uses: r-lib/actions/check-r-package@v2
         env:
-          RETICULATE_PYTHON: ${{ env.pythonLocation }}/bin/python
           RETICULATE_USE_MANAGED_VENV: 'no'
+          # E62's Pkg.add line is tested here, against the network (test-e62-pkg-add.R)
+          WEFT_TEST_PKG_ADD: 'true'
         with:
           upload-snapshots: true
           build_args: 'c("--no-manual", "--compact-vignettes=gs+qpdf")'

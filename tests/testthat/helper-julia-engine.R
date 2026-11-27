@@ -173,11 +173,11 @@ jle_project <- function(files, filter = TRUE) {
   # working folder (a deleted one makes later renders fail with "startpath must be non-empty")
   dir <- withr::local_tempdir(.local_envir = tryCatch(testthat::teardown_env(), error = function(e) parent.frame()))
   dir <- normalizePath(dir, winslash = "/")
-  writeLines(c("project:", "  type: default",
+  writeLines(with_render_list(c("project:", "  type: default",
                "engine: julia",
                "julia:",
                sprintf("  env: [\"JULIA_LOAD_PATH=%s\"]", jle_load_path()),
-               "format: html"), file.path(dir, "_quarto.yml"))
+               "format: html"), files), file.path(dir, "_quarto.yml"))
   put_files(dir, files)
   if (filter) suppressMessages(utils::capture.output(weft::use_quarto(dir)))
   dir
