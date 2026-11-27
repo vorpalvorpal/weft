@@ -123,21 +123,25 @@ tex_cfg <- function(cfg) {
 unit_md_to_tex <- function(md, un) {
   ch <- strsplit(md, "")[[1L]]
   n <- length(ch)
-  acc <- new.env(parent = emptyenv())
-  acc$out <- character()
-  acc$run <- ""
-  flush <- function() {
-    if (nzchar(acc$run)) acc$out <- c(acc$out, paste0("\\text{", acc$run, "}"))
-    acc$run <- ""
-  }
-  emit <- function(x) {
-    flush()
-    acc$out <- c(acc$out, x)
+  # Pieces and the current text run go in preallocated buffers, so the walk is linear in the text:
+  # growing a vector or a string a character at a time copied it every time.
+  out <- character(2L * n + 1L)
+  k <- 0L
+  run <- character(n)
+  m <- 0L
+  # For each `^` or `~`, the position of the next one of its kind (NA when there is none), so finding the
+  # closing mark is a lookup, not a scan of the rest of the text.
+  next_mark <- rep(NA_integer_, n)
+  for (mk in c("^", "~")) {
+    pos <- which(ch == mk)
+    next_mark[pos] <- c(pos[-1L], NA_integer_)
   }
   inner <- function(s) {
     s <- gsub("\u2212", "-", s, fixed = TRUE)
-    paste(vapply(strsplit(s, "")[[1L]], function(x) if (x %in% names(TEX_SPECIAL)) TEX_SPECIAL[[x]] else x, ""),
-          collapse = "")
+    x <- strsplit(s, "")[[1L]]
+    hit <- match(x, names(TEX_SPECIAL))
+    x[!is.na(hit)] <- unname(TEX_SPECIAL)[hit[!is.na(hit)]]
+    paste(x, collapse = "")
   }
   i <- 1L
   while (i <= n) {
@@ -148,13 +152,14 @@ unit_md_to_tex <- function(md, un) {
       c1 <- ch[i]
       lit <- TRUE
     }
+    piece <- NULL
     if (!lit && c1 %in% c("^", "~")) {
-      close <- if (i < n) which(ch[(i + 1L):n] == c1)[1L] else NA_integer_
-      if (is.na(close)) {
-        emit(TEX_SPECIAL[[c1]])
+      nxt <- next_mark[i]
+      if (is.na(nxt)) {
+        piece <- TEX_SPECIAL[[c1]]
       } else {
-        emit(paste0(if (c1 == "^") "^{" else "_{", inner(paste(ch[seq_len(close - 1L) + i], collapse = "")), "}"))
-        i <- i + close
+        piece <- paste0(if (c1 == "^") "^{" else "_{", inner(paste(ch[seq_len(nxt - i - 1L) + i], collapse = "")), "}")
+        i <- nxt
       }
     } else if (!lit && c1 %in% c("*", "_", "`", "[", "]")) {
       value_error(sprintf(paste0(
@@ -162,20 +167,33 @@ unit_md_to_tex <- function(md, un) {
         "backslash escapes have one). Give it a plain `symbol:` or `name:` under `units:` in _weft.yml ",
         "to use it in math (rule 4.4.25)."), as.character(un), md))
     } else if (!lit && c1 == "\u00b7") {
-      emit("{\\cdot}")
+      piece <- "{\\cdot}"
     } else if (!lit && c1 %in% c("'", "\u2032")) {
-      emit("{}^{\\prime}")
+      piece <- "{}^{\\prime}"
     } else if (!lit && c1 %in% c("\"", "\u2033")) {
-      emit("{}^{\\prime\\prime}")
+      piece <- "{}^{\\prime\\prime}"
     } else if (c1 %in% names(TEX_SPECIAL)) {
-      emit(TEX_SPECIAL[[c1]])
+      piece <- TEX_SPECIAL[[c1]]
     } else {
-      acc$run <- paste0(acc$run, c1)
+      m <- m + 1L
+      run[m] <- c1
+    }
+    if (!is.null(piece)) {
+      if (m > 0L) {
+        k <- k + 1L
+        out[k] <- paste0("\\text{", paste(run[seq_len(m)], collapse = ""), "}")
+        m <- 0L
+      }
+      k <- k + 1L
+      out[k] <- piece
     }
     i <- i + 1L
   }
-  flush()
-  paste(acc$out, collapse = "")
+  if (m > 0L) {
+    k <- k + 1L
+    out[k] <- paste0("\\text{", paste(run[seq_len(m)], collapse = ""), "}")
+  }
+  paste(out[seq_len(k)], collapse = "")
 }
 
 # What a unit adds to a number under TeX: `\,` or nothing before a symbol, `\ ` before a name; or, for a
