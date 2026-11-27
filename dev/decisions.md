@@ -1064,3 +1064,26 @@ behaviour went through test-first.
   block newlines around it (the forms tables write `&#45; a<br>- b`), while
   plain keeps the newlines of 1.4.24.
 
+
+## Smaller rulings while building (2026-11-27)
+
+- **A18, one fence finder: follow CommonMark, as Pandoc does.** A backtick fence whose info string
+  holds a backtick is not a fence; a closing fence is the same character, at least as long, spaces
+  after; up to 3 spaces of indent; an unclosed fence runs to the last line (n); a fence opened in a
+  block quote ends with the quote; a YAML block in a fence, and a fence in an HTML comment, do not
+  count. Alternative refused: keep five finders, each right for its own caller, because they
+  disagree on the same text and the lints, the knit and the filter then see different documents.
+- **Script claims tests.** `claim(x, interactive())` is an inert check in a script as in a chunk
+  (it never looks at the value); a literal `decision =` is not a check (3.10.1), fixed in
+  inert-check for chunks too; the E4 "no note" test follows the new M2 note.
+- **Self-formatting values.** An error names the function the author called (`val_num()`, not
+  `fmt_num()`); `val_num(1.04)` under an `n` governor gives "1.0 sites", as a plain 1.04 does
+  (design case 58 corrected); `format(v, target = "html" | "marquee")` gives exactly the
+  `fmt_*()` output for the same number and format.
+- **html target tests.** Four test defects ruled for the implementer (the configuration not put in
+  force, `.a` being weft's own class, `unclass()` keeping the html attribute, list newlines); lists
+  under html and marquee drop the block newlines, plain keeps them.
+- **Project metadata.** The L32 cite fixture was not a Quarto project, so it now has a
+  `_quarto.yml` (P1: without one the document's folder is the project). With no engine key, the
+  chunks of the include-expanded text pick Quarto's engine (P4); the engine lint still asks for
+  `engine: knitr` in the document's own front matter (9.2.8).
