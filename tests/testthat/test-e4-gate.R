@@ -81,7 +81,8 @@ test_that("T13 C17/D12: a staged script that does not parse loses its constructs
   expect_identical(nrow(res$removed), 1L)
   expect_identical(res$removed$line, 2L)
   expect_match(res$removed$file, "R/plot\\.R$")
-  expect_false(any(grepl("does not parse", g_report(res), fixed = TRUE)))
+  # ruling 27 Nov: the gate note M2 (3.11, amending D12) names a script that does not parse
+  expect_true(any(grepl("does not parse", g_report(res), fixed = TRUE)))
 })
 
 test_that("T13 C17: an unchanged script is not judged, and a changed one is: a numeral already in HEAD is tolerated", {

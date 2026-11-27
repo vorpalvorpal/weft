@@ -55,7 +55,8 @@ test_that("SC1 SC4 T2: a script that holds weft is counted the same, the claim n
 })
 
 test_that("SC5 T3: moving a claim from an R chunk into a script in one commit removes nothing", {
-  chunk <- function(code) c("```{r}", code, "```", "")
+  # labelled, so the chunk-label finding is not keyed by the chunk text (ruling 27 Nov)
+  chunk <- function(code) c("```{r move}", code, "```", "")
   res <- sc_run(list("b.Rmd" = c("Words.", "", chunk("n <- claim(x, . > 1)")), "R/a.R" = "y <- 1"),
                 list("b.Rmd" = c("Words.", "", chunk("n <- 1")), "R/a.R" = c("y <- 1", "n <- claim(x, . > 1)")))
   expect_identical(res$n_removed, 0L)
@@ -302,9 +303,12 @@ test_that("SC8 T30: claim(x, TRUE) in a script is one inert-check finding at the
   expect_identical(sc_clean(x$message), "The check `TRUE` has no variable, so it can never fail (rule 3.1.6).")
 })
 
-test_that("SC8 T31: claim(x, 1 > 0) is inert; claim(x, . > 0), interactive() and y > 0 are not", {
-  expect_true("inert-check" %in% sc_lints(list("R/a.R" = "claim(x, 1 > 0)"))$rule)
-  for (ok in c("claim(x, . > 0)", "claim(x, interactive())", "claim(x, y > 0)")) {
+test_that("SC8 T31: claim(x, 1 > 0) and claim(x, interactive()) are inert; claim(x, . > 0) and y > 0 are not", {
+  # ruling 27 Nov: as in an R chunk today, a check that reads no variable is inert, a call included
+  for (bad in c("claim(x, 1 > 0)", "claim(x, interactive())")) {
+    expect_true("inert-check" %in% sc_lints(list("R/a.R" = bad))$rule, info = bad)
+  }
+  for (ok in c("claim(x, . > 0)", "claim(x, y > 0)")) {
     expect_false("inert-check" %in% sc_lints(list("R/a.R" = ok))$rule, info = ok)
   }
 })
@@ -449,4 +453,11 @@ test_that("SC4 T44: a warm gate on 50 scripts of 200 lines with five claims each
   expect_identical(large$removed, 1L)
   expect_identical(large$reads, 0L)
   expect_lt(large$secs / max(small$secs, 0.05), 3)
+})
+
+# Ruling 27 Nov: `decision` is not a check (3.10.1, 3.1.12), so a literal pointer is not an inert check,
+# in a script or in an R chunk.
+test_that("3.10.1: a literal decision = 12 on a claim is not an inert check", {
+  expect_false("inert-check" %in% sc_lints(list("R/a.R" = "claim(x, . > 0, decision = 12)"))$rule)
+  expect_true("inert-check" %in% sc_lints(list("R/a.R" = "claim(x, 1 > 0, decision = 12)"))$rule)
 })
