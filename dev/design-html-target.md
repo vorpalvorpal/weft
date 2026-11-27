@@ -915,3 +915,122 @@ class `c("html", "character")`; values inside `{=html}` blocks later. Stage H0 (
 marquee, gt and plotly with R, once R is free) runs before the tests, and its results amend the
 tables if a source reading was wrong. The `check_targets()` bug (accepts `targets: [markdown,
 plain]`, which 1.4.8 forbids) is fixed in H1.
+
+## H0 results (27 Nov)
+
+Probe run with real R 4.4 on 27 Nov 2026. Scripts, raw output and PNGs are in
+`/private/tmp/claude-501/-Users-rjs-dev-weft/0f21b1c5-45d5-4654-85f4-c376e7a840d4/scratchpad/html-h0/`
+(`rows.R`, `p1.R` to `p6.R`, `out-*.txt`, `*.png`). Versions: markdown 1.13
+(system library, with gridtext 0.1.5) and markdown 2.0 (user library, gridtext
+0.1.6), ggtext 0.1.2, litedown 0.7, marquee 1.0.0 and 1.2.1 (CRAN binary) and
+1.3.0 (CRAN, now released; built from source into a scratch library), gt 1.3.0,
+htmltools 0.5.8.1, reactable 0.4.5, plotly 4.11.0 (rendered in headless
+Chrome). Nothing was installed into the main library: marquee went into a
+scratch library. Each row of section 3 was run through `markdown::markdownToHTML()`
+with gridtext's own options (`c("use_xhtml", "fragment_only")`), through
+`gridtext::richtext_grob()` (no error, width), and through `marquee_parse()`.
+Not checked: gt to PDF; plotly hover (the labels and title use the same text
+renderer, so this is by proxy); marquee 1.1.x and 1.2.0 individually.
+
+### Claims and outcomes
+
+| # | Claim | Outcome |
+|---|---|---|
+| 1 | ggtext: `10^6^`, `5 m^2^` right | CONFIRMED (both markdown versions) |
+| 2 | ggtext: `10^\u22124^` and `5 s^\u22121^` show carets | CONFIRMED (picture `ggtext-md-md2.0.png`) |
+| 3 | ggtext: `H~2~O` right | CONFIRMED in 1.13 and 2.0 (a lone `~sub~` is not a subscript; in 1.13 it is struck through) |
+| 4 | ggtext: thin and no-break space draw as ordinary word spaces | CONFIRMED: `1 234 567.9` is 63.62 pt with a plain space, a thin space and a no-break space alike (56.92 pt with none) |
+| 5 | ggtext: `*x*`, `**x**` right; `p < 0.001` and the failure marker right | CONFIRMED |
+| 6 | ggtext: `.ul` and `.ol` markdown stop the plot | CONFIRMED: `gridtext has encountered a tag that isn't supported yet: <ul>`, `ggsave()` fails. The HTML form `&#45; a<br>- b` draws |
+| 7 | ggtext: `[x]{.smallcaps}` shows brackets and braces | CONFIRMED |
+| 8 | ggtext: `$x^2$` in a markdown string shows as `\(x^2\)` | CONFIRMED |
+| 9 | ggtext: a newline in a `weft()` string is drawn as a space | CONFIRMED |
+| 10 | ggtext: a plain-text `*`, `_`, `<b>` is read as markup | CONFIRMED for `_x_` (italic) and `<b>bold</b>` (bold); `a * b * c` with spaces stays literal |
+| 11 | markdown 1.13 runs smartypants, 2.0 does not | PARTLY WRONG: 1.13 turns `1/2` into a half and `(c)`, `(r)`, `(tm)` into symbols; 2.0 does not. But **both** versions, under gridtext's options, turn straight quotes into curly ones, `--` into an en dash, `---` into an em dash and `...` into an ellipsis |
+| 12 | D88: the HR2 escaping survives the markdown pass | CONFIRMED for every html row of section 3 on both versions, except that `'` in `style='x'` came out curly (see correction 3). `&#47;` and `&#40;` also stop the 1.13 fractions and symbols |
+| 13 | HR1: gridtext reads `<i> <b> <sup> <sub> <span> <br>` with no error; `<span style=color>` colours | CONFIRMED; sup and sub are raised and smaller, `<span style="color:#c00">` draws red (`ggtext-html-md2.0.png`) |
+| 14 | marquee: `{.sup}`, `{.sub}`, `{.em}`, `{.str}` parse to `sup`, `sub`, `em`, `str` | CONFIRMED in 1.0.0, 1.2.1, 1.3.0; they draw raised and small |
+| 15 | marquee: `{.sup \u22124}` etc. are drawn right only from 1.2.0 (D103, MQ6) | **WRONG**: marquee 1.0.0, the first release, draws `10{.sup \u22124}` as a superscript (`marquee-danger-1.0.0.png`). There is no old version to guard against |
+| 16 | marquee: HTML `10<sup>\u22124</sup>` draws "10\u22124" | CONFIRMED, no error (`marquee-danger-1.2.1.png`); `<i>x</i>` draws "x" upright; `<br>` is dropped (`Line oneline two`); with `ignore_html = FALSE` the tags show as typed |
+| 17 | marquee: markdown carets show | CONFIRMED (`10^6^`, `10^\u22124^`, `m^2^`) |
+| 18 | marquee: markdown `H~2~O` draws with the 2 struck through | **WRONG**: single tildes inside a word stay literal, `H~2~O` draws as typed. (`~z~` after a space is strikethrough.) |
+| 19 | marquee: `_x_` is underline; `*x*` is italic | CONFIRMED (`_Eucalyptus_` is `u`, `*x*` is `em`) |
+| 20 | marquee: `[x]{.smallcaps}` "braces may open a custom span" | WRONG in a harmless way: it draws as typed, `[x]{.smallcaps}` |
+| 21 | marquee: markdown list is a real list block | CONFIRMED (`ul`/`ol` with `li`) |
+| 22 | marquee: `\+ \- \: \# \. \< \> \& \* \_ \{ \} \^ \~ \$ \[` give the plain character, no stray backslash | CONFIRMED for all in 1.2.1; `\+ \- \< \> \& \* \_ \{ \} \^ \~ \$` also in 1.3.0 |
+| 23 | marquee: `\` plus newline is a hard break; two newlines a paragraph | CONFIRMED; a single newline is a space (so a plain-text newline is lost in marquee) |
+| 24 | marquee: thin and no-break spaces are kept | CONFIRMED: U+2009 and U+00A0 survive the parse; the thin space draws visibly narrower than a space in `marquee-1.2.1.png` (unlike ggtext) |
+| 25 | marquee: `{.sup a\*b}` escapes inside a span; `\{.sup 2}` is literal | CONFIRMED |
+| 26 | D95: `$...$` is math from 1.3.0, older versions show it as typed | CONFIRMED for the parse (type `eq` in 1.3.0), **but** drawing it fails without a textshaping that has `shape_math()`: `Rendering math requires a version of textshaping that provides textshaping::shape_math()`. The whole `geom_marquee()` layer fails |
+| 27 | marquee: `\$5 and \$6` and `$5 and $6` | CONFIRMED safe: both are text in 1.2.1 and 1.3.0 |
+| 28 | gt `fmt_markdown()` shows `10^\u22124^` (no superscript) | CONFIRMED. It does read `H~2~O` as a subscript and `*x*` as emphasis |
+| 29 | gt `fmt_markdown()` on weft's HTML is right in HTML output | CONFIRMED: `<sup>`, `<sub>`, `<i>`, `<b>`, `<span style>` and `<br>` are kept (gt adds inline styles); `&lt;`, `&#42;` etc. decode. gt's markdown pass makes `'x'` curly, as in claim 11 |
+| 30 | gt to Word drops the tags (to be confirmed) | CONFIRMED and worse: the docx has no literal tags and **no superscript run** (no `vertAlign`); `10<sup>\u22124</sup>` becomes the text "10\u22124". Italic and bold also appear to be lost in that route (not inspected run by run) |
+| 31 | reactable `colDef(html = TRUE)` draws weft's HTML; markdown shows its marks | CONFIRMED (`reactable.png`: sup, sub, italic, bold, red span, `<br>` right; `10^\u22124^` shows carets) |
+| 32 | htmltools `HTML()` class is `c("html", "character")` | CONFIRMED, **but it also sets attribute `html = TRUE`**, which is what htmltools and gt test (correction 1) |
+| 33 | plotly reads `<b> <i> <sup> <sub> <span style> <br>`, numeric entities, `&lt; &amp; &times; &deg; &plusmn; &mu;`; draws `<em>` bold italic | CONFIRMED (`plotly.png`); thin and no-break spaces draw; `&#45;` and `&#42;` decode |
+| 34 | plotly does not read `<strong>` ("ignores") | CORRECTED: it shows the tags as literal text, `<strong>strong</strong>`. Still a reason to write `<b>` |
+| 35 | Extra: marquee fed HTML entities | `&#45;` raises `stoi: no conversion` from `marquee_parse()` (1.2.1 and 1.3.0); `&lt;` draws as the character U+0003 followed by "C" in 1.2.1, right in 1.3.0. HTML text must never reach marquee, which supports D97 |
+
+### Corrections the tables need
+
+1. **D98, RT4, For Robin 4 (class `html`).** The class alone is not enough.
+   `htmltools::p(structure("a<sup>2</sup>", class = c("html", "character")))`
+   and a gt cell with that object both **escape** the tags. `htmltools::HTML()`
+   sets `attr(x, "html") <- TRUE` as well, and `gt::html()` gives the same two
+   things. `format(x, target = "html")` must return
+   `structure(text, class = c("html", "character"), html = TRUE)`. `[` and
+   `paste0()` drop both, so RT4's "names are kept" holds, but subsetting a result
+   gives a plain character vector; say so in the docs.
+2. **D103, MQ6, E110 and stage H2 (`marquee_version()`).** Drop them. marquee
+   1.0.0 already draws `{.sup }` and `{.sub }`. E-numbers: E110 is free; E111
+   stays as it is. Delete the "An old marquee" risk and the version cache.
+3. **HR2 (smartypants).** Add to the table: `'` is `&#39;` and `"` is `&quot;`
+   (both tested: they stay straight); in a run of two or more `-`, each `-` is
+   `&#45;`; in a run of three or more `.`, each `.` is `&#46;` (tested, the
+   whole run escaped). The `/` between digits and `(` before `c)`, `r)`, `tm)`
+   rows stay (needed on markdown 1.13, harmless on 2.0). Without these,
+   `5'10"` draws as `5\u203210\u2033`-style curly quotes and `a -- b` draws an
+   en dash in ggtext while plain text and marquee keep what was typed. Add
+   test rows: `"it's 5'10\""` is `it&#39;s 5&#39;10&quot;`, `"a -- b"` is
+   `a &#45;&#45; b`, `"wait..."` is `wait&#46;&#46;&#46;`. Update section 1.3's
+   last paragraph and the row in the sink list that says 2.0 does not run
+   smartypants.
+4. **D95 and MQ3 (math in marquee).** Do not keep `$...$` as math: under
+   marquee 1.3.0 it is parsed as math and the draw fails unless textshaping
+   has `shape_math()`. Recommended: treat a math run like text in marquee
+   (MQ1 escapes `$`, `^`, `{`), so `$x^2$` draws as typed, as in html. Change
+   the "forms" row `"$x^2$ is"` for `"marquee"` to `\$x\^2\$ is`.
+5. **Section 1.4 table, marquee.**
+   - `H~2~O` draws as typed, not struck through.
+   - `[x]{.smallcaps}` draws as typed.
+   - Replace "since marquee 1.2.0" by "since 1.0.0".
+   - Add "marquee 1.3.0 reads `$...$` as math and cannot draw it without a
+     newer textshaping".
+6. **Section 1.5, plotly.** `strong` is not ignored: its tags show as text.
+7. **Section 1.5, gt.** "converts to Word with the tags dropped" is confirmed,
+   and the superscript is lost, so `10<sup>\u22124</sup>` reads "10\u22124" in
+   Word. RS1's row for gt already says HTML output only; add that this is
+   a wrong number, not only a lost style.
+8. **Section 1.4 and 1.2 wording.** "markdown 2.0 does not run smartypants" is
+   wrong (correction 3). "gridtext 0.1.5" is 0.1.6 in the user library.
+9. **HR8 (what weft does not promise).** Unchanged for ggtext. It can add that
+   marquee does draw the thin space narrower than a word space.
+
+### What changes a recommendation
+
+- **For Robin 4 stands, with the attribute (correction 1).** A bare class
+  would have looked like it worked and escaped in Shiny and gt.
+- **E110 and the marquee version check are deleted** (correction 2): about 15
+  lines less in H2 and one fewer message.
+- **Math in marquee changes from "kept as math" to "escaped as text"**
+  (correction 4), the safe default; a later option can pass math through for
+  users with the new textshaping.
+- **HR2 grows by four rules** (correction 3). Every other recommendation
+  (`<i>`/`<b>`, tags not Unicode, lists as lines, raw HTML as text, the HR3
+  start-of-text escapes) is confirmed by the probe or untouched.
+
+**Ruling on the H0 results (27 Nov, orchestrator).** All nine corrections are accepted. Where the
+H0 section and the text above it disagree, the H0 section wins. `format(x, target = "html")` returns
+the `html` class and `attr(x, "html") <- TRUE`. E110, MQ6, D103 and `marquee_version()` are removed.
+Math in marquee is escaped as text. HR2 gains the four rules for quotes, dash runs and dot runs.
