@@ -12,7 +12,8 @@
 -- and not inside a fence or an HTML comment. A later block's `weft:` replaces an earlier one's whole, so
 -- the `weft:` mapping is read from the last block with a top-level `weft:` key. The blocks are read with
 -- the source's includes expanded (rule P5): an included file's blocks sit where its include sits, read
--- by weftlib/lines.lua's expanded_lines() from beside this file.
+-- by weftlib/lines.lua's expanded_lines() from beside this file. A notebook's (`.ipynb`) and a percent
+-- script's (`.py`) are read from its raw and markdown cells (rule P7, jupyter_lines()).
 -- A mapping may be written in block style or in flow style (`weft: {digits: 3}`, `formatters:
 -- {.f: {digits: 2}}`), on one line or several; both give the same settings. A `weft:` or `formatters:`
 -- value that is neither is a problem (E33), never ignored.
@@ -483,11 +484,108 @@ local function front_lines(path, text, own)
   return ok and out or own
 end
 
+-- The lines of a notebook's JSON text its front matter is read from (rule P7 of 2.1.6; the twin of R's
+-- notebook_view() in R/notebook.R): the source of each raw and markdown cell, in cell order, each followed
+-- by a blank line. Code cells hold none. Nothing when the JSON cannot be read (pandoc.json decodes it).
+local function notebook_lines(text)
+  if not (pandoc and pandoc.json and pandoc.json.decode) then return {} end
+  local ok, nb = pcall(pandoc.json.decode, text, false)
+  if not ok or type(nb) ~= "table" or type(nb.cells) ~= "table" then return {} end
+  local out = {}
+  for _, cell in ipairs(nb.cells) do
+    if type(cell) == "table" and (cell.cell_type == "markdown" or cell.cell_type == "raw") then
+      local src = cell.source
+      local s = ""
+      if type(src) == "string" then
+        s = src
+      elseif type(src) == "table" then
+        local parts = {}
+        for _, p in ipairs(src) do
+          if type(p) == "string" then parts[#parts + 1] = p end
+        end
+        s = table.concat(parts)
+      end
+      if s ~= "" then
+        if s:sub(-1) == "\n" then s = s:sub(1, -2) end
+        for l in (s .. "\n"):gmatch("(.-)\n") do out[#out + 1] = l end
+      end
+      out[#out + 1] = ""
+    end
+  end
+  return out
+end
+
+-- A percent script's `# %%` cell header: its kind ("markdown", "raw" or "code") and the rest of the line,
+-- as Quarto's percentCellHeader() reads it; nil for a line that is none. `strict` asks for the form that
+-- makes a `.py` a percent script: white space, then `[markdown]` or `[raw]`.
+local function percent_header(l, strict)
+  local rest = l:match("^%s*#%s*%%%%+(.*)$")
+  if not rest then return nil end
+  local kind, attrs = rest:match("^%s*%[(%a+)%](.*)$")
+  if strict then
+    local k = rest:match("^%s+%[(%a+)%]")
+    return (k == "markdown" or k == "raw") and k or nil
+  end
+  if kind == "markdown" or kind == "raw" then return kind, attrs end
+  return "code", rest
+end
+
+-- The lines of a percent script's text its front matter is read from (rule P7; the twin of R's
+-- percent_view()): each markdown and raw cell, its empty lines at either end dropped, its lines with the
+-- leading `#` and one white-space character off (or the lines inside its `"""` lines), then a blank line.
+-- A raw cell that names a format is raw output, fenced; code cells, and the text above the first `# %%`
+-- line, are left out. A script with no markdown or raw cell is no Quarto document: nothing.
+local function percent_lines(text)
+  local all = lines_of((text:gsub("^%s+", ""):gsub("%s+$", "")))
+  local script = false
+  for _, l in ipairs(all) do
+    if percent_header(l, true) then script = true; break end
+  end
+  if not script then return {} end
+  local cells = {}
+  for _, l in ipairs(all) do
+    local kind, attrs = percent_header(l)
+    if kind then cells[#cells + 1] = { kind = kind, attrs = attrs or "", lines = {} }
+    elseif #cells > 0 then table.insert(cells[#cells].lines, l) end
+  end
+  local out = {}
+  for _, c in ipairs(cells) do
+    if c.kind ~= "code" then
+      local a, b = 1, #c.lines
+      while a <= b and blank(c.lines[a]) do a = a + 1 end
+      while b >= a and blank(c.lines[b]) do b = b - 1 end
+      local body = {}
+      local tq = "^\"\"\"+%s*$"
+      if b - a + 1 > 2 and c.lines[a]:match(tq) and c.lines[b]:match(tq) then
+        for q = a + 1, b - 1 do body[#body + 1] = c.lines[q] end
+      else
+        for q = a, b do body[#body + 1] = (c.lines[q]:gsub("^#%s?", "")) end
+      end
+      local fenced = c.kind == "raw" and (c.attrs:match("format=") or c.attrs:match("raw_mimetype="))
+      if fenced then out[#out + 1] = "```{=raw}" end
+      for _, l in ipairs(body) do out[#out + 1] = l end
+      if fenced then out[#out + 1] = "```" end
+      out[#out + 1] = ""
+    end
+  end
+  return out
+end
+
+-- The lines of a source its `weft:` front matter is read from: a notebook's or a percent script's cells
+-- (rule P7), else its lines with its includes expanded (front_lines()).
+local function jupyter_lines(path, text)
+  local low = path and path:lower() or ""
+  if low:match("%.ipynb$") then return notebook_lines(text) end
+  if low:match("%.py$") then return percent_lines(text) end
+  return nil
+end
+
 -- Is the source a document the knitr hooks resolve (N14, N92)? The rule of R/scan-contexts.R:
 -- filter_resolves(): an .Rmd is knitr's; a .qmd with `engine: knitr`, or with an executed {r} chunk and no
 -- `engine:` or `jupyter:` key; and the intermediate `.knit.md` of rmarkdown. `engine:` and `jupyter:` are
 -- read from the front block alone, as Quarto reads them (rule 2.1.6): the first metadata block, when only
--- blank lines stand above it, in the include-expanded text, so an include on line 1 can supply it (P4).
+-- blank lines stand above it, in the include-expanded text, so an include on line 1 can supply it (P4); the
+-- chunks are read from that text too.
 function M.source_is_knitr(path, text)
   if not path then return false end
   local low = path:lower()
@@ -514,13 +612,13 @@ function M.source_is_knitr(path, text)
       if l:match("^jupyter[ \t\r\n]*:") then return false end
     end
   end
-  for i, l in ipairs(lines) do
+  for i, l in ipairs(flines) do
     if l:match("^[ \t>]*```+[ \t]*{[ \t]*[rR][ \t,}]") then
       local off = l:match("[ ,{]eval[ \t]*=[ \t]*FALSE[ \t]*[,}]") or l:match("[ ,{]eval[ \t]*=[ \t]*F[ \t]*[,}]")
       local j = i + 1
-      while not off and lines[j] and lines[j]:match("^[ \t>]*#|") do
-        local v = lines[j]:match("^[ \t>]*#|[ ]?eval[ \t]*:[ \t]*(%a+)[ \t]*$")
-                  or lines[j]:match("^[ \t>]*#|[ ]?eval[ \t]*:[ \t]*(%a+)[ \t]*#.*$")
+      while not off and flines[j] and flines[j]:match("^[ \t>]*#|") do
+        local v = flines[j]:match("^[ \t>]*#|[ ]?eval[ \t]*:[ \t]*(%a+)[ \t]*$")
+                  or flines[j]:match("^[ \t>]*#|[ ]?eval[ \t]*:[ \t]*(%a+)[ \t]*#.*$")
         if v == "false" or v == "no" or v == "FALSE" then off = true end
         j = j + 1
       end
@@ -553,7 +651,8 @@ function M.load(source_path, source_text, cwd)
     if text then M.read_text(text, 0, display(yml), cfg, problems) end
   end
   if source_text then
-    local fm = front_matter_weft(front_lines(source_path, source_text, lines_of(source_text)))
+    local fm = front_matter_weft(jupyter_lines(source_path, source_text)
+                                 or front_lines(source_path, source_text, lines_of(source_text)))
     local file = source_path and display(source_path) or "the document"
     if fm then
       if fm.kind == "flow" then
