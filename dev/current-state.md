@@ -604,3 +604,9 @@ E4 review K10, fixed 2026-11-26 (simplify pass, batch 2): the phrase literals of
 `weft()` strings (`str_token_rows()`: a tab counts as one character), and a phrase row's line comes from its
 mapped offset, so an escaped newline no longer moves it a line down. Every R code region of a document
 (chunk bodies, `!expr` captions, header caption code) comes from one `chunk_code_regions()`, parsed once.
+
+Jupyter tests, 2026-11-27: the Python with Jupyter now lives outside the scratchpad, at
+`~/.venvs/jupyter` (uv venv: jupyter_client, ipykernel, nbformat, nbclient, pyyaml), so a wipe no
+longer loses it. Run the suite with `QUARTO_PYTHON=$HOME/.venvs/jupyter/bin/python`; without it the
+Jupyter tests skip. With it, the nine Jupyter test files (69 tests, the Python rows of
+`chunk-claims.tsv` among them) pass with none skipped.
