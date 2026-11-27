@@ -948,3 +948,20 @@ behaviour went through test-first.
   `tests/testthat/test-code-style.R` fails on a `<<-` without a reason, and,
   through codetools, on a kept `<<-` whose target no enclosing function binds
   (which would write the global environment without an error).
+
+## Robin's rulings (2026-11-27)
+
+- **Dropped, nothing more to do.** The reply to the units #451 maintainer
+  (Enchufa2, 25 Nov: "gallon is a name, there is no symbol..."), and the
+  rmarkdown #2648 and reticulate #1647 threads.
+- **Confirmed as they are.** The `output_missing` default (warn) and the
+  `repeats` default of 3 in `checks()`.
+- **To be done now.** The alias-policy tests. Quarto bug reports, drafted
+  for Robin to post. A JuliaCall libunwind issue, drafted. Reading front
+  matter from `_quarto.yml`, `_metadata.yml` and included files, with
+  Jupyter front-matter tests. The three "Later" pieces of weft everywhere
+  (`dev/plan-weft-everywhere.md`: self-formatting values, an HTML target
+  with rich plot text, a claim collector for scripts). Package H's A18,
+  one fence finder.
+- **Also open.** The review-closing and targets test warnings (fixture
+  warnings leaking from in-process `tar_make`), being fixed 27 Nov.

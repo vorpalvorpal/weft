@@ -33,17 +33,25 @@ first, then `dev/build-log.md`.
 
 ## In progress
 
+(Dated 13 Nov. Everything in this section was closed by the build's
+end at e8c1609 unless marked otherwise; the sections after it are
+current.)
+
 - **W1 to W4 are built** (b6ec418; filters pass, whole suite not yet
   re-run). STILL OWED: the spec for decision 63 (9.1.10 cache on by
   default; 4.4.20 a compound prints names as typed; 4.4.7 a dictionary's
   units go with the project root; `dict_unmark()` exported) - fold into
-  the next spec-editor run.
+  the next spec-editor run. (Closed 13 Nov, 622d1a3: decision 63 is in
+  the spec.)
 - **units upstream**: bug posted as r-quantities/units#448 with the fix
   as PR #447 (branch `refuse-install-before-mapping` on the fork
   vorpalvorpal/units; scratch clone in the scratchpad `unitsfix/src`).
   Watch for the maintainers' CI and replies; act on them only with
   Robin's say. When the fix is released, weft's `units:::` workaround in
   `ud_install_one()` (`R/unit-defaults.R`) can go, with its check note.
+  (Superseded 14 Nov: upstream merged its own fix as PR 449, replacing
+  #447; the `units:::` workaround went with the switch to units 1.0-1.7,
+  25 Nov, cb6d387. See "units 1.0-1.7 and the crash".)
   Installed units is CRAN 1.0.1; Homebrew `udunits` 2.2.28 was installed
   for the test build.
 - **Stage 0 inputs are ready** under `dev/trials/stage0/` (git-ignored):
@@ -54,13 +62,15 @@ first, then `dev/build-log.md`.
   can reach them. Expected flag-recall of all lints together: 25 to 35%.
   Run `recall_check()` on these once stage 3 is built; a lint with no
   reproduced finding, or flagging nearly everything, goes back to design.
+  (Closed 13 Nov: stage 0 ran, counts below.)
 - **Stage 3**: `dev/design-3.md` is the contract (decision 64). 3a is
   built and on `main` (5940aeb; its 206 tests pass after test faults
   were fixed). Implementers for 3b (`R/lint-prose.R`,
   `R/lint-pandoc.R`), 3c (`R/lint-code.R`) and 3d (`R/lint-doc.R`,
   tier-2 listing in `R/changes.R`) are running in worktrees; each
   commits on its branch, the orchestrator cherry-picks onto `main`,
-  runs `devtools::document()`, removes the worktree. The rule registry
+  runs `devtools::document()`, removes the worktree. (3b to 3d closed
+  13 Nov: built and merged.) The rule registry
   interface they were given is in the scratchpad `registry.md` (a rule
   is a function `lint_<id>` found by name). Some `changes()` tests of 3d
   need 3b's `claim-word`. After all three: stage 0
@@ -173,16 +183,19 @@ The sections above are history; this one is current.
   `inst/python/weft_guest.py`), 5e and 5f lints. Tests on `main`,
   failing by design until built: 5c and 5d (`test-guest-setup`,
   `-forms`, `-conditions`, `-reads`; implementer running in a
-  worktree), 5J Julia (`helper-5j.R`, `test-julia-*.R`; implementer
+  worktree; closed 13 Nov, 68decdf), 5J Julia (`helper-5j.R`, `test-julia-*.R`; implementer
   starts when 5c/5d land, same files). Then 5g the article, the spec
   editor for section 6 of the note, and a check workflow with Python
-  and Julia (O3, O16).
+  and Julia (O3, O16). (5c, 5d and 5J closed 13 Nov, 68decdf and
+  d7ea4c4; the spec for decision 68 closed 13 Nov, c9aa28f; the article,
+  79672d6.)
 - **Installed outside the repository for this:** Julia 1.13.3
   (Homebrew, with its dependencies), the R package JuliaCall,
   `~/.julia` (RCall); earlier, Homebrew `udunits`. Scratch virtualenvs
-  with Jupyter, numpy and pandas live only in the scratchpad.
+  with Jupyter, numpy and pandas live only in the scratchpad. (Superseded
+  27 Nov: the Jupyter Python is `~/.venvs/jupyter`.)
 - **Option (c) is to be built (Robin, 13 Nov: "Start on implementing
-  option c when you are ready").** All code of (a) is on `main`
+  option c when you are ready"; closed 14 Nov, stage 6 built).** All code of (a) is on `main`
   (5a to 5f, 5h, 5J); its article, spec text and a check workflow are
   being written in a worktree. The design note for (c) is being
   written as `dev/design-6.md` (values by name: a carrier block, a
@@ -191,6 +204,9 @@ The sections above are history; this one is current.
   rule on the note's questions, test-writer, implementer, review.
 - **Waiting on Robin:** the rmarkdown issue and PR draft
   (scratchpad `rmdfix/`, nothing posted); units PR #447 / issue #448.
+  (Closed: the rmarkdown issue was posted 13 Nov as #2648, and the thread
+  was dropped 27 Nov; #447 and #448 were superseded by upstream PR 449,
+  14 Nov.)
 - **Suite:** always through the scratchpad `suite/fresh-suite.sh`,
   which exports `HEAD` first (an earlier run tested a stale copy).
   Push only after a run whose failures are all by design.
@@ -234,7 +250,8 @@ Update: both drafts were recovered from the transcript (scratchpad
 `rmdfix-recovered/`). Robin said to post the issue; it is
 https://github.com/rstudio/rmarkdown/issues/2648 (13 Nov). The patch is
 not redone and no PR is open; Robin: "if they accept, it can be." Do
-not reply to maintainers there without Robin's say.
+not reply to maintainers there without Robin's say. (Dropped 27 Nov:
+nothing more to do on #2648.)
 
 reticulate (13 Nov): Robin asked for a look at rstudio/reticulate#1647
 (Python ints silently truncated to 32 bits). A local fix was reviewed;
@@ -243,7 +260,8 @@ ready for PR if maintainers want it." Done: fork `vorpalvorpal/reticulate`,
 branch `fix-large-int-conversion` (one commit, no Claude attribution),
 and a comment on #1647 pointing at it. No PR. Do not open one or reply
 there without Robin's say. Also posted with Robin's say: a follow-up
-comment on rmarkdown#2648 proposing `rmarkdown.input_file`.
+comment on rmarkdown#2648 proposing `rmarkdown.input_file`. (The
+reticulate #1647 thread was dropped 27 Nov; nothing more to do.)
 
 Stage 6 position: 6a, 6b, 6k, 6c, 6d, 6f merged on local `main`; 6g
 tests merged, implementer next; then 6e, 6h, 6i, 6j. Pushed through
@@ -261,20 +279,24 @@ Not pushed since dd63c56 (about 70 commits). Push when the suite is
 clean; that push is also the first real run of the CI fix (R's lib on
 `LD_LIBRARY_PATH`), and CI has no Jupyter yet.
 
-Left from stage 6, small:
+Left from stage 6, small (state on 27 Nov marked in brackets):
 - Fold the review rulings and the new message texts (in the 6L and 6R
   hand-backs, summarised in `dev/review-stage6.md` rulings) into
   `dev/PACKAGE-SCOPING.md` and the article's Limits (several limits
   listed there are now fixed: named length-1 vectors, bool lists,
-  `put()` under knitr, the double report, `auto()`'s gate).
+  `put()` under knitr, the double report, `auto()`'s gate). (Closed
+  14 Nov, ade02d9 and a4e2d03: the spec follows stages 6 and 7.)
 - E62's `Pkg.add(url=..., subdir=...)` line is untested against a real
-  julia engine worker.
+  julia engine worker. (Still open: open-findings item 18 of stage 6.)
 - `dev/open-findings.md`: stage-6 items 1, 2, 7 remain (R `fmt_pct`
   rounding past 15 digits; R chunk claims counting under `eval:
   false`; `.sci` whole mantissas); 9 to 19 are closed by 6L/6R.
+  (Items 1, 2 and 7 closed 14 Nov, f1aa153.)
 - Scratchpad: `suite/fresh-suite.sh` (run with
   `QUARTO_PYTHON=<scratchpad>/jupyter-venv/bin/python` so the Jupyter
   tests run), `jupyter-venv/`, `reticulate-1647/`, `rmdfix-recovered/`.
+  (The Jupyter Python is now `~/.venvs/jupyter`; the `jupyter-venv` path
+  is superseded, 27 Nov.)
 
 Then Robin's four items below, in order.
 
@@ -312,6 +334,8 @@ filters or `.Rprofile` lines installed into the real project.
 
 ## Queue
 
+(Closed 13 Nov: every item below was built by e8c1609.)
+
 1. Waiting items W1 to W4 (decision 63): units cache on by default;
    `dict_unmark()` exported; a compound prints as typed, names included;
    units a dictionary registers are removed with the project.
@@ -337,6 +361,9 @@ filters or `.Rprofile` lines installed into the real project.
 - Not done from the sweep: package F (test helpers: do F1 and F2 only, the
   rest is churn before a release), package H (structural leftovers, one at
   a time, whole suite after each), a Windows CI job (to raise with Robin).
+  (Package H is done except A18, one fence finder, which is open and in
+  progress 27 Nov; `dev/refactor-sweep.md`. Windows CI is deferred by
+  Robin.)
 - Waterways trial: survey in `dev/hw-comparison.md` (public) and
   `dev/trials/hw-system-survey.md` (ignored); the run writes
   `dev/hw-trial.md` and `dev/trials/hw2/`. Obvious wins to consider after
@@ -344,7 +371,8 @@ filters or `.Rprofile` lines installed into the real project.
   `xref` lint; plus sign and short `ci()`; `.p` digits and label; severity
   recipe; adoption recipe. Major questions A to H there are for Robin.
 - Still to do: whole suite on merged `main`, push (first real run of the
-  Linux CI fix), docs check, tag and release v0.1.
+  Linux CI fix), docs check, tag and release v0.1. (Closed 14 Nov: v0.1.0
+  tagged at 93d485c, a18543a.)
 
 ## Robin's rulings on the trial questions (14 Nov)
 
@@ -370,7 +398,7 @@ H. No register generation from commit trailers.
 
 Order agreed: plus sign, C, D, A, then the rest. B1 to B7 (Lua parity) were
 listed for Robin with my lean (B1 yes with strict evaluation, the rest no
-or hold); no answer yet.
+or hold); no answer yet. (Answered the same day: see "More rulings".)
 
 ## More rulings (14 Nov)
 
@@ -388,9 +416,11 @@ or hold); no answer yet.
   for conditions the static tools can read (plain comparisons of names
   and literals); other checks are grouped by text. Stage 7 package 7j,
   feature F9.
-- Open with Robin: default of `output_missing` (warn chosen); guest
-  `chunk_claims` later or never; table digests for Jupyter/Julia;
-  Windows CI job; v0.1 before or after stage 7.
+- Open with Robin: default of `output_missing` (warn chosen; confirmed
+  27 Nov); guest `chunk_claims` later or never (built 14 Nov, e56a20e and
+  ecf9c34); table digests for Jupyter/Julia (built 14 Nov, 85848b8,
+  afc6b00, 7393c1d); Windows CI job (deferred); v0.1 before or after stage
+  7 (after: released 14 Nov).
 
 ## units 1.0-1.7 and the crash (14 Nov, morning)
 
@@ -416,7 +446,9 @@ or hold); no answer yet.
   `install_unit(override = TRUE)`, no `units:::`). The
   alias policy is built (2026-11-25): weft refuses an `is` that is
   exactly another unit, in `ud_sync()`, before `install_unit()`.
-  Nothing more is posted there without Robin's say.
+  Nothing more is posted there without Robin's say. (Dropped 27 Nov:
+  Enchufa2's reply of 25 Nov, "gallon is a name, there is no symbol...",
+  needs no answer.)
 - The machine seized at about 07:26: `securityd` aborted ("error
   destroying Mutex: 16") under heavy keychain traffic and memory pressure,
   the login keychain locked, and every keychain read raised a password
@@ -425,9 +457,11 @@ or hold); no answer yet.
   no installs or git operations that touch the keychain (fetch tarballs
   with curl); no force-pushes (a brief that asked for one was refused).
 - The scratchpad was wiped: `suite/fresh-suite.sh` and `jupyter-venv/`
-  must be rebuilt before the next whole-suite run.
+  must be rebuilt before the next whole-suite run. (Closed 14 Nov, rebuilt;
+  the Jupyter Python is now `~/.venvs/jupyter`, 27 Nov.)
 - Uncommitted survivors: stage 7 test files for 7a, 7c, 7d (never run),
-  and feature F9 half-appended to `dev/design-7.md`.
+  and feature F9 half-appended to `dev/design-7.md`. (Closed 14 Nov:
+  stage 7 built.)
 
 ## Position and rulings (14 Nov, midday; read this first)
 
@@ -444,8 +478,8 @@ or hold); no answer yet.
   at least understood, before v0.1 is tagged. Next step per the finding:
   core dump and backtrace, or Julia 1.10 LTS. Work by probe branch and
   ordinary pushes only; delete the probe branch after.
-- Still open with Robin: `repeats` default of 3 in `checks()`; the list
-  in "More rulings" above.
+- Still open with Robin: `repeats` default of 3 in `checks()` (confirmed
+  27 Nov); the list in "More rulings" above (answered, see there).
 
 ## Position after stage 7 (14 Nov, evening; read this first)
 
@@ -464,14 +498,19 @@ or hold); no answer yet.
 - Scratchpad: `suite/fresh-suite.sh` (sets QUARTO_PYTHON) and
   `jupyter-venv/` were rebuilt after the restart.
 - Left: watch CI on 2d9574b; bump the version to 0.1.0 (DESCRIPTION,
-  README status line), tag and release v0.1.0 on GitHub; package H of
-  the refactor sweep; findings 1, 2, 7, 21; `claim-word` noise; the
-  units switch (done 2026-11-25; the alias-policy tests remain); Windows CI (Robin).
-- Open with Robin: `output_missing` default (warn chosen); `repeats`
-  default 3; guest `chunk_claims`; table digests for Jupyter and Julia;
+  README status line), tag and release v0.1.0 on GitHub (closed 14 Nov,
+  93d485c, a18543a); package H of the refactor sweep (done except A18,
+  in progress 27 Nov); findings 1, 2, 7, 21 (closed 14 Nov, f1aa153 and
+  46ba812); `claim-word` noise (closed 14 Nov, dcdf348); the units switch
+  (done 2026-11-25; the alias-policy tests remain, open, in progress
+  27 Nov); Windows CI (Robin; deferred).
+- Open with Robin: `output_missing` default (warn chosen; confirmed
+  27 Nov); `repeats` default 3 (confirmed 27 Nov); guest `chunk_claims`
+  (built 14 Nov); table digests for Jupyter and Julia (built 14 Nov);
   the hint "Publish it in code above" now that a publication below
-  works; a CRAN release of JuliaCall with its libunwind fix (ask
-  upstream or not); attribution on upstream posts.
+  works (reworded 14 Nov, 45b1457); a CRAN release of JuliaCall with its
+  libunwind fix (ask upstream or not; Robin 27 Nov: a JuliaCall libunwind
+  issue is to be drafted); attribution on upstream posts.
 
 ## Released (14 Nov)
 
@@ -480,9 +519,15 @@ or hold); no answer yet.
 - One Linux-only flake fixed on the way: a two-chapter test project gave
   Quarto no render order. Other multi-file test projects without
   `render:` have not been audited.
-- After the release, still open: package H of the refactor sweep;
-  findings 1, 2, 7, 21; `claim-word` noise; the alias-policy tests left by the units switch (done 2026-11-25);
-  Windows CI; the questions listed under "Position after stage 7".
+- After the release, still open: package H of the refactor sweep (done
+  except A18, in progress 27 Nov); findings 1, 2, 7, 21 (closed 14 Nov);
+  `claim-word` noise (closed 14 Nov); the alias-policy tests left by the
+  units switch (done 2026-11-25; the tests are open, in progress 27 Nov);
+  Windows CI (deferred); the questions listed under "Position after stage 7".
+  (Status on 27 Nov: package H done but A18 (in progress); findings 1, 2,
+  7, 21 and `claim-word` noise closed 14 Nov; the alias-policy tests open,
+  in progress 27 Nov; Windows CI deferred by Robin; the questions answered
+  in "Position and rulings, 27 Nov" at the end.)
 
 ## Weft everywhere: approved and in progress (25 Nov)
 
@@ -527,6 +572,10 @@ Status (26 Nov, overnight build):
   `dev/decisions.md`, end of "Simplify pass".
 
 ## Goal noted: weft everywhere (14 Nov, from Robin; superseded 25 Nov)
+
+(Quoting, the plain and ANSI targets and gating `.R` files were built as
+packages Q and E1 to E4, 25 to 26 Nov. Left: the three "Later" pieces,
+to be done 27 Nov; see the last section.)
 
 Robin's goal: weft markup should be usable everywhere text is produced,
 not only in the prose of a Quarto or R Markdown document. Places raised
@@ -592,11 +641,14 @@ One wording for the static errors (A11) was ruled "unify" and done on
 15 Nov: the render-time texts are the scanner's, and the Lua twins follow
 in a later step.
 
-Open, waiting on Robin: the pieces of "weft everywhere" (section
-above); the default `skills` folders of `use_agent_docs()`. Deferred by Robin: Windows CI; the untested areas
+Open, waiting on Robin (as of 15 Nov): the pieces of "weft everywhere"
+(section above; planned 25 Nov, the "Later" three to be done 27 Nov); the
+default `skills` folders of `use_agent_docs()` (ruled 15 Nov: `"agents"`
+only, `dev/design-agent-docs.md` "Ruling, 15 Nov 2026"; written in
+72a1d3b; no longer waiting). Deferred by Robin: Windows CI; the untested areas
 (Render and Knit buttons, Windows, a real `renv`); project formatters
 for named values in Jupyter and Julia documents. Done 2026-11-25: the `units`
-switch (the alias-policy tests remain). At the next release: bump the version and
+switch (the alias-policy tests remain: open, in progress 27 Nov). At the next release: bump the version and
 run `dev/make-skill-folder.R`.
 
 E4 review K10, fixed 2026-11-26 (simplify pass, batch 2): the phrase literals of `lookup()` and
@@ -605,8 +657,35 @@ E4 review K10, fixed 2026-11-26 (simplify pass, batch 2): the phrase literals of
 mapped offset, so an escaped newline no longer moves it a line down. Every R code region of a document
 (chunk bodies, `!expr` captions, header caption code) comes from one `chunk_code_regions()`, parsed once.
 
-Jupyter tests, 2026-11-27: the Python with Jupyter now lives outside the scratchpad, at
+Jupyter tests, 2026-11-27 (this supersedes every earlier line that points
+at `<scratchpad>/jupyter-venv`): the Python with Jupyter now lives outside the scratchpad, at
 `~/.venvs/jupyter` (uv venv: jupyter_client, ipykernel, nbformat, nbclient, pyyaml), so a wipe no
 longer loses it. Run the suite with `QUARTO_PYTHON=$HOME/.venvs/jupyter/bin/python`; without it the
 Jupyter tests skip. With it, the nine Jupyter test files (69 tests, the Python rows of
 `chunk-claims.tsv` among them) pass with none skipped.
+
+## Position and rulings (27 Nov; read this first)
+
+Robin's rulings today:
+
+- **Dropped, nothing more to do:** the units #451 maintainer reply
+  (Enchufa2, 25 Nov: "gallon is a name, there is no symbol..."); the
+  rmarkdown #2648 and reticulate #1647 threads.
+- **Confirmed as they are:** the `output_missing` default (warn) and the
+  `repeats` default of 3 in `checks()`.
+- **To be done now:**
+  - the alias-policy tests (open, in progress 27 Nov);
+  - Quarto bug reports, drafted for Robin to post;
+  - a JuliaCall libunwind issue, drafted;
+  - reading front matter from `_quarto.yml` and `_metadata.yml` and from
+    included files, plus Jupyter front-matter tests;
+  - the three "Later" pieces of weft everywhere
+    (`dev/plan-weft-everywhere.md`): self-formatting values, an HTML
+    target with rich plot text, and a claim collector for scripts;
+  - package H's A18, one fence finder (in progress 27 Nov).
+- **Also open:** the review-closing and targets test warnings (fixture
+  warnings leaking from in-process `tar_make`), being fixed 27 Nov.
+- **Fixed today:** `unit_md_to_tex` is linear in the length of the unit
+  (75ee7fa).
+- **Still deferred by Robin:** Windows CI; the untested areas (Render and
+  Knit buttons, Windows, a real `renv`).
