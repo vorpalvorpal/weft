@@ -3,8 +3,9 @@
 #   quarto_engine(lines) "knitr", "jupyter", "julia" or "markdown", by Quarto's rule
 # doc_is_jupyter(), doc_is_julia() and filter_resolves() answer from the same reading.
 #
-# One case rule for chunk languages: only the lower-case `{python}`, `{julia}` and `{r}` are executable
-# chunks (Quarto's own rule); `{Python}` and `{Julia}` are not, so a document holding only those is markdown.
+# One case rule for chunk languages: Quarto lower-cases the language it reads from a chunk header
+# (languagesWithClasses() in Quarto 1.11.9, checked with `quarto inspect` on `{Python}`, `{PYTHON}`, `{Julia}`
+# and `{R}`), so `{Python}` is Jupyter, `{Julia}` is Julia and `{R}` is knitr (ruling 27 Nov, 1cb2897).
 
 # ---- front_block() ---------------------------------------------------------------------------------------------
 
@@ -62,8 +63,8 @@ ENGINE_DOCS <- list(
   jupyter_key_vs_r   = list(c(fm("jupyter: python3"), chunk("r")), "jupyter"),
   fence_in_4_ticks   = list(c(fm(), "````", fence("python"), "1", "```", "````", "prose"), "markdown"),
   four_ticks_real    = list(c(fm(), "````", fence("python"), "````", chunk("julia")), "julia"),
-  upper_python       = list(c(fm(), chunk("Python")), "markdown"),
-  upper_julia        = list(c(fm(), chunk("Julia")), "markdown"),
+  upper_python       = list(c(fm(), chunk("Python")), "jupyter"),
+  upper_julia        = list(c(fm(), chunk("Julia")), "julia"),
   no_front_block     = list(chunk("python"), "jupyter"),
   indented_chunk     = list(c(fm(), paste0("  ", fence("python")), "  1", "  ```"), "jupyter")
 )
@@ -74,9 +75,9 @@ test_that("sweep D quarto_engine: Quarto's rule on a table of documents", {
   }
 })
 
-test_that("sweep D quarto_engine: one case rule for {Python} and {Julia}, lower case only", {
-  expect_identical(weft:::quarto_engine(c(fm(), chunk("Python"))), "markdown")
-  expect_identical(weft:::quarto_engine(c(fm(), chunk("Julia"))), "markdown")
+test_that("sweep D quarto_engine: one case rule for {Python} and {Julia}: Quarto lower-cases the language", {
+  expect_identical(weft:::quarto_engine(c(fm(), chunk("Python"))), "jupyter")
+  expect_identical(weft:::quarto_engine(c(fm(), chunk("Julia"))), "julia")
   # an upper-case chunk does not hide a lower-case one beside it
   expect_identical(weft:::quarto_engine(c(fm(), chunk("Python"), chunk("julia"))), "julia")
 })

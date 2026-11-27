@@ -33,12 +33,16 @@ EFA_MB_CASES <- list(
   efa_mb("R2-chunk-indented-4-is-a-chunk", c("para", "", "    ```{r}", "    x", "", EFA_PROBE, "    ```"), "stop"),
   # R3: an unclosed fence runs to the end
   efa_mb("R3-unclosed-chunk-swallows", c("```{r}", "x", "", EFA_PROBE), "stop"),
-  efa_mb("R3-unclosed-plain-swallows", c("```text", "x", "", EFA_PROBE), "stop"),
-  efa_mb("R3-unclosed-tilde-swallows", c("~~~", "x", "", EFA_PROBE), "stop"),
+  # amended 27 Nov (1cb2897): Pandoc's markdown reader reads an unclosed plain fence as no fence, so its text is
+  # prose and a later block is a block (an unclosed chunk is still a chunk to knitr, which runs it to the end)
+  efa_mb("R3-unclosed-plain-fence-is-prose", c("```text", "x", "", EFA_PROBE), "collect"),
+  efa_mb("R3-unclosed-tilde-fence-is-prose", c("~~~", "x", "", EFA_PROBE), "collect"),
+  efa_mb("R3-unclosed-plain-fence-closed-later-hides", c("```text", "x", "", EFA_PROBE, "```"), "stop"),
   # R4: quotes
-  efa_mb("R4-quoted-unclosed-fence-ends-with-quote", c("> ```", "> a", "", EFA_PROBE, "t"), "collect"),
+  efa_mb("R4-quoted-unclosed-fence-is-prose", c("> ```", "> a", "", EFA_PROBE, "t"), "collect"),
   efa_mb("R4-quoted-closed-fence", c("> ```", "> x", "> ```", "", EFA_PROBE), "collect"),
-  efa_mb("R4-quoted-line-does-not-close-outside-fence", c("```", "> ```", "", EFA_PROBE), "stop"),
+  efa_mb("R4-unclosed-plain-fence-with-a-quoted-line-is-prose", c("```", "> ```", "", EFA_PROBE), "collect"),
+  efa_mb("R4-quoted-line-does-not-close-outside-fence", c("```", "> ```", "", EFA_PROBE, "```"), "stop"),
   efa_mb("R4-chunk-quoted-line-closes-unquoted-chunk", c("```{r}", "> ```", "", EFA_PROBE), "collect"),
   efa_mb("R4-chunk-unquoted-closer-closes-quoted-chunk", c("> ```{r}", "> x", "```", "", EFA_PROBE), "collect"),
   efa_mb("R4-chunk-quoted-unclosed-runs-to-the-end", c("> ```{r}", "> x", "", EFA_PROBE), "stop"),
@@ -146,6 +150,13 @@ efa_quarto_engine <- function(lines) {
 # what Pandoc (reading `fmt`) makes of a document holding one fence whose body line is x: "fence" when the
 # body line is the content of a CodeBlock (the fence was read as a fence), "code" when the CodeBlock holds the
 # fence lines themselves (an indented code block), "none" when there is no CodeBlock
+# and efa_pandoc_has_meta(lines, "weft") says whether Pandoc reads a metadata block that sets that key
+efa_pandoc_has_meta <- function(lines, key, fmt = "markdown") {
+  out <- suppressWarnings(system2("quarto", c("pandoc", "-f", fmt, "-t", "json"),
+                                  input = paste0(paste(lines, collapse = "\n"), "\n"), stdout = TRUE, stderr = FALSE))
+  key %in% names(jsonlite::fromJSON(paste(out, collapse = "\n"), simplifyVector = FALSE)$meta)
+}
+
 efa_pandoc_verdict <- function(lines, fmt = "markdown") {
   out <- suppressWarnings(system2("quarto", c("pandoc", "-f", fmt, "-t", "json"),
                                   input = paste0(paste(lines, collapse = "\n"), "\n"), stdout = TRUE, stderr = FALSE))
@@ -236,6 +247,7 @@ EFA_ENGINE_CASES <- list(
   efa_eng("engine-knitr-with-markdown-key-stays-knitr", c("engine: knitr", "markdown: true"), EFA_PROSE, "knitr"),
   # the julia engine is looked at before knitr, so a knitr key does not beat it
   efa_eng("engine-julia-beats-knitr-key", c("engine: julia", "knitr: true"), EFA_PROSE, "julia"),
+  efa_eng("engine-julia-beats-knitr-map", c("engine: julia", EFA_KNITR_MAP), EFA_PROSE, "julia"),
   # controls
   efa_eng("knitr-map-alone-is-knitr", EFA_KNITR_MAP, EFA_PROSE, "knitr"),
   efa_eng("knitr-key-with-python-chunk-is-knitr", EFA_KNITR_MAP, EFA_PYCHUNK, "knitr"),
@@ -257,10 +269,9 @@ sp <- function(n) strrep(" ", n)
 # a fence of `n` spaces' indent, body line x, closed
 efa_fence_at <- function(n, ch = "```") paste0(sp(n), c(ch, "x", ch))
 
-# a case: the lines, `want` ("fence" or "code") as Pandoc reads it. `cm_only` marks a case where Pandoc's
-# markdown reader and its commonmark reader differ: then `want` is the CommonMark reading, which the ruling
-# follows.
-efa_li <- function(name, lines, want, cm_only = FALSE) list(name = name, lines = lines, want = want, cm_only = cm_only)
+# a case: the lines, `want` ("fence", "code" or "none") as `pandoc -f markdown` reads it (the ruling of 27 Nov,
+# 1cb2897: plain fences follow Pandoc's markdown reader, which Quarto uses, wherever it differs from CommonMark)
+efa_li <- function(name, lines, want) list(name = name, lines = lines, want = want)
 
 EFA_LIST_CASES <- list(
   # controls: no list
@@ -309,12 +320,16 @@ EFA_LIST_CASES <- list(
   # lazy continuation: a fence line with no indent ends the list, and is a plain top-level fence
   efa_li("lazy-line-then-fence-at-2", c("- item", "lazy", efa_fence_at(2)), "fence"),
   efa_li("lazy-line-then-fence-at-0", c("- item", "lazy", efa_fence_at(0)), "fence"),
-  # a fence with no blank line before it, in a list item: Pandoc's markdown reader does not read it as a fence
-  # (it reads the lines as inline code); CommonMark does (a fence can interrupt a paragraph)
-  efa_li("lazy-line-then-fence-at-4 (CommonMark)", c("- item", "lazy", efa_fence_at(4)), "fence", cm_only = TRUE),
-  efa_li("no-blank-line-fence-at-4 (CommonMark)", c("- item", efa_fence_at(4)), "fence", cm_only = TRUE),
+  # a fence with no blank line before it, in a list item: Pandoc's markdown reader does not read it as a fence (it
+  # reads the lines as inline code or text); CommonMark does, and the ruling follows Pandoc
+  efa_li("lazy-line-then-fence-at-4-is-no-fence", c("- item", "lazy", efa_fence_at(4)), "none"),
+  efa_li("no-blank-line-fence-at-4-is-no-fence", c("- item", efa_fence_at(4)), "none"),
   efa_li("no-blank-line-fence-at-2", c("- item", efa_fence_at(2)), "fence"),
-  efa_li("no-blank-line-fence-at-6-is-no-fence-for-either", c("- item", efa_fence_at(6)), "none")
+  efa_li("no-blank-line-fence-at-6-is-no-fence-for-either", c("- item", efa_fence_at(6)), "none"),
+  # an empty list item: its content column is 2 (Pandoc markdown reads a fence; CommonMark reads code)
+  efa_li("empty-item-fence-at-4", c("-", "", efa_fence_at(4)), "fence"),
+  efa_li("empty-item-fence-at-2", c("-", "", efa_fence_at(2)), "fence"),
+  efa_li("empty-item-fence-at-6-is-code", c("-", "", efa_fence_at(6)), "code")
 )
 
 # ---- group 4: the last line of an unclosed chunk ---------------------------------------------------------
@@ -338,3 +353,27 @@ EFA_LAST_CASES <- list(
   efa_last("tar-cache-with-a-read-on-the-last-line", c("```{r}", "#| label: z", "#| cache: true", "tar_read(fitt)"), "tar-cache@4", "tar-cache"),
   efa_last("a-reference-to-a-label-on-the-last-line", c("See @fig-d.", "", "```{r}", "#| label: fig-d", "#| fig-cap: C", "#| fig-alt: A"), character(), c("xref", "anchor-unused", "figure"))
 )
+
+# a project's `engines:` list puts those engines ahead of the others in Quarto's loop (checked with `quarto inspect`,
+# 1.11.9): with jupyter first, the `jupyter:` key, or `engine: jupyter`, beats a `knitr:` key; with markdown first
+# the `knitr:` key still wins (markdown has no key here)
+efa_proj <- function(name, engines, fm, want) {
+  list(name = name, want = want,
+       files = list("_quarto.yml" = c("project:", "  title: p", paste0("engines: ", engines)),
+                    "doc.qmd" = c("---", fm, "---", "", EFA_PROSE)))
+}
+EFA_PROJECT_CASES <- list(
+  efa_proj("project-engines-jupyter-first-jupyter-key-beats-knitr-key", "[jupyter, knitr]", c("jupyter: python3", "knitr: true"), "jupyter"),
+  efa_proj("project-engines-jupyter-first-engine-jupyter-beats-knitr-key", "[jupyter, knitr]", c("engine: jupyter", "knitr: true"), "jupyter"),
+  efa_proj("project-engines-markdown-first-knitr-key-still-wins", "[markdown]", "knitr: true", "knitr"),
+  efa_proj("project-engines-knitr-first-knitr-key-wins", "[knitr, jupyter]", c("engine: jupyter", "knitr: true"), "knitr")
+)
+
+efa_project_write <- function(cases, env = parent.frame()) {
+  base <- normalizePath(withr::local_tempdir(.local_envir = env), winslash = "/")
+  vapply(seq_along(cases), function(i) {
+    d <- file.path(base, sprintf("p%02d", i))
+    for (nm in names(cases[[i]]$files)) f3_write(file.path(d, nm), cases[[i]]$files[[nm]])
+    d
+  }, "")
+}

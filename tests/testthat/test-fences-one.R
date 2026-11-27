@@ -14,9 +14,11 @@
 #   R1  a backtick fence whose info string holds a backtick is not an opener; a tilde fence's may
 #   R2  a closer has the same character, is at least as long, and has only spaces after it; a fence is
 #       indented at most 3 spaces
-#   R3  an unclosed fence runs to the end of the document: the last line is n, and the finder says unclosed
-#   R4  a fence opened inside a block quote ends where its quote ends; a quoted line does not close a fence
-#       that started outside a quote
+#   R3  an unclosed CHUNK runs to the end of the document: the last line is n, and the finder says unclosed.
+#       An unclosed PLAIN fence is no fence (late amendment 27 Nov, 1cb2897, dev/decisions.md: plain fences follow
+#       `pandoc -f markdown`, which Quarto uses, wherever it differs from CommonMark): its text is prose.
+#   R4  a plain fence opened inside a block quote and never closed is no fence either; a quoted line does not
+#       close a fence that started outside a quote (a plain fence closed by its own closer is a fence)
 #   R5  a YAML block inside a fence is not front matter; a fence inside an HTML comment is not a fence
 #
 # The finders and their shapes (no finder is called from another test file):
@@ -179,9 +181,11 @@ test_that("R3 (chunk): an unclosed chunk ends at the last line n in every finder
   expect_false(fo_ch_closed(l, 1L))
 })
 
-test_that("R3 (plain and chunk): trailing blank lines are part of the unclosed fence", {
-  expect_identical(fo_fb_close(c("~~~", "x <- 1", "", ""), 1L), 4L)
-  expect_identical(fo_fb_close(c("```", "text"), 1L), 2L)
+test_that("R3 (chunk; plain is no fence when unclosed): trailing blank lines are part of an unclosed chunk", {
+  # (plain: an unclosed fence is no fence to Pandoc's markdown reader, 27 Nov late amendment)
+  expect_true(is.na(fo_fb_close(c("~~~", "x <- 1", "", ""), 1L)))
+  expect_true(is.na(fo_fb_close(c("```", "text"), 1L)))
+  expect_identical(fo_fb_close(c("~~~", "x <- 1", "~~~", ""), 1L), 3L)
   l <- c("```{r}", "x <- 1", "", "")
   expect_identical(fo_fb_close(l, 1L), 4L)
   expect_identical(fo_ch_close(l, 1L), 4L)
@@ -195,9 +199,10 @@ test_that("R3: a closed fence is marked closed, and its close is the closer", {
   expect_true(fo_ch_closed(l, 1L))
 })
 
-test_that("R3: an unclosed fence, plain or chunk, swallows a later metadata block", {
+test_that("R3: an unclosed chunk swallows a later metadata block; an unclosed plain fence does not (27 Nov late amendment)", {
   expect_identical(fo_mb_pairs(c("```{r}", "x", "", "---", "k: v", "---")), character())
-  expect_identical(fo_mb_pairs(c("```text", "x", "", "---", "k: v", "---")), character())
+  # pandoc -f markdown reads the block as metadata (checked in test-engine-fence-agree.R)
+  expect_identical(fo_mb_pairs(c("```text", "x", "", "---", "k: v", "---")), "4-6")
 })
 
 test_that("R3 (lints): an unclosed {r} fence gives the findings of the same fence closed on a last line", {
@@ -211,9 +216,9 @@ test_that("R3 (lints): an unclosed {r} fence gives the findings of the same fenc
 
 # ---- R4: fences and block quotes -------------------------------------------------------------------------
 
-test_that("R4 (plain): a quoted, unclosed fence closes at its quote's last line", {
+test_that("R4 (plain): a quoted, unclosed fence is no fence (pandoc -f markdown reads it as prose; 27 Nov late amendment)", {
   l <- c("> ```", "> x", "", "para")
-  expect_identical(fo_fb_close(l, 1L), 2L)
+  expect_true(is.na(fo_fb_close(l, 1L)))
 })
 
 test_that("R4 (plain): a quoted fence closed by a quoted closer is closed", {
@@ -225,8 +230,11 @@ test_that("R4 (plain): a metadata block after a quoted unclosed fence is read", 
 })
 
 test_that("R4 (plain): a quoted line does not close a fence that started outside a quote", {
-  expect_identical(fo_fb_close(c("```", "> ```", "x"), 1L), 3L)
-  expect_identical(fo_mb_pairs(c("```", "> ```", "", "---", "k: v", "---")), character())
+  # unclosed, so no fence at all to Pandoc's markdown reader (27 Nov late amendment); closed by its own closer it is one
+  expect_true(is.na(fo_fb_close(c("```", "> ```", "x"), 1L)))
+  expect_identical(fo_fb_close(c("```", "> ```", "x", "```"), 1L), 4L)
+  expect_identical(fo_mb_pairs(c("```", "> ```", "", "---", "k: v", "---")), "4-6")
+  expect_identical(fo_mb_pairs(c("```", "> ```", "", "---", "k: v", "---", "```")), character())
 })
 
 test_that("R4 (chunk): knitr's rule is the engine's, not the quote's: a quoted line closes an unquoted chunk", {
@@ -272,7 +280,9 @@ test_that("R4 (scan_text, find_fences): a metadata block after a quoted unclosed
 # (ruling 27 Nov: knitr runs inline R in a plain fence, test-scan.R "inline R in a fenced block that
 # is not a chunk is read", so a bracketed span, which a fence does hide, tests the rule)
 test_that("R4 (scan_text, find_fences): a quoted line does not close an outside fence, so its text is not scanned", {
-  expect_equal(nrow(fo_scan(c("```", "> ```", "[a | b]{if=\"x\"}"))), 0L)
+  # (an unclosed plain fence is no fence, 27 Nov late amendment, so its text is scanned)
+  expect_equal(nrow(fo_scan(c("```", "> ```", "[a | b]{if=\"x\"}"))), 1L)
+  expect_equal(nrow(fo_scan(c("```", "> ```", "[a | b]{if=\"x\"}", "```"))), 0L)
   r <- fo_scan(c("```", "> ```", "[a | b]{if=\"x\"}", "```", "[c | d]{if=\"y\"}"))
   expect_identical(r$line, 5L)
 })
@@ -325,4 +335,15 @@ test_that("R5 (chunk): knitr finds a chunk opened inside a plain fence", {
 test_that("R5 (lints): a {r} chunk inside an HTML comment gets its chunk finding; a plain fence there gets none", {
   r <- fo_lint(c("<!--", "```{r}", "x <- 1", "```", "-->"))
   expect_true(any(r$rule == "chunk-label" & r$line == 2L))
+})
+
+# ---- the oracle for the 27 Nov late amendment: `pandoc -f markdown` ------------------------------------------
+
+test_that("amendment 27 Nov: Pandoc's markdown reader reads an unclosed plain fence, and a quoted one, as prose", {
+  skip_if(!nzchar(Sys.which("quarto")), "quarto is not available")
+  expect_identical(efa_pandoc_verdict(c("```text", "x", "", "para")), "none")
+  expect_identical(efa_pandoc_verdict(c("> ```", "> x", "", "para")), "none")
+  # the same fences closed are fences
+  expect_identical(efa_pandoc_verdict(c("```text", "x", "```")), "fence")
+  expect_identical(efa_pandoc_verdict(c("> ```", "> x", "> ```")), "fence")
 })

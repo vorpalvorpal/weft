@@ -10,6 +10,8 @@
 #     is a block that sets `weft: chunk_claims: collect`: a reader that finds it as a block gives "collect", one
 #     that sees it inside a fence, or not at all, gives the default "stop". Patterns after
 #     test-include-front-matter.R and test-notebook-front-matter.R.
+# G1b An unclosed plain fence is no fence to Pandoc's markdown reader: its text is prose. Oracle: `pandoc -f markdown
+#     -t json` (the cases of G1 that are unclosed, checked in the test below); chunks still run to the end (knitr).
 # G2  Which chunk headers choose Quarto's knitr engine, and which knitr runs. Two views, two oracles:
 #       the engine Quarto picks: `quarto inspect` on a real file (Quarto 1.11.9; the language regex of
 #         languagesWithClasses() in src/core/jupyter/... is `^[\t >]*```+\s*\{([a-zA-Z][a-zA-Z0-9_.]*)([^}]*)?\}\s*$`,
@@ -20,9 +22,11 @@
 #     Quarto's reading decides the engine (filter_resolves(), quarto_engine(), the Lua source_is_knitr());
 #     knitr's decides what runs (find_chunks()). The conformance grammar table's row for `{ r }` says knitr; Quarto
 #     says markdown (see the last test of the group).
-# G3  Plain fences inside list items (CommonMark: the indent is measured from the item's content column; 4 or more
-#     past it is indented code). Oracle: `quarto pandoc -f markdown -t json` on each document (the verdict is
-#     checked inside the test as a control), with `-f commonmark` for the cases where the two readers differ.
+# G3  Plain fences inside list items (the indent is measured from the item's content column; 4 or more past it is
+#     indented code). Oracle: `quarto pandoc -f markdown -t json` on each document (the verdict is checked inside
+#     the test as a control). Ruling 27 Nov (1cb2897): plain fences follow Pandoc's markdown reader, not CommonMark,
+#     so a fence with no blank line before it, at indent 4 in a list item, is no fence, and an empty list item has
+#     content column 2.
 # G4  The last line of an unclosed chunk is a code line. The lint rules that read a chunk's code lines (design-3.md
 #     L34, L35, L26: chunk-label, figure, table-caption, anchor-unused, xref, dict-assign, dict-key, tar-cache).
 #     Oracle: knitr, which reads `#| label: x` on the last line of an unclosed chunk as the label.
@@ -44,6 +48,25 @@ test_that("G1 (R): the oracle itself: read_front_matter() and metadata_blocks() 
     expect_identical(efa_r_claims(dirs[[i]]), efa_wants[[i]], label = efa_names[[i]])
     n <- nrow(as.data.frame(weft:::metadata_blocks(EFA_MB_CASES[[i]]$lines)))
     expect_identical(n, if (efa_wants[[i]] == "collect") 1L else 0L, label = paste("blocks:", efa_names[[i]]))
+  }
+})
+
+test_that("G1 (oracle): Pandoc reads the probe as a metadata block exactly where the table says collect", {
+  efa_skip_if_no_quarto()
+  # Chunks are knitr's, not Pandoc's, so only the cases with no `{r}` header are checked here. One plain case is left
+  # out: Pandoc's markdown reader reads a fence only when its info string is one word or an attribute block, so
+  # "~~~ a`b" is no fence to it (it reads prose, so the probe below it would be a block), where CommonMark and the
+  # R1 ruling say a tilde fence's info may hold a backtick. Reported to the coordinator, not yet ruled.
+  for (cs in EFA_MB_CASES) {
+    if (any(grepl("^[ >]*(```|~~~)+ ?\\{", cs$lines)) || cs$name == "R1-tilde-info-backtick-is-a-fence") next
+    expect_identical(efa_pandoc_has_meta(cs$lines, "weft"), cs$want == "collect", label = cs$name)
+  }
+})
+
+test_that("G1b (oracle): Pandoc reads an unclosed plain fence as prose, not as a fence", {
+  efa_skip_if_no_quarto()
+  for (l in list(c("```text", "x"), c("~~~", "x"), c("```", "> ```", "x"), c("> ```", "> x", "", "para"), c("```", "x", "", "para"))) {
+    expect_identical(efa_pandoc_verdict(l), "none", label = paste(l, collapse = " / "))
   }
 })
 
@@ -166,11 +189,11 @@ efa_fence_close <- function(lines) {
 test_that("G3 (oracle): Pandoc reads each case as the table says", {
   efa_skip_if_no_quarto()
   for (cs in EFA_LIST_CASES) {
-    expect_identical(efa_pandoc_verdict(cs$lines, if (cs$cm_only) "commonmark" else "markdown"), cs$want, label = cs$name)
+    expect_identical(efa_pandoc_verdict(cs$lines), cs$want, label = cs$name)
   }
 })
 
-test_that("G3 (R): fence_blocks() finds a fence in a list item where CommonMark does, and none where it is code", {
+test_that("G3 (R): fence_blocks() finds a fence in a list item where Pandoc markdown does, and none where it is code or prose", {
   for (cs in EFA_LIST_CASES) {
     got <- efa_fence_close(cs$lines)
     if (cs$want == "fence") {
@@ -244,5 +267,38 @@ test_that("G5 (Lua): config.source_is_knitr() says knitr exactly when Quarto pic
   for (i in seq_along(EFA_ENGINE_CASES)) {
     expect_identical(got[[i]], if (EFA_ENGINE_CASES[[i]]$quarto == "knitr") "knitr" else "filter",
                      label = EFA_ENGINE_CASES[[i]]$name)
+  }
+})
+
+# a project's engines: list (Quarto 1.11.9 `quarto inspect`): the same order, with the project's engines first
+test_that("G5 (projects, oracle): Quarto picks the engine the table says when the project lists engines", {
+  efa_skip_if_no_quarto()
+  dirs <- efa_project_write(EFA_PROJECT_CASES)
+  for (i in seq_along(EFA_PROJECT_CASES)) {
+    out <- suppressWarnings(system2("quarto", c("inspect", shQuote(file.path(dirs[[i]], "doc.qmd"))), stdout = TRUE, stderr = FALSE))
+    j <- jsonlite::fromJSON(paste(out, collapse = "\n"), simplifyVector = FALSE)
+    expect_identical(j$engines[[1]], EFA_PROJECT_CASES[[i]]$want, label = EFA_PROJECT_CASES[[i]]$name)
+  }
+})
+
+test_that("G5 (projects, R): quarto_engine(lines, file) follows the project's engines: list", {
+  dirs <- efa_project_write(EFA_PROJECT_CASES)
+  for (i in seq_along(EFA_PROJECT_CASES)) {
+    f <- file.path(dirs[[i]], "doc.qmd")
+    expect_identical(weft:::quarto_engine(readLines(f), f), EFA_PROJECT_CASES[[i]]$want, label = EFA_PROJECT_CASES[[i]]$name)
+  }
+})
+
+test_that("G5 (projects, Lua): config.source_is_knitr() follows the project's engines: list", {
+  skip_if_no_lua_pandoc()
+  dirs <- efa_project_write(EFA_PROJECT_CASES)
+  script <- file.path(dirname(dirs[[1]]), "driver-knitr.lua")
+  writeLines(EFA_LUA_KNITR, script)
+  res <- lua_run(script, c(file.path(dirname(filter_path("weft.lua")), "weftlib"), unname(dirs)))
+  got <- strsplit(res$stdout, "\n", fixed = TRUE)[[1]]
+  expect_identical(length(got), length(dirs), label = res$stderr)
+  if (length(got) != length(dirs)) return(invisible())
+  for (i in seq_along(dirs)) {
+    expect_identical(got[[i]], if (EFA_PROJECT_CASES[[i]]$want == "knitr") "knitr" else "filter", label = EFA_PROJECT_CASES[[i]]$name)
   }
 })

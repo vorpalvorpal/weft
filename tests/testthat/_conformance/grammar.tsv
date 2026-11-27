@@ -145,7 +145,7 @@ doc	```{r}%0Ax%20<-%201%0A```	knitr
 doc	```{r}%0A```	knitr	
 doc	```{r%20setup}%0Ax%20<-%201%0A```	knitr	
 doc	```{R}%0Ax%20<-%201%0A```	knitr	
-doc	```{%20r%20}%0Ax%20<-%201%0A```	knitr	
+doc	```{%20r%20}%0Ax%20<-%201%0A```	filter	
 doc	```{r,%20echo=FALSE}%0Ax%20<-%201%0A```	knitr	
 doc	```{rust}%0Afn%20main()%20{}%0A```	filter	
 doc	```{python}%0Ax%20=%201%0A```	filter	
