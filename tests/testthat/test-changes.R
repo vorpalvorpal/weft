@@ -427,6 +427,18 @@ test_that("2e-2 C7: the second occurrence is keyed by occ", {
   expect_identical(c(r$text_before, r$text_after), c("2", "3"))
 })
 
+test_that("2e-2 C10: a condition log is not a ledger: identical logs on both sides add no ledger and no change", {
+  skip_if(Sys.which("git") == "")
+  cl <- list(e2x_cond("fit", "Model failed."))
+  dir <- e2x_scenario(list(e2x_entry()), list(e2x_entry()), conds_before = cl, conds_after = cl)
+  ch <- changes(path = dir)
+  expect_identical(nrow(ch$ledgers), 1L)
+  expect_identical(ch$ledgers$ledger, "a.qmd")
+  expect_identical(nrow(ch$conditions), 0L)
+  expect_identical(nrow(ch$entries), 0L)
+  expect_identical(nrow(ch$findings), 0L)
+})
+
 # ---- C10: conditions ---------------------------------------------------------------------------
 
 test_that("2e-2 C10: a condition line not in the log at since is new, with the table's columns", {

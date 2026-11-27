@@ -8,6 +8,18 @@ arms_main <- function() {
   .e1_cache$arms
 }
 
+test_that("3.7.1: arms() with no path, an NA path or a file that does not exist is a weft_arms_error", {
+  expect_error(arms(character()), class = "weft_arms_error")
+  expect_error(arms(NA_character_), class = "weft_arms_error")
+  gone <- file.path(tempdir(), "weft-no-such-document.Rmd")
+  e <- expect_error(arms(gone), class = "weft_arms_error")
+  expect_s3_class(e, "weft_error")
+  expect_match(conditionMessage(e), "does not exist", fixed = TRUE)
+  # one missing file among several is still an error
+  ok <- e1_write(c("---", "title: t", "---", "", "Some prose."), "ok.Rmd")
+  expect_error(arms(c(ok, gone)), class = "weft_arms_error")
+})
+
 test_that("3.7.1: arms() returns a data frame of class weft_arms with the documented columns", {
   x <- arms_main()$x
   expect_s3_class(x, "weft_arms")

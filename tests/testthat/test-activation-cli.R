@@ -46,6 +46,16 @@ copy_filters <- function(d) {
 
 # ---- the .Rprofile puts weft on the search path ------------------------------
 
+test_that("4d 2.1.7: weft_setup() outside a knit with a knitr older than 1.51 is a weft_knitr_too_old error", {
+  testthat::local_mocked_bindings(knit_in_progress = function() FALSE, .package = "weft")
+  testthat::local_mocked_bindings(packageVersion = function(pkg, lib.loc = NULL) package_version("1.50"),
+                                  .package = "utils")
+  e <- expect_error(weft_setup(), class = "weft_knitr_too_old")
+  expect_s3_class(e, "weft_error")
+  expect_match(conditionMessage(e), "knitr 1.51 or later", fixed = TRUE)
+  expect_match(conditionMessage(e), "knitr 1.50", fixed = TRUE)
+})
+
 test_that("4d G37: a fresh R started in a project set up by use_setup() has weft:functions on the search path", {
   q <- qproj_set_up(list(`index.qmd` = u4_qmd()))
   r <- u4_r(q, WEFT_ON)

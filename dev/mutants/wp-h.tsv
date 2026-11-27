@@ -1,0 +1,13 @@
+id	file	old	new	filter
+h1-unmark-top-mark-kept	R/targets.R	if (!is.null(attr(x, "weft_pipeline"))) attr(x, "weft_pipeline") <- NULL	if (FALSE) attr(x, "weft_pipeline") <- NULL	^decision-63$
+h2-unmark-nested-mark-kept	R/targets.R	x[i] <- list(dict_unmark(v))	x[i] <- list(v)	^decision-63$
+h3-arms-empty-wrong-class	R/arms.R	several.", "weft_arms_error"	several.", "weft_other_error"	^arms$
+h4-arms-missing-wrong-class	R/arms.R	does not exist.", f), "weft_arms_error"	does not exist.", f), "weft_other_error"	^arms$
+h5-rehearse-file-wrong-class	R/rehearse.R	one existing document.", "weft_rehearse_error"	one existing document.", "weft_other_error"	^rehearse$
+h6-rehearse-cases-wrong-class	R/rehearse.R	of params.", "weft_rehearse_error"	of params.", "weft_other_error"	^rehearse$
+h7-rehearse-unnamed-params-wrong-class	R/rehearse.R	must be named.", nm), "weft_rehearse_error"	must be named.", nm), "weft_other_error"	^rehearse$
+h8-rehearse-unreadable-params-wrong-class	R/rehearse.R	conditionMessage(e)), "weft_rehearse_error"	conditionMessage(e)), "weft_other_error"	^rehearse$
+h9-rehearse-unknown-param-wrong-class	R/rehearse.R	collapse = "`, `")), "weft_rehearse_error"	collapse = "`, `")), "weft_other_error"	^rehearse$
+h10-knitr-too-old-wrong-class	R/hooks.R	dirname(find.package("knitr"))), "weft_knitr_too_old")	dirname(find.package("knitr"))), "weft_other_error")	^activation-cli$
+h11-knitr-threshold-lowered	R/hooks.R	utils::packageVersion("knitr") < "1.51"	utils::packageVersion("knitr") < "1.40"	^activation-cli$
+h12-conditions-ledger-listed	R/changes.R	out[grepl("\\.jsonl$", out) & !grepl("\\.conditions\\.jsonl$", out)]	out[grepl("\\.jsonl$", out)]	^changes$

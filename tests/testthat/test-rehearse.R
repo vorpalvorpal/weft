@@ -217,6 +217,46 @@ test_that("3.7.2: an unknown param name is an error before anything runs", {
   expect_true(file.exists(file.path(dir, "ran.txt")))
 })
 
+test_that("3.7.2: a file that is not one existing path is a weft_rehearse_error", {
+  ok <- e1_write(E1_STOP_LINES, "stop.Rmd")
+  expect_error(rehearse(file.path(tempdir(), "weft-no-such.Rmd"), list(a = list())), class = "weft_rehearse_error")
+  expect_error(rehearse(c(ok, ok), list(a = list())), class = "weft_rehearse_error")
+  expect_error(rehearse(NA_character_, list(a = list())), class = "weft_rehearse_error")
+  expect_error(rehearse(1, list(a = list())), class = "weft_rehearse_error")
+})
+
+test_that("3.7.2: cases that are not a named list of lists is a weft_rehearse_error before anything runs", {
+  path <- e1_write(E1_STOP_LINES, "stop.Rmd")
+  dir <- dirname(path)
+  expect_error(rehearse(path, "a"), class = "weft_rehearse_error")
+  expect_error(rehearse(path, list(list(boom = FALSE))), class = "weft_rehearse_error")
+  expect_error(rehearse(path, list(a = 1)), class = "weft_rehearse_error")
+  expect_error(rehearse(path, list(a = list(), a = list())), class = "weft_rehearse_error")
+  expect_false(file.exists(file.path(dir, "ran.txt")))
+})
+
+test_that("3.7.2: a case whose params are not all named is a weft_rehearse_error naming the case", {
+  path <- e1_write(E1_STOP_LINES, "stop.Rmd")
+  dir <- dirname(path)
+  e <- expect_error(rehearse(path, list(low = list(FALSE))), class = "weft_rehearse_error")
+  expect_match(conditionMessage(e), "`low`", fixed = TRUE)
+  expect_match(conditionMessage(e), "must be named", fixed = TRUE)
+  expect_false(file.exists(file.path(dir, "ran.txt")))
+})
+
+test_that("3.7.2: params that cannot be read are a weft_rehearse_error", {
+  path <- e1_write(c("---", "title: t", "params:", "  a: [1, 2", "---", "", "Prose."), "bad.Rmd")
+  e <- expect_error(rehearse(path, list(a = list())), class = "weft_rehearse_error")
+  expect_match(conditionMessage(e), "cannot be read", fixed = TRUE)
+})
+
+test_that("3.7.2: an unknown param name is a weft_rehearse_error naming the case and the param", {
+  path <- e1_write(E1_STOP_LINES, "stop.Rmd")
+  e <- expect_error(rehearse(path, list(b = list(nosuch = 1))), class = "weft_rehearse_error")
+  expect_match(conditionMessage(e), "`b`", fixed = TRUE)
+  expect_match(conditionMessage(e), "`nosuch`", fixed = TRUE)
+})
+
 test_that("3.7.2: nothing is written in a plain folder, with a cache=TRUE chunk and a figure; an ordinary knit of the same document does write them", {
   skip_if_not(rmarkdown::pandoc_available(), "pandoc is not available")
   path <- e1_write(E1_WRITE_LINES, "doc.Rmd")

@@ -123,6 +123,20 @@ test_that("decision 63 W2: a target made by tar_dict_deps() calls weft::dict_unm
   expect_false(grepl("weft:::dict_unmark", cmd, fixed = TRUE))
 })
 
+test_that("decision 63 W2: dict_unmark strips the marker from a value and from the lists inside it, and keeps the rest", {
+  mark <- function(x) structure(x, weft_pipeline = TRUE)
+  x <- list(a = mark(1:3), b = list(c = mark("z"), d = 2), e = mark(list(f = mark(4))))
+  y <- weft::dict_unmark(mark(x))
+  expect_null(attr(y, "weft_pipeline"))
+  expect_null(attr(y$a, "weft_pipeline"))
+  expect_null(attr(y$b$c, "weft_pipeline"))
+  expect_null(attr(y$e, "weft_pipeline"))
+  expect_null(attr(y$e$f, "weft_pipeline"))
+  expect_identical(c(y$a, y$b$c, y$b$d, y$e$f), c(1:3, "z", "2", "4"))
+  # control: a value with no marker comes back unchanged
+  expect_identical(weft::dict_unmark(list(p = 1, q = "r")), list(p = 1, q = "r"))
+})
+
 # ---- W3: a compound prints as typed, names included ----------------------------------------------------------
 
 # W3 passes or fails today as the code stands; where it passes it documents the rule
