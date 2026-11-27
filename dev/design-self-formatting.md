@@ -818,7 +818,8 @@ existing tests write them.
     `weft("`v`{.val}")` give the spec's text in both forms; `weft("`r v`{.pct}")`
     gives `.pct` with the default digits. (The `.val` case depends on D13.)
 58. `weft("[one site | # sites]{n=v}")` with `v = val_num(1.04, digits = 2)`
-    gives `"1.04 sites"`; with `val_num(1.04)` it gives `"1 site"`.
+    gives `"1.04 sites"`; with `val_num(1.04)` it gives `"1.0 sites"`, as a plain 1.04 does
+    (corrected 27 Nov: the default digits print 1.0).
 59. `weft("`r claim(v, . < 50)`")` with `v = val_num(61)` stops with
     `weft_claim_failed`.
 60. `ci(val_num(2.123), 1, 3)` equals `ci(2.123, 1, 3)`.
