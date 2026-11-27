@@ -68,8 +68,8 @@ knit_print(x, options = NULL, inline = FALSE, ...)
 - target:
 
   For [`format()`](https://rdrr.io/r/base/format.html): `"plain"` (the
-  default), `"markdown"` or `"ansi"` (the console form, see "In the
-  console and in cli").
+  default), `"markdown"`, `"ansi"` (the console form, see "In the
+  console and in cli"), `"html"` or `"marquee"` (see "Rich plot text").
 
 - style:
 
@@ -138,6 +138,22 @@ writes plain text; to write markdown, leave the object as a top-level
 value in a chunk (knitr then calls `knit_print()`) or use
 `cat(format(x, target = "markdown"))`; an explicit
 [`print()`](https://rdrr.io/r/base/print.html) writes plain text.
+
+## Rich plot text
+
+ggtext (`element_markdown()`, `geom_richtext()`) draws
+`format(x, target = "html")`, and marquee (`element_marquee()`,
+`geom_marquee()`) draws `format(x, target = "marquee")`. A `weft` object
+given to either as it is draws its plain text, since both call
+[`as.character()`](https://rdrr.io/r/base/character.html). The html form
+has class `c("html", "character")` and the attribute `html = TRUE`, as
+[`htmltools::HTML()`](https://rstudio.github.io/htmltools/reference/HTML.html)
+gives, so htmltools, Shiny and gt take it without escaping; subsetting
+it gives a bare character vector. The marquee form is a bare character
+vector. An element joined by [`c()`](https://rdrr.io/r/base/c.html) or
+`[<-` is its plain text, escaped. ggtext draws the thin and no-break
+spaces as word spaces. The html form suits HTML output only: converted
+to Word, a table drops its tags, and `10<sup>4</sup>` would read "104".
 
 ## In the console and in cli
 

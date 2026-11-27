@@ -32,6 +32,33 @@ Format computed values, with or without units.
   Formatter functions
 - [`fmt_unit()`](https://vorpalvorpal.github.io/weft/reference/fmt_unit.md)
   : Print a unit alone
+- [`val_num()`](https://vorpalvorpal.github.io/weft/reference/val.md)
+  [`val_pct()`](https://vorpalvorpal.github.io/weft/reference/val.md)
+  [`val_sci()`](https://vorpalvorpal.github.io/weft/reference/val.md)
+  [`val_p()`](https://vorpalvorpal.github.io/weft/reference/val.md)
+  [`as.character(`*`<weft_val>`*`)`](https://vorpalvorpal.github.io/weft/reference/val.md)
+  [`format(`*`<weft_val>`*`)`](https://vorpalvorpal.github.io/weft/reference/val.md)
+  [`print(`*`<weft_val>`*`)`](https://vorpalvorpal.github.io/weft/reference/val.md)
+  [`knit_print(`*`<weft_val>`*`)`](https://vorpalvorpal.github.io/weft/reference/val.md)
+  [`cli_format(`*`<weft_val>`*`)`](https://vorpalvorpal.github.io/weft/reference/val.md)
+  [`as.data.frame(`*`<weft_val>`*`)`](https://vorpalvorpal.github.io/weft/reference/val.md)
+  [`` `[`( ``*`<weft_val>`*`)`](https://vorpalvorpal.github.io/weft/reference/val.md)
+  [`` `[[`( ``*`<weft_val>`*`)`](https://vorpalvorpal.github.io/weft/reference/val.md)
+  [`` `[<-`( ``*`<weft_val>`*`)`](https://vorpalvorpal.github.io/weft/reference/val.md)
+  [`` `[[<-`( ``*`<weft_val>`*`)`](https://vorpalvorpal.github.io/weft/reference/val.md)
+  [`c(`*`<weft_val>`*`)`](https://vorpalvorpal.github.io/weft/reference/val.md)
+  [`rep(`*`<weft_val>`*`)`](https://vorpalvorpal.github.io/weft/reference/val.md)
+  [`unique(`*`<weft_val>`*`)`](https://vorpalvorpal.github.io/weft/reference/val.md)
+  [`xtfrm(`*`<weft_val>`*`)`](https://vorpalvorpal.github.io/weft/reference/val.md)
+  [`as.list(`*`<weft_val>`*`)`](https://vorpalvorpal.github.io/weft/reference/val.md)
+  [`Ops(`*`<weft_val>`*`)`](https://vorpalvorpal.github.io/weft/reference/val.md)
+  [`chooseOpsMethod(`*`<weft_val>`*`)`](https://vorpalvorpal.github.io/weft/reference/val.md)
+  [`Math(`*`<weft_val>`*`)`](https://vorpalvorpal.github.io/weft/reference/val.md)
+  [`Summary(`*`<weft_val>`*`)`](https://vorpalvorpal.github.io/weft/reference/val.md)
+  [`mean(`*`<weft_val>`*`)`](https://vorpalvorpal.github.io/weft/reference/val.md)
+  [`median(`*`<weft_val>`*`)`](https://vorpalvorpal.github.io/weft/reference/val.md)
+  [`drop_units(`*`<weft_val>`*`)`](https://vorpalvorpal.github.io/weft/reference/val.md)
+  : Self-formatting values
 - [`u()`](https://vorpalvorpal.github.io/weft/reference/u.md) : A number
   with a unit
 - [`unit_defaults()`](https://vorpalvorpal.github.io/weft/reference/unit_defaults.md)

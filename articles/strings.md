@@ -62,6 +62,9 @@ Each place a string can go takes the form it can show:
 | Sink | Gets |
 |----|----|
 | a ggplot2 title, subtitle, caption or axis label | plain text |
+| ggtext `element_markdown()`, `geom_richtext()` | `format(w, target = "html")` |
+| marquee `element_marquee()`, `geom_marquee()` | `format(w, target = "marquee")` |
+| gt in HTML output, reactable `colDef(html = TRUE)`, htmltools, Shiny, plotly text | `format(w, target = "html")` |
 | [`cat()`](https://rdrr.io/r/base/cat.html), [`paste()`](https://rdrr.io/r/base/paste.html), `sprintf("%s", )`, [`message()`](https://rdrr.io/r/base/message.html), [`stop()`](https://rdrr.io/r/base/stop.html), [`glue::glue()`](https://glue.tidyverse.org/reference/glue.html) | plain text |
 | [`print()`](https://rdrr.io/r/base/print.html) in a console | the console form: plain text with emphasis in italic and bold, where the console draws styles |
 | `{.val {w}}` in a cli message | the console form; `{w}` gets plain text |
@@ -72,6 +75,8 @@ Each place a string can go takes the form it can show:
 `format(w)` and `as.character(w)` are always plain, whatever the console
 can draw. `format(w, target = "markdown")` gives the markdown and
 `format(w, target = "ansi")` the console form.
+`format(w, target = "html")` and `format(w, target = "marquee")` give
+the forms for rich plot text (see “Rich plot text”).
 
 In the prose of a document you do not need
 [`weft()`](https://vorpalvorpal.github.io/weft/reference/weft.md): write
@@ -161,6 +166,52 @@ ggsave("flow.png", device = ragg::agg_png)
 In a knit, set the device for every chunk in the setup chunk, with
 `knitr::opts_chunk$set(dev = "cairo_pdf")` for PDF output or
 `dev = "ragg_png"` for HTML.
+
+## Rich plot text
+
+ggtext and marquee draw emphasis, colour and real superscripts in a
+plot, but neither reads weft’s markdown correctly: ggtext shows the
+carets of `10^−4^` and stops the plot on a list, and marquee reads `_x_`
+as underline and drops HTML tags without a word, so `10<sup>−4</sup>`
+would draw as “10−4”. Each gets its own form, which you ask for where
+the text meets the sink:
+
+``` r
+
+w <- weft("*Eucalyptus* cover at `r cover`{.pct}, 10^`r k`^ stems")
+
+ggplot(d, aes(x, y)) + geom_point() +
+  labs(title = format(w, target = "html")) +
+  theme(plot.title = ggtext::element_markdown()) +
+  scale_y_continuous(labels = \(b) fmt_sci(b, target = "html")) +
+  theme(axis.text.y = ggtext::element_markdown())
+
+ggplot(d, aes(x, y)) + geom_point() +
+  labs(title = format(w, target = "marquee")) +
+  theme(plot.title = marquee::element_marquee())
+```
+
+`target = "html"` writes only `<i>`, `<b>`, `<sup>`, `<sub>`, `<span>`
+and `<br>`, with every character that ggtext’s own markdown pass would
+read written as an entity, so the result does not depend on the version
+of the markdown package. A span keeps its attributes, so
+`[Depth]{style='color:#c00'}` draws a red word. A list is its lines. The
+same form serves gt’s `fmt_markdown()` in HTML output, reactable with
+`colDef(html = TRUE)`, htmltools, Shiny and plotly’s text;
+[`format()`](https://rdrr.io/r/base/format.html) gives it the class
+htmltools uses, so they take it unescaped. In a table converted to Word
+the tags are dropped and a superscript is lost, so give such a table the
+plain text.
+
+`target = "marquee"` writes marquee’s own spans: `10{.sup −4}`,
+`{.em x}` and `{.str x}`, with marquee’s backslash escapes. A formula is
+drawn as typed.
+
+A `weft` object given to ggtext or marquee as it is draws its plain
+text: both call
+[`as.character()`](https://rdrr.io/r/base/character.html), so weft
+cannot see which sink it is in. ggtext draws the thin and no-break
+spaces as word spaces.
 
 ## The console and cli
 

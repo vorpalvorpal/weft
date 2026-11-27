@@ -136,6 +136,23 @@ m<sup>2</sup> each</p>
 <td>plain text</td>
 </tr>
 <tr class="even">
+<td>ggtext <code>element_markdown()</code>,
+<code>geom_richtext()</code>
+</td>
+<td><code>format(w, target = "html")</code></td>
+</tr>
+<tr class="odd">
+<td>marquee <code>element_marquee()</code>,
+<code>geom_marquee()</code>
+</td>
+<td><code>format(w, target = "marquee")</code></td>
+</tr>
+<tr class="even">
+<td>gt in HTML output, reactable <code>colDef(html = TRUE)</code>,
+htmltools, Shiny, plotly text</td>
+<td><code>format(w, target = "html")</code></td>
+</tr>
+<tr class="odd">
 <td>
 <code><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat()</a></code>, <code><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste()</a></code>,
 <code>sprintf("%s", )</code>, <code><a href="https://rdrr.io/r/base/message.html" class="external-link">message()</a></code>,
@@ -143,27 +160,27 @@ m<sup>2</sup> each</p>
 </td>
 <td>plain text</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td>
 <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code> in a console</td>
 <td>the console form: plain text with emphasis in italic and bold, where
 the console draws styles</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td>
 <code>{.val {w}}</code> in a cli message</td>
 <td>the console form; <code>{w}</code> gets plain text</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td>a chunk that prints the object, inline R</td>
 <td>markdown</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td>a caption option R computes, <code>fig.cap = weft(...)</code>
 </td>
 <td>markdown (<code>fig.alt</code> gets plain text)</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td><code>knitr::kable(caption = weft(...))</code></td>
 <td>plain text</td>
 </tr>
@@ -172,7 +189,10 @@ the console draws styles</td>
 <p><code>format(w)</code> and <code>as.character(w)</code> are always
 plain, whatever the console can draw.
 <code>format(w, target = "markdown")</code> gives the markdown and
-<code>format(w, target = "ansi")</code> the console form.</p>
+<code>format(w, target = "ansi")</code> the console form.
+<code>format(w, target = "html")</code> and
+<code>format(w, target = "marquee")</code> give the forms for rich plot
+text (see “Rich plot text”).</p>
 <p>In the prose of a document you do not need <code><a href="../reference/weft.html">weft()</a></code>: write
 the markup directly. <code><a href="../reference/weft.html">weft()</a></code> is for text that no chunk
 option reaches.</p>
@@ -246,6 +266,49 @@ that is saved as PDF, use <code><a href="https://rdrr.io/r/grDevices/cairo.html"
 <code>dev = "ragg_png"</code> for HTML.</p>
 </div>
 <div class="section level2">
+<h2 id="rich-plot-text">Rich plot text<a class="anchor" aria-label="anchor" href="#rich-plot-text"></a>
+</h2>
+<p>ggtext and marquee draw emphasis, colour and real superscripts in a
+plot, but neither reads weft’s markdown correctly: ggtext shows the
+carets of <code>10^−4^</code> and stops the plot on a list, and marquee
+reads <code>_x_</code> as underline and drops HTML tags without a word,
+so <code>10&lt;sup&gt;−4&lt;/sup&gt;</code> would draw as “10−4”. Each
+gets its own form, which you ask for where the text meets the sink:</p>
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">w</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/weft.html">weft</a></span><span class="op">(</span><span class="st">"*Eucalyptus* cover at `r cover`{.pct}, 10^`r k`^ stems"</span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggplot.html" class="external-link">ggplot</a></span><span class="op">(</span><span class="va">d</span>, <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/aes.html" class="external-link">aes</a></span><span class="op">(</span><span class="va">x</span>, <span class="va">y</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span> <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/geom_point.html" class="external-link">geom_point</a></span><span class="op">(</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html" class="external-link">labs</a></span><span class="op">(</span>title <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/format.html" class="external-link">format</a></span><span class="op">(</span><span class="va">w</span>, target <span class="op">=</span> <span class="st">"html"</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/theme.html" class="external-link">theme</a></span><span class="op">(</span>plot.title <span class="op">=</span> <span class="fu">ggtext</span><span class="fu">::</span><span class="fu"><a href="https://wilkelab.org/ggtext/reference/element_markdown.html" class="external-link">element_markdown</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/scale_continuous.html" class="external-link">scale_y_continuous</a></span><span class="op">(</span>labels <span class="op">=</span> \<span class="op">(</span><span class="va">b</span><span class="op">)</span> <span class="fu"><a href="../reference/fmt.html">fmt_sci</a></span><span class="op">(</span><span class="va">b</span>, target <span class="op">=</span> <span class="st">"html"</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/theme.html" class="external-link">theme</a></span><span class="op">(</span>axis.text.y <span class="op">=</span> <span class="fu">ggtext</span><span class="fu">::</span><span class="fu"><a href="https://wilkelab.org/ggtext/reference/element_markdown.html" class="external-link">element_markdown</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggplot.html" class="external-link">ggplot</a></span><span class="op">(</span><span class="va">d</span>, <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/aes.html" class="external-link">aes</a></span><span class="op">(</span><span class="va">x</span>, <span class="va">y</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span> <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/geom_point.html" class="external-link">geom_point</a></span><span class="op">(</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html" class="external-link">labs</a></span><span class="op">(</span>title <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/format.html" class="external-link">format</a></span><span class="op">(</span><span class="va">w</span>, target <span class="op">=</span> <span class="st">"marquee"</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/theme.html" class="external-link">theme</a></span><span class="op">(</span>plot.title <span class="op">=</span> <span class="fu">marquee</span><span class="fu">::</span><span class="fu"><a href="https://marquee.r-lib.org/reference/element_marquee.html" class="external-link">element_marquee</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<p><code>target = "html"</code> writes only <code>&lt;i&gt;</code>,
+<code>&lt;b&gt;</code>, <code>&lt;sup&gt;</code>,
+<code>&lt;sub&gt;</code>, <code>&lt;span&gt;</code> and
+<code>&lt;br&gt;</code>, with every character that ggtext’s own markdown
+pass would read written as an entity, so the result does not depend on
+the version of the markdown package. A span keeps its attributes, so
+<code>[Depth]{style='color:#c00'}</code> draws a red word. A list is its
+lines. The same form serves gt’s <code>fmt_markdown()</code> in HTML
+output, reactable with <code>colDef(html = TRUE)</code>, htmltools,
+Shiny and plotly’s text; <code><a href="https://rdrr.io/r/base/format.html" class="external-link">format()</a></code> gives it the class
+htmltools uses, so they take it unescaped. In a table converted to Word
+the tags are dropped and a superscript is lost, so give such a table the
+plain text.</p>
+<p><code>target = "marquee"</code> writes marquee’s own spans:
+<code>10{.sup −4}</code>, <code>{.em x}</code> and
+<code>{.str x}</code>, with marquee’s backslash escapes. A formula is
+drawn as typed.</p>
+<p>A <code>weft</code> object given to ggtext or marquee as it is draws
+its plain text: both call <code><a href="https://rdrr.io/r/base/character.html" class="external-link">as.character()</a></code>, so weft cannot
+see which sink it is in. ggtext draws the thin and no-break spaces as
+word spaces.</p>
+</div>
+<div class="section level2">
 <h2 id="the-console-and-cli">The console and cli<a class="anchor" aria-label="anchor" href="#the-console-and-cli"></a>
 </h2>
 <p><code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code> writes each element on its own line. Where the
@@ -255,11 +318,11 @@ removed the line is the plain text. weft draws styles only where cli
 would draw its own: not under <code>NO_COLOR</code>, not in a knit, not
 into a sink, and not on a terminal without colour. This article is knit,
 so it shows the plain text:</p>
-<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">w</span><span class="op">)</span></span>
 <span><span class="co">#&gt; <span style="font-style: italic;">Eucalyptus</span> at three sites, 1.2 × 10⁻⁴ m² each</span></span></code></pre></div>
 <p>To see the styles as escape codes, force colour:</p>
-<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">a</span> <span class="op">&lt;-</span> <span class="fu">withr</span><span class="fu">::</span><span class="fu"><a href="https://withr.r-lib.org/reference/with_options.html" class="external-link">with_options</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>cli.num_colors <span class="op">=</span> <span class="fl">256</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/format.html" class="external-link">format</a></span><span class="op">(</span><span class="va">w</span>, target <span class="op">=</span> <span class="st">"ansi"</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">a</span></span>
 <span><span class="co">#&gt; [1] "\033[3mEucalyptus\033[23m at three sites, 1.2 × 10⁻⁴ m² each"</span></span>
@@ -268,10 +331,10 @@ so it shows the plain text:</p>
 <p>In a cli message, <code>{.val {w}}</code> draws the console form, in
 cli’s value colour and without quotes. A plain <code>{w}</code> gets the
 plain text.</p>
-<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu">cli</span><span class="fu">::</span><span class="fu"><a href="https://cli.r-lib.org/reference/format_inline.html" class="external-link">format_inline</a></span><span class="op">(</span><span class="st">"Mapped {.val {w}}"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] "Mapped \033[3m\033[34mEucalyptus\033[23m at three sites, 1.2 × 10⁻⁴ m² each\033[39m"</span></span></code></pre></div>
-<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu">cli</span><span class="fu">::</span><span class="fu"><a href="https://cli.r-lib.org/reference/cli_abort.html" class="external-link">cli_inform</a></span><span class="op">(</span><span class="st">"{.val {w}}"</span><span class="op">)</span>      <span class="co"># emphasis drawn, in the value colour</span></span>
 <span><span class="fu">cli</span><span class="fu">::</span><span class="fu"><a href="https://cli.r-lib.org/reference/cli_abort.html" class="external-link">cli_inform</a></span><span class="op">(</span><span class="st">"Plotted {w}"</span><span class="op">)</span>     <span class="co"># plain text</span></span>
 <span><span class="fu">cli</span><span class="fu">::</span><span class="fu"><a href="https://cli.r-lib.org/reference/cli_alert.html" class="external-link">cli_alert_success</a></span><span class="op">(</span><span class="st">"Saved {.val {w}}"</span><span class="op">)</span></span></code></pre></div>
@@ -295,7 +358,7 @@ whatever it finds in braces. Write <code>cli_inform("{w}")</code>.</li>
 <p>A column built with <code><a href="../reference/weft.html">weft()</a></code> holds plain text, so a data
 frame prints readable cells. Build one element per row in a function, so
 each row reads its own values:</p>
-<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">readings</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
 <span>  site <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Upper"</span>, <span class="st">"Middle"</span>, <span class="st">"Lower"</span><span class="op">)</span>,</span>
 <span>  ntu <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">4.2</span>, <span class="fl">7.9</span>, <span class="fl">12.6</span><span class="op">)</span>,</span>
@@ -314,7 +377,7 @@ each row reads its own values:</p>
 table rendered as markdown, give <code>kable()</code> the markdown of
 the column, so the emphasis is drawn. A <code><a href="../reference/weft.html">weft()</a></code> caption
 reaches <code>kable()</code> as plain text:</p>
-<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">shown</span> <span class="op">&lt;-</span> <span class="va">readings</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"site"</span>, <span class="st">"note"</span><span class="op">)</span><span class="op">]</span></span>
 <span><span class="va">shown</span><span class="op">$</span><span class="va">note</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/format.html" class="external-link">format</a></span><span class="op">(</span><span class="va">readings</span><span class="op">$</span><span class="va">note</span>, target <span class="op">=</span> <span class="st">"markdown"</span><span class="op">)</span></span>
 <span><span class="fu">knitr</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/knitr/man/kable.html" class="external-link">kable</a></span><span class="op">(</span><span class="va">shown</span>, caption <span class="op">=</span> <span class="fu"><a href="../reference/weft.html">weft</a></span><span class="op">(</span><span class="st">"Turbidity at `r nrow(readings)`{.word} sites"</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
@@ -346,13 +409,13 @@ reaches <code>kable()</code> as plain text:</p>
 <p><code><a href="https://rdrr.io/r/base/message.html" class="external-link">message()</a></code>, <code><a href="https://rdrr.io/r/base/warning.html" class="external-link">warning()</a></code> and
 <code><a href="https://rdrr.io/r/base/stop.html" class="external-link">stop()</a></code> paste their arguments, so they get the plain
 text:</p>
-<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">n_files</span> <span class="op">&lt;-</span> <span class="fl">4</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/message.html" class="external-link">message</a></span><span class="op">(</span><span class="fu"><a href="../reference/weft.html">weft</a></span><span class="op">(</span><span class="st">"Read `n_files`{.word} files."</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Read four files.</span></span></code></pre></div>
 <p>A helper that wraps <code><a href="../reference/weft.html">weft()</a></code> must pass its caller’s
 environment on, or the markup reads the helper’s own variables:</p>
-<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">log_line</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">text</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/base/message.html" class="external-link">message</a></span><span class="op">(</span><span class="fu"><a href="../reference/weft.html">weft</a></span><span class="op">(</span><span class="va">text</span>, .envir <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sys.parent.html" class="external-link">parent.frame</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">n_rows</span> <span class="op">&lt;-</span> <span class="fl">1250</span></span>
 <span><span class="fu">log_line</span><span class="op">(</span><span class="st">"Kept `n_rows`{.num} rows."</span><span class="op">)</span></span>
@@ -374,7 +437,7 @@ the chunk prints at its top level is written as markdown by knitr.</p>
 none when it is one word, as in prose. In R code the choice matters,
 because the markup sits inside an R string. Give the values the quote
 the R string does not use:</p>
-<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">tier</span> <span class="op">&lt;-</span> <span class="st">"sev"</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">as.character</a></span><span class="op">(</span><span class="fu"><a href="../reference/weft.html">weft</a></span><span class="op">(</span><span class="st">"[severe | mild]{if='tier == \"sev\"'}"</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] "severe"</span></span>
@@ -392,13 +455,13 @@ The last is how a value starts with a space, as the <code>last</code> of
 <code>.and</code> may need. Any other backslash in a value is an error.
 In an ordinary R string a backslash is itself written <code>\\</code>,
 so weft’s <code>\</code> is <code>\\</code> in the R source:</p>
-<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">sites</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Upper"</span>, <span class="st">"Middle"</span>, <span class="st">"Lower"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">as.character</a></span><span class="op">(</span><span class="fu"><a href="../reference/weft.html">weft</a></span><span class="op">(</span><span class="st">"`sites`{.and last='\\ plus '}"</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] "Upper, Middle plus Lower"</span></span></code></pre></div>
 <p>A raw string (R 4.0 and later) holds the text as written: quotes of
 both kinds need no R escape, and weft’s backslash is written once:</p>
-<div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/weft.html">weft</a></span><span class="op">(</span><span class="st">r"([severe | mild]{if='tier == "sev"'})"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/weft.html">weft</a></span><span class="op">(</span><span class="st">r"(`sites`{.and last="\ plus "})"</span><span class="op">)</span></span></code></pre></div>
 <p>A raw string <code>r"(...)"</code> ends at the first <code>)"</code>.
@@ -418,7 +481,7 @@ the dictionary included. Names in a governor, such as
 and its enclosing environments, as far as the global environment, and no
 further. A name is never read from base R, a package or a dataset. In a
 loop, each call reads the names as they stand at that call:</p>
-<div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb21"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">depth</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>Upper <span class="op">=</span> <span class="fl">0.42</span>, Lower <span class="op">=</span> <span class="fl">1.37</span><span class="op">)</span></span>
 <span><span class="va">titles</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">lapply</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">depth</span><span class="op">)</span>, <span class="kw">function</span><span class="op">(</span><span class="va">site</span><span class="op">)</span> <span class="op">{</span></span>
 <span>  <span class="va">d</span> <span class="op">&lt;-</span> <span class="va">depth</span><span class="op">[[</span><span class="va">site</span><span class="op">]</span><span class="op">]</span></span>
@@ -430,7 +493,7 @@ loop, each call reads the names as they stand at that call:</p>
 <p>A name that is not bound there, or that is bound to a function, is a
 “no value” failure. Nothing is left for a Pandoc filter, because the
 text goes to plots and consoles where none runs:</p>
-<div class="sourceCode" id="cb21"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb22"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/weft.html">weft</a></span><span class="op">(</span><span class="st">"A circle's area is `pi`{.num} r^2^."</span><span class="op">)</span></span>
 <span><span class="co">#&gt; <span style="color: #BBBB00; font-weight: bold;">Error</span><span style="font-weight: bold;">:</span></span></span>
 <span><span class="co">#&gt; <span style="color: #BBBB00;">!</span> weft: chunk pi-name: `pi` is not bound where weft() was called, so it has no value (rule 1.12.12).</span></span></code></pre></div>
@@ -454,14 +517,14 @@ effect. A warning, such as a value printed as zero, is signalled and the
 object is returned.</p>
 <p>The same holds in a knit where <code><a href="../reference/weft_setup.html">weft_setup()</a></code> was not
 called, as in this article. There the message names the chunk:</p>
-<div class="sourceCode" id="cb22"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb23"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">peak</span> <span class="op">&lt;-</span> <span class="fl">61</span></span>
 <span><span class="fu"><a href="../reference/weft.html">weft</a></span><span class="op">(</span><span class="st">"The peak was `r claim(peak, . &lt; 50)`{.num} NTU."</span><span class="op">)</span></span>
 <span><span class="co">#&gt; <span style="color: #BBBB00; font-weight: bold;">Error</span><span style="font-weight: bold;">:</span></span></span>
 <span><span class="co">#&gt; <span style="color: #BBBB00;">!</span> weft: chunk peak: 1 failed claim</span></span>
 <span><span class="co">#&gt;   check `. &lt; 50` failed (value: 61)</span></span></code></pre></div>
 <p>A script can catch a failure by its class:</p>
-<div class="sourceCode" id="cb23"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb24"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">title</span> <span class="op">&lt;-</span> <span class="kw"><a href="https://rdrr.io/r/base/conditions.html" class="external-link">tryCatch</a></span><span class="op">(</span></span>
 <span>  <span class="fu"><a href="../reference/weft.html">weft</a></span><span class="op">(</span><span class="st">"The peak was `r claim(peak, . &lt; 50)`{.num} NTU."</span><span class="op">)</span>,</span>
 <span>  weft_claim_failed <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">e</span><span class="op">)</span> <span class="op">{</span></span>

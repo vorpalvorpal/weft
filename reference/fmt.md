@@ -185,7 +185,17 @@ fmt_em(x, target = "markdown")
   notation and units in Unicode superscripts, emphasis without its
   marks. Every class has a plain form. The result carries the attribute
   `target = "plain"`; a text made under `"tex"` given to a formatter
-  under `"plain"` is a `weft_value_error`. Any other value of `target`
+  under `"plain"` is a `weft_value_error`. `"html"` writes HTML for
+  ggtext, plotly and HTML tables (rule 1.4.25): only the tags `<i>`,
+  `<b>`, `<sup>`, `<sub>`, `<span>` and `<br>`, with every character a
+  markdown pass would read written as an entity (`10<sup>6</sup>`).
+  `"marquee"` writes the markdown of the marquee package (rule 1.4.26),
+  with `{.sup ...}`, `{.sub ...}`, `{.em ...}` and `{.str ...}` spans
+  (`10{.sup 6}`). Every class has both forms; the result carries
+  `target = "html"` or `target = "marquee"`, and giving it to a
+  formatter again is a `weft_value_error` unless a number class formats
+  it again from its number. Put `target` on the outermost call:
+  `fmt_strong(fmt_num(x), target = "html")`. Any other value of `target`
   is a `weft_construct_error`.
 
 - sep:

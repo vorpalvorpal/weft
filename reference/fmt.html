@@ -244,8 +244,17 @@ again without <code>target</code>. The formatters that print words, emphasis or 
 a sink that prints none, such as a ggplot2 scale's labels or a console message
 (rule 1.4.24): scientific notation and units in Unicode superscripts, emphasis without its marks. Every class has a
 plain form. The result carries the attribute <code>target = "plain"</code>; a text made
-under <code>"tex"</code> given to a formatter under <code>"plain"</code> is a <code>weft_value_error</code>. Any other
-value of <code>target</code> is a <code>weft_construct_error</code>.</p></dd>
+under <code>"tex"</code> given to a formatter under <code>"plain"</code> is a <code>weft_value_error</code>. <code>"html"</code>
+writes HTML for ggtext, plotly and HTML tables (rule 1.4.25): only the tags <code>&lt;i&gt;</code>,
+<code>&lt;b&gt;</code>, <code>&lt;sup&gt;</code>, <code>&lt;sub&gt;</code>, <code>&lt;span&gt;</code> and <code>&lt;br&gt;</code>, with every character a markdown pass
+would read written as an entity (<code>10&lt;sup&gt;6&lt;/sup&gt;</code>). <code>"marquee"</code>
+writes the markdown of the marquee package (rule 1.4.26), with <code>{.sup ...}</code>,
+<code>{.sub ...}</code>, <code>{.em ...}</code> and <code>{.str ...}</code> spans (<code>10{.sup 6}</code>).
+Every class has both forms; the result carries <code>target = "html"</code> or
+<code>target = "marquee"</code>, and giving it to a formatter again is a <code>weft_value_error</code>
+unless a number class formats it again from its number. Put <code>target</code> on the
+outermost call: <code>fmt_strong(fmt_num(x), target = "html")</code>. Any other value of
+<code>target</code> is a <code>weft_construct_error</code>.</p></dd>
 
 
 <dt id="arg-sep">sep<a class="anchor" aria-label="anchor" href="#arg-sep"></a></dt>

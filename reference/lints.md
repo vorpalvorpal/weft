@@ -3,7 +3,10 @@
 Reads `.qmd` and `.Rmd` documents as text and returns the typed numbers,
 construct errors and other problems the rules of
 [`lint_rules()`](https://vorpalvorpal.github.io/weft/reference/lint_rules.md)
-find. Nothing in a document is run.
+find. Nothing in a document is run. A Jupyter notebook (`.ipynb`) is
+read as the document its cells make, its markdown cells prose and its
+code cells chunks, and a finding in it is placed at its line and column
+in the JSON file.
 
 ## Usage
 

@@ -135,8 +135,9 @@ a <code>weft</code> object, which is returned as it is. An <code>NA</code> eleme
 
 
 <dt id="arg-target">target<a class="anchor" aria-label="anchor" href="#arg-target"></a></dt>
-<dd><p>For <code><a href="https://rdrr.io/r/base/format.html" class="external-link">format()</a></code>: <code>"plain"</code> (the default), <code>"markdown"</code> or
-<code>"ansi"</code> (the console form, see "In the console and in cli").</p></dd>
+<dd><p>For <code><a href="https://rdrr.io/r/base/format.html" class="external-link">format()</a></code>: <code>"plain"</code> (the default), <code>"markdown"</code>,
+<code>"ansi"</code> (the console form, see "In the console and in cli"), <code>"html"</code> or
+<code>"marquee"</code> (see "Rich plot text").</p></dd>
 
 
 <dt id="arg-style">style<a class="anchor" aria-label="anchor" href="#arg-style"></a></dt>
@@ -190,6 +191,22 @@ is saved as PDF, use <code><a href="https://rdrr.io/r/grDevices/cairo.html" clas
 <p><code><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat()</a></code> in a <code>results = "asis"</code> chunk writes plain text; to write markdown,
 leave the object as a top-level value in a chunk (knitr then calls <code>knit_print()</code>)
 or use <code>cat(format(x, target = "markdown"))</code>; an explicit <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code> writes plain text.</p>
+    </div>
+    <div class="section level2">
+    <h2 id="rich-plot-text">Rich plot text<a class="anchor" aria-label="anchor" href="#rich-plot-text"></a></h2>
+
+
+<p>ggtext (<code>element_markdown()</code>, <code>geom_richtext()</code>) draws
+<code>format(x, target = "html")</code>, and marquee (<code>element_marquee()</code>,
+<code>geom_marquee()</code>) draws <code>format(x, target = "marquee")</code>. A <code>weft</code> object
+given to either as it is draws its plain text, since both call
+<code><a href="https://rdrr.io/r/base/character.html" class="external-link">as.character()</a></code>. The html form has class <code>c("html", "character")</code> and the
+attribute <code>html = TRUE</code>, as <code><a href="https://rstudio.github.io/htmltools/reference/HTML.html" class="external-link">htmltools::HTML()</a></code> gives, so htmltools, Shiny
+and gt take it without escaping; subsetting it gives a bare character
+vector. The marquee form is a bare character vector. An element joined by
+<code><a href="https://rdrr.io/r/base/c.html" class="external-link">c()</a></code> or <code>[&lt;-</code> is its plain text, escaped. ggtext draws the thin and no-break
+spaces as word spaces. The html form suits HTML output only: converted to
+Word, a table drops its tags, and <code>10&lt;sup&gt;4&lt;/sup&gt;</code> would read "104".</p>
     </div>
     <div class="section level2">
     <h2 id="in-the-console-and-in-cli">In the console and in cli<a class="anchor" aria-label="anchor" href="#in-the-console-and-in-cli"></a></h2>

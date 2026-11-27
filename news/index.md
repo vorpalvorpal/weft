@@ -2,6 +2,184 @@
 
 ## weft (development version)
 
+- **Behaviour change:** one fence finder now reads a document’s chunks,
+  fences and metadata blocks for the lints, the scanner, the
+  front-matter readers and the knit’s readers alike, so they no longer
+  disagree on the same text. Executable chunks are found as knitr finds
+  them (`knitr::all_patterns$md`), before anything else: at any indent
+  and behind `>` markers, inside an HTML comment or a plain fence, and
+  with a backtick in the header. A chunk closes at a line of backticks
+  that repeats its opener’s indent, `>` markers and length (any line of
+  three or more backticks for a chunk on line 1), a `~~~` line does not
+  end it, a second header that repeats the opener starts a new chunk,
+  and an unclosed chunk, quoted or not, runs to the last line. Plain
+  fences follow CommonMark, as Pandoc reads them: a backtick fence whose
+  info string holds a backtick is not a fence; a fence is indented at
+  most 3 spaces (within its block quote or list item); a closer is the
+  same character, at least as long, with only spaces after it; an
+  unclosed fence runs to the last line; a fence opened in a block quote
+  ends with its quote, and a quoted line does not close a fence opened
+  outside one; a fence inside an HTML comment is not a fence. A `---`
+  block inside any fence is not front matter. Quarto’s choice of engine
+  still counts only the chunks that no plain fence holds.
+- **Behaviour change:** a Jupyter notebook’s and a percent script’s
+  front matter is now read from its cells, as Quarto (1.11.9) reads it
+  (rule 2.1.6 P7): the source of every raw and markdown cell of an
+  `.ipynb`, in cell order, and the `# %% [markdown]` and `# %% [raw]`
+  cells of a `.py` with their leading `#` taken off, so a cell whose
+  source is a `---` block is a block and a later cell’s block wins per
+  top-level key. `read_front_matter()` and so the knit’s readers, the
+  lints, the Quarto filter’s `weft:` settings, and Python’s and Julia’s
+  `chunk_claims` all read it.
+  [`lints()`](https://vorpalvorpal.github.io/weft/reference/lints.md)
+  now reads `.ipynb` notebooks as documents (markdown cells are prose,
+  code cells chunks in the kernel’s language) and places each finding at
+  its line and column in the notebook’s JSON file. A notebook is always
+  Jupyter’s whatever its front matter says: one that holds weft
+  constructs is an `engine` finding with its own message (rule 5.8.9).
+  `front-matter-quarto` (rule 5.8.10) now also reports every metadata
+  block after the front block of a `.qmd` on the Jupyter engine, which
+  Quarto applies but also prints (P6), one from an included file at its
+  include line. With no engine key, the chunks of an included file now
+  pick the engine too, for the scanner, the filter and the lints (P4);
+  and where weft asks which engine Quarto runs (`front-matter-quarto`,
+  the checks for Jupyter and Julia documents), a `knitr:` key in the
+  first block now counts as knitr (9.2.8).
+- **Behaviour change:** an included file’s front matter is now part of
+  the document’s, as Quarto merges it (rules 2.1.6 P4 and P5). Every
+  reader of front matter expands `{{< include >}}` first, as Quarto
+  (1.11.9) does: the knit’s settings, `lang` and `dict_local`,
+  [`verify()`](https://vorpalvorpal.github.io/weft/reference/verify.md),
+  [`checks()`](https://vorpalvorpal.github.io/weft/reference/checks.md),
+  [`arms()`](https://vorpalvorpal.github.io/weft/reference/arms.md), the
+  lints, the Quarto filter’s `weft:` settings, and Python’s and Julia’s
+  `chunk_claims`. An included block sits where its include sits, and the
+  later block wins per top-level key, so an included `weft:` replaces
+  the document’s earlier one whole and the document’s own later block
+  beats an include above it. The included file’s folder `_metadata.yml`
+  does not apply. An include on line 1 (blank lines above it allowed)
+  supplies the first block, so the included file’s `engine:`, `knitr:`
+  or `jupyter:` picks the engine for the `engine` lint, the scanner and
+  the filter; an include further down never does. A missing include file
+  is skipped.
+- The `value-format` lint (tier 2, rule 5.6.4) lists a bare value in
+  prose made by `fmt_*(target = "html")` or `fmt_*(target = "marquee")`,
+  which a document would show with its marks or with its tags dropped;
+  the hint is a class block. `weft-check` (rule 2.5.3) now also fails on
+  a failure marker in raw HTML, written `<<weft:` or `&lt;&lt;weft:`, so
+  one in a gt or reactable cell no longer escapes it. ggtext, markdown
+  and marquee join Suggests.
+  [`vignette("strings")`](https://vorpalvorpal.github.io/weft/articles/strings.md)
+  gains “Rich plot text”.
+- Two new targets for rich plot text and HTML tables. Every `fmt_*()`,
+  [`fmt_unit()`](https://vorpalvorpal.github.io/weft/reference/fmt_unit.md)
+  and `apply_formatters()` take `target = "html"` (rule 1.4.25) and
+  `target = "marquee"` (rule 1.4.26), and
+  [`format()`](https://rdrr.io/r/base/format.html) of a `weft` object
+  takes both. `"html"` writes only `<i>`, `<b>`, `<sup>`, `<sub>`,
+  `<span>` and `<br>`, with the characters a markdown pass would read
+  written as entities, so ggtext’s own markdown pass leaves it alone
+  under every version of the markdown package
+  (`fmt_sci(0.000123, target = "html")` is `1.2 × 10<sup>−4</sup>`; a
+  list is its lines joined by `<br>`, which ggtext draws where `<ul>`
+  stops the plot; `[Depth]{style='color:#c00'}` is a coloured `<span>`).
+  `"marquee"` writes marquee’s own spans (`1.2 × 10{.sup −4}`,
+  `{.em x}`, `{.str x}`) with its backslash escapes.
+  `format(x, target = "html")` has class `c("html", "character")` and
+  the attribute `html = TRUE`, as
+  [`htmltools::HTML()`](https://rstudio.github.io/htmltools/reference/HTML.html)
+  gives, so gt, htmltools and Shiny take it unescaped. A text made for
+  html or marquee, given to a formatter again, is a value error unless a
+  number class formats it again from its number; a TeX text reaching an
+  html or marquee result is one too;
+  [`c()`](https://rdrr.io/r/base/c.html) and `[<-` of a `weft` object
+  refuse a text made for TeX, HTML or marquee. The `target` error
+  messages name the two new targets. The ledger is unchanged: the target
+  is chosen at the sink (rule 3.6.11).
+- **Behaviour change:** `targets:` of a project formatter now refuses
+  `plain` (and `html` and `marquee`) with the E104 error, as rule 1.4.8
+  says: under those targets the formatter is called as for markdown.
+  `targets: [markdown, plain]` used to be accepted.
+- `inert-check` no longer reports a literal `decision` pointer on a
+  [`claim()`](https://vorpalvorpal.github.io/weft/reference/claim.md)
+  (`claim(x, . > 0, decision = 12)`) as a check that can never fail, in
+  scripts and R chunks alike: `decision`, like `level`, is not a check
+  (rules 3.10.1, 3.1.12).
+- **Behaviour change:** the lints now read Quarto’s own keys (`lang`,
+  `execute:` and its `cache`, `bibliography`) from Quarto’s project
+  layers as Quarto merges them (rules 2.1.6 P1, P2, P8, P9):
+  `_quarto.yml`, the active `_quarto-<name>.yml` profiles (from
+  `QUARTO_PROFILE`, else `profile: default`, the first named winning),
+  `_quarto.yml.local`, then the `_metadata.yml` of each folder below the
+  project root down to the document’s, then the document; maps merge at
+  every depth and lists add up. So `lang` and the cache setting now come
+  from a `_metadata.yml` or a profile too, as they do at knit time, and
+  `format: html: lang` beats `lang` within one file. The root’s own
+  `_metadata.yml` no longer counts for a document in a subfolder, as
+  Quarto ignores it there; an `.Rmd` with no `_quarto.yml` above it gets
+  no project layers; and a later front-matter block’s `bibliography:`
+  replaces an earlier one’s instead of adding to it. `config-place`
+  (rule 5.8.8) now also reports a `weft:` key in a profile, in
+  `_quarto.yml.local`, in a `metadata-files` target and under
+  `format: <fmt>:` in a project file or a document’s front matter, none
+  of which weft reads (P3).
+- **Behaviour change:**
+  [`use_agent_docs()`](https://vorpalvorpal.github.io/weft/reference/use_agent_docs.md)
+  now defaults to `skills = "auto"`: it writes `.agents/skills`, and
+  also `.claude/skills` when the project root holds a `.claude` folder,
+  a `CLAUDE.md` or a `CLAUDE.local.md` (Claude Code reads
+  `.claude/skills` and not `.agents/skills`). The call’s first lines
+  name the file or folder that chose it. `skills = "agents"` writes
+  `.agents/skills` alone, and `"auto"` combines with other items, as in
+  `c("auto", "gemini")`.
+  [`use_weft()`](https://vorpalvorpal.github.io/weft/reference/use_weft.md)
+  follows the default.
+- New
+  [`val_num()`](https://vorpalvorpal.github.io/weft/reference/val.md),
+  [`val_pct()`](https://vorpalvorpal.github.io/weft/reference/val.md),
+  [`val_sci()`](https://vorpalvorpal.github.io/weft/reference/val.md)
+  and [`val_p()`](https://vorpalvorpal.github.io/weft/reference/val.md)
+  make **self-formatting values** (rule 3.12): a number of class
+  `weft_val` that carries its format and prints it the same way wherever
+  it goes: [`paste()`](https://rdrr.io/r/base/paste.html),
+  [`glue::glue()`](https://glue.tidyverse.org/reference/glue.html),
+  [`message()`](https://rdrr.io/r/base/message.html), a ggplot2 title or
+  label, a printed data frame,
+  [`knitr::kable()`](https://rdrr.io/pkg/knitr/man/kable.html), knitr
+  inline R and weft’s own constructs. It stays a number, so comparisons,
+  sorting and
+  [`claim()`](https://vorpalvorpal.github.io/weft/reference/claim.md)
+  act on the number, and arithmetic drops the format except
+  [`min()`](https://rdrr.io/r/base/Extremes.html),
+  [`max()`](https://rdrr.io/r/base/Extremes.html),
+  [`range()`](https://rdrr.io/r/base/range.html),
+  [`mean()`](https://rdrr.io/r/base/mean.html) and
+  [`median()`](https://rdrr.io/r/stats/median.html). Every sink gets
+  plain text unless asked for another form
+  (`format(v, target = "markdown")`, `"tex"`, `"html"` or `"marquee"`;
+  the last two give what the matching `fmt_*()` call gives); a bare
+  `` `r v` `` in math writes TeX, and `` `v`{.val} `` prints the value’s
+  own format. Named values refuse it (E46).
+  [`cat()`](https://rdrr.io/r/base/cat.html) prints the number
+  underneath and
+  [`writeLines()`](https://rdrr.io/r/base/writeLines.html) refuses the
+  value; give them `format(v)`. weft now needs R 4.3.0 or later, for
+  [`chooseOpsMethod()`](https://rdrr.io/r/base/chooseOpsMethod.html).
+  [`fmt_num()`](https://vorpalvorpal.github.io/weft/reference/fmt.md) of
+  a bit64 `integer64` now prints every digit.
+- **Behaviour change:** a
+  [`claim()`](https://vorpalvorpal.github.io/weft/reference/claim.md) in
+  the body of an `if` whose condition is the literal `FALSE`
+  (parentheses around the whole condition removed; not `F`, `0` or
+  `FALSE && x`) no longer counts, in a script and in R chunk code alike:
+  the gate does not count it,
+  [`checks()`](https://vorpalvorpal.github.io/weft/reference/checks.md)
+  does not list it, and
+  [`verify()`](https://vorpalvorpal.github.io/weft/reference/verify.md)
+  does not collect its `decision`. Wrapping a claim in `if (FALSE)` is
+  now a removal, as turning `eval` off is; the `else` arm still counts.
+  A claim already under `if (FALSE)` leaves both sides of the
+  comparison, so no existing commit fails because of it. Rule 3.11.1.
 - **Behaviour change:** the commit gate now counts every
   [`claim()`](https://vorpalvorpal.github.io/weft/reference/claim.md),
   [`weft::claim()`](https://vorpalvorpal.github.io/weft/reference/claim.md)
