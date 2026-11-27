@@ -1116,8 +1116,13 @@ behaviour went through test-first.
 - **Not changed.** `quarto_engine()`, `filter_resolves()` and the Lua config
   (another agent's). `resolve_files()`: `files =` still takes `.qmd`, `.Rmd`
   and `.R` only, since tests fix its message; naming a notebook there is
-  future work. Quarto's skipping of a virtual environment folder (one holding
-  `pyvenv.cfg`) is not modelled: a percent cell in such a folder would be read.
+  future work. The folders Quarto leaves out of a project's inputs are not
+  modelled: a percent cell in one would be read. (Correction, 28 Nov: an
+  earlier wording here said Quarto skips a folder that holds `pyvenv.cfg`.
+  It does not. Quarto skips folders by name, at any depth: node_modules,
+  renv, packrat, rsconnect, venv and env, as well as dot and `_` folders.
+  Only a hint message uses `pyvenv.cfg`. Measured with `quarto inspect`,
+  1.11.9; the tests are in e4e070d.)
 - **Disputed test.** "notebooks verify: since lists a finding added in a
   notebook at its JSON line" adds `[a site]{n="j" if="y"}`, a construct error
   (the same form as `NBS_BAD`, `construct` at line 11). Rule 8.1.1 lists
