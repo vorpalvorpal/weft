@@ -166,7 +166,11 @@
   value; give them `format(v)`. weft now needs R 4.3.0 or later, for
   [`chooseOpsMethod()`](https://rdrr.io/r/base/chooseOpsMethod.html).
   [`fmt_num()`](https://vorpalvorpal.github.io/weft/reference/fmt.md) of
-  a bit64 `integer64` now prints every digit.
+  a bit64 `integer64` now prints every digit. Names on a value now
+  survive
+  [`vctrs::vec_slice()`](https://vctrs.r-lib.org/reference/vec_slice.html)
+  and dplyr’s [`filter()`](https://rdrr.io/r/stats/filter.html), as they
+  do on a plain named double.
 - **Behaviour change:** a
   [`claim()`](https://vorpalvorpal.github.io/weft/reference/claim.md) in
   the body of an `if` whose condition is the literal `FALSE`
