@@ -241,7 +241,10 @@ test_that("3d L32: _quarto.yml's bibliography as a list, and its references:", {
 })
 
 test_that("3d L32: a _metadata.yml applies to its folder and below, with paths from its own folder, not to a sibling folder", {
-  files <- list("ch/_metadata.yml" = "bibliography: local.bib",
+  # a Quarto project: without _quarto.yml the document's own folder is the project, and
+  # ch/_metadata.yml would not reach ch/sub (rule P1, finding A4; ruling 27 Nov)
+  files <- list("_quarto.yml" = "project:\n  type: default\n",
+                "ch/_metadata.yml" = "bibliography: local.bib",
                 "ch/local.bib" = F3D_BIBTEX2,
                 "ch/a.qmd" = "Known @other2015 and @ghost1.\n",
                 "ch/sub/b.qmd" = "Known @other2015 and @ghost2.\n",
