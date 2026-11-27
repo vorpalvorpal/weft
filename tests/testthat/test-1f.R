@@ -567,13 +567,7 @@ test_that("1f last_knit: before any knit it returns NULL", {
 })
 
 test_that("1f last_knit: after a knit the exported function returns the records, with the elements the help page lists", {
-  # the exported last_knit() reads weft's session state, which render_rmd() puts
-  # back after an in-process render: keep it, and put it back at the end
-  snap <- weft_snapshot_session()
-  withr::defer(weft_restore_session(snap))
-  withr::defer(weft_restore_knitr())
-  res <- render_rmd(c("A `r k`{.num} and [one | many]{if=\"flag\"}."), code = PRE_1F, in_process = TRUE,
-                    restore = FALSE)
+  res <- render_rmd(c("A `r k`{.num} and [one | many]{if=\"flag\"}."), code = PRE_1F, in_process = TRUE)
   expect_false(res$failed, label = res$message)
   k <- tryCatch(weft::last_knit(), error = function(e) NULL)
   expect_false(is.null(k))

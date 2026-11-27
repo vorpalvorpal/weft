@@ -103,31 +103,24 @@ weft_restore_knitr <- function() {
   knitr::opts_chunk$restore()
 }
 
-# What an in-process render can leave in the test session, saved before it and
-# put back after: weft's own state (weft_env and the unit-defaults state), the
-# search path (weft_setup() attaches "weft:functions"), the options, and the
-# objects `pre` defines in the global environment. The environment variables
-# and the working directory are restored by withr in run_rmd_file(), and the
-# knitr hooks and options by weft_restore_knitr().
+# What an in-process render can leave in the test session that a fresh child
+# would not have, saved before it and put back after: the search path
+# (weft_setup() attaches "weft:functions"), the options, and the objects `pre`
+# defines in the global environment. The environment variables and the working
+# directory are restored by withr in run_rmd_file(), and the knitr hooks and
+# options by weft_restore_knitr().
+#
+# weft's own state (weft_env, ud_state) is NOT put back. It is the code under
+# test: weft_setup() installs the before.knit hook so that each knit starts
+# clean, and the tests that notice a missing hook do so through the state the
+# last knit left (the planted bug c1 of dev/mutants/wp-c.tsv). Resetting it
+# between renders hid that bug from 213 tests, and broke the tests that call
+# the exported last_knit() after a render.
 weft_snapshot_session <- function() {
-  ns <- asNamespace("weft")
-  list(
-    weft_env = as.list(ns$weft_env, all.names = TRUE),
-    ud_state = as.list(ns$ud_state, all.names = TRUE),
-    search = search(),
-    options = options(),
-    globals = ls(globalenv(), all.names = TRUE)
-  )
+  list(search = search(), options = options(), globals = ls(globalenv(), all.names = TRUE))
 }
 
 weft_restore_session <- function(snap) {
-  ns <- asNamespace("weft")
-  reset_env <- function(env, saved) {
-    rm(list = ls(env, all.names = TRUE), envir = env)
-    list2env(saved, envir = env)
-  }
-  reset_env(ns$weft_env, snap$weft_env)
-  reset_env(ns$ud_state, snap$ud_state)
   for (nm in setdiff(search(), snap$search)) {
     if (nm == "weft:functions") try(detach(nm, character.only = TRUE), silent = TRUE)
   }

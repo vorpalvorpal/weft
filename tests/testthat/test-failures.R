@@ -79,7 +79,7 @@ check_marker_lines <- function(res, b, engine, extra_rows = NULL) {
 
 test_that("2.6.8 + 9.4.2 + 9.4.1: markers have the exact text and place, WEFT_DRAFT=1 (rmarkdown)", {
   b <- marker_doc(list("Q26 [a | b | c]{if=\"flag\"} x"))
-  res <- render_rmd(b$lines, code = PRE_F, env = c(WEFT_DRAFT = "1"), format = "knit")
+  res <- render_rmd(b$lines, code = PRE_F, env = c(WEFT_DRAFT = "1"), format = "knit", in_process = FALSE)
   expect_false(res$failed, label = res$message)
   check_marker_lines(res, b, "rmarkdown",
                      list(row("Q26 [a | b | c]{if=\"flag\"} x", "Q26 <<weft: construct error, line @L@>> x", "2.6.8: a construct error in draft mode")))
@@ -99,27 +99,27 @@ test_that("2.6.8 + 9.4.3: the same markers under Quarto, nothing fails (draft)",
 
 test_that("9.4.1: draft: true in the document's front matter (no _weft.yml) is draft mode", {
   res <- render_rmd(c("Intro.", "", "Value `r claim(k, . > 100)` here."), code = PRE_F,
-                    front = c("weft:", "  draft: true"), format = "knit")
+                    front = c("weft:", "  draft: true"), format = "knit", in_process = FALSE)
   expect_false(res$failed, label = res$message)
   expect_match(res$md, sprintf("Value 3<<weft: failed claim, line %d>> here.", res$offset + 3L), fixed = TRUE)
 })
 
 test_that("9.4.1 + 9.1.4: draft: true in _weft.yml is draft mode", {
   res <- render_rmd(c("Intro.", "", "Value `r claim(k, . > 100)` here."), code = PRE_F,
-                    files = list("_weft.yml" = "draft: true"), format = "knit")
+                    files = list("_weft.yml" = "draft: true"), format = "knit", in_process = FALSE)
   expect_false(res$failed, label = res$message)
   expect_match(res$md, "<<weft: failed claim, line", fixed = TRUE)
 })
 
 test_that("9.4.1: without draft mode the same document fails", {
-  res <- render_rmd(c("Intro.", "", "Value `r claim(k, . > 100)` here."), code = PRE_F)
+  res <- render_rmd(c("Intro.", "", "Value `r claim(k, . > 100)` here."), code = PRE_F, in_process = FALSE)
   expect_true(res$failed)
   expect_true("weft_failures" %in% res$error$class)
 })
 
 test_that("9.1.4: draft in a front matter, where _weft.yml exists, is an error", {
   res <- render_rmd("Text.", code = PRE_F, files = list("_weft.yml" = "digits: 1"),
-                    front = c("weft:", "  draft: true"))
+                    front = c("weft:", "  draft: true"), in_process = FALSE)
   expect_true(res$failed)
   expect_match(res$message, "draft", ignore.case = TRUE)
 })
@@ -218,7 +218,7 @@ test_that("2.6.4: an expression that cannot be evaluated is reported naming the 
 
 test_that("2.6.5: a construct error stops at once, with class weft_construct_error, even after a collected failure", {
   res <- render_rmd(c("A `r claim(k, . > 100)` b.", "", "See [a | b | c]{if=\"flag\"} here.", "", "End."),
-                    code = PRE_F)
+                    code = PRE_F, in_process = FALSE)
   expect_true(res$failed)
   expect_true("weft_construct_error" %in% res$error$class)
   expect_match(res$message, at_line(res, 3))
@@ -249,7 +249,7 @@ test_that("2.6.2 under Quarto: the render fails once with the report, naming fil
 
 test_that("2.4.2: a failed check in chunk code stops the chunk and the knit", {
   src <- c("```{r bad-chunk}", "claim(k, . > 100)", "```", "", "Text `r k`{.word}.")
-  res <- render_rmd(src, code = PRE_F)
+  res <- render_rmd(src, code = PRE_F, in_process = FALSE)
   expect_true(res$failed)
   expect_match(res$message, ". > 100", fixed = TRUE)
 })
@@ -285,14 +285,14 @@ test_that("2.4.4: a failed check caught by tryCatch() is recorded; the render fa
 
 test_that("2.4.4: a passing check in chunk code fails nothing", {
   src <- c("```{r ok-chunk}", "y <- claim(k, . > 0)", "```", "", "After `r k`{.word}.")
-  res <- render_rmd(src, code = PRE_F)
+  res <- render_rmd(src, code = PRE_F, in_process = FALSE)
   expect_false(res$failed, label = res$message)
   expect_equal(canon_md(res$md), "After three.")
 })
 
 test_that("2.4.5: a failed check that stops the knit prints every failure collected before it", {
   src <- c("Early `r claim(k, . > 100)` failure.", "", "```{r stop-chunk}", "claim(z, . > 5)", "```", "", "End.")
-  res <- render_rmd(src, code = PRE_F)
+  res <- render_rmd(src, code = PRE_F, in_process = FALSE)
   expect_true(res$failed)
   expect_match(res$message, ". > 5", fixed = TRUE)                # its own error
   expect_match(res$message, at_line(res, 1))                      # the failure collected before it

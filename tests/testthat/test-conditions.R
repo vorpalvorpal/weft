@@ -277,10 +277,10 @@ test_that("2.9.1: under the chunk cache the prose hooks still run on every rende
 test_that("2.9.1: the prose hooks check the cached values on every render (a failed claim fails both)", {
   dir <- withr::local_tempdir()
   doc <- cache_doc(c("", "Check `r claim(cached_val, . > 100)`."))
-  r1 <- render_rmd(doc, code = PRE_C, dir = dir)
+  r1 <- render_rmd(doc, code = PRE_C, dir = dir, in_process = FALSE)
   expect_true(r1$failed)
   expect_match(r1$message, at_line(r1, 8))
-  r2 <- render_rmd(doc, code = PRE_C, dir = dir)
+  r2 <- render_rmd(doc, code = PRE_C, dir = dir, in_process = FALSE)
   expect_true(r2$failed)
   expect_match(r2$message, at_line(r2, 8))
   expect_match(r2$message, ". > 100", fixed = TRUE)

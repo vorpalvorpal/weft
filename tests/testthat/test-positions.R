@@ -67,32 +67,32 @@ test_that("sanity of the stress document itself", {
 
 test_that("2.7.1 + 2.7.2 + 21 Positions: the content search finds the right line in the stress document (LF)", {
   b <- stress_body()
-  res <- render_rmd(b, code = PRE_P, env = c(WEFT_DRAFT = "1"), format = "knit")
+  res <- render_rmd(b, code = PRE_P, env = c(WEFT_DRAFT = "1"), format = "knit", in_process = FALSE)
   expect_false(res$failed, label = res$message)
   expect_equal(marker_lines(res$text), res$offset + prose_fail_lines(b))
 })
 
 test_that("21 Positions: CRLF line endings", {
   b <- stress_body()
-  res <- render_rmd(b, code = PRE_P, env = c(WEFT_DRAFT = "1"), format = "knit", eol = "\r\n")
+  res <- render_rmd(b, code = PRE_P, env = c(WEFT_DRAFT = "1"), format = "knit", eol = "\r\n", in_process = FALSE)
   expect_false(res$failed, label = res$message)
   expect_equal(marker_lines(res$text), res$offset + prose_fail_lines(b))
 })
 
 test_that("21 Positions: no final newline", {
   b <- stress_body()
-  res <- render_rmd(b, code = PRE_P, env = c(WEFT_DRAFT = "1"), format = "knit", final_newline = FALSE)
+  res <- render_rmd(b, code = PRE_P, env = c(WEFT_DRAFT = "1"), format = "knit", final_newline = FALSE, in_process = FALSE)
   expect_false(res$failed, label = res$message)
   expect_equal(marker_lines(res$text), res$offset + prose_fail_lines(b))
 })
 
 test_that("21 Positions: a byte-order mark, and all three together", {
   b <- stress_body()
-  res <- render_rmd(b, code = PRE_P, env = c(WEFT_DRAFT = "1"), format = "knit", bom = TRUE)
+  res <- render_rmd(b, code = PRE_P, env = c(WEFT_DRAFT = "1"), format = "knit", bom = TRUE, in_process = FALSE)
   expect_false(res$failed, label = res$message)
   expect_equal(marker_lines(res$text), res$offset + prose_fail_lines(b))
   res <- render_rmd(b, code = PRE_P, env = c(WEFT_DRAFT = "1"), format = "knit",
-                    bom = TRUE, eol = "\r\n", final_newline = FALSE)
+                    bom = TRUE, eol = "\r\n", final_newline = FALSE, in_process = FALSE)
   expect_false(res$failed, label = res$message)
   expect_equal(marker_lines(res$text), res$offset + prose_fail_lines(b))
 })
@@ -119,7 +119,7 @@ test_that("2.7.1 + 2.7.2: the same stress document under Quarto (LF and CRLF)", 
 test_that("2.7.1: the line of a construct is the block's first line plus the newlines before it", {
   b <- c("First paragraph line.", paste0("second line ", FAIL, "."), "third line.", "",
          paste0("Next ", FAIL, " paragraph"), paste0("and ", FAIL, " again."))
-  res <- render_rmd(b, code = PRE_P, env = c(WEFT_DRAFT = "1"), format = "knit")
+  res <- render_rmd(b, code = PRE_P, env = c(WEFT_DRAFT = "1"), format = "knit", in_process = FALSE)
   expect_equal(marker_lines(res$text), res$offset + c(2L, 5L, 6L))
 })
 
@@ -207,7 +207,7 @@ test_that("2.1.5: the same with knitr::knit_child() called from a chunk", {
 test_that("2.1.5: the child's constructs resolve, from its own file (draft, no failure)", {
   src <- c("Parent `r k`{.word}.", "", "```{r kid, child='child.Rmd'}", "```")
   res <- render_rmd(src, code = PRE_P, files = list("child.Rmd" = child_lines),
-                    env = c(WEFT_DRAFT = "1"), format = "knit")
+                    env = c(WEFT_DRAFT = "1"), format = "knit", in_process = FALSE)
   expect_false(res$failed, label = res$message)
   expect_match(res$md, "Child a resolved.", fixed = TRUE)
   expect_match(res$md, "Parent three.", fixed = TRUE)

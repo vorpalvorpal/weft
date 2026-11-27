@@ -333,7 +333,7 @@ compare_rows <- function(rows, res, engine) {
 
 test_that("rows: values, constructs and contexts render as the rules say (rmarkdown)", {
   body <- batch_cases(vapply(OK_ROWS, function(r) r$src, ""))
-  res <- render_rmd(body, code = PRE)
+  res <- render_rmd(body, code = PRE, in_process = FALSE)
   compare_rows(OK_ROWS, res, "rmarkdown")
 })
 
