@@ -165,7 +165,7 @@ test_that("notebooks verify: control, files that are not weft documents are left
   expect_identical(nrow(nbs_errs(v$r)), 0L)
 })
 
-test_that("notebooks verify: control, a module with a stray markdown cell marker IS a Quarto document", {
+test_that("notebooks verify: a module with a stray markdown cell marker IS a Quarto document, so it is read", {
   # Quarto claims any .py with a `# %% [markdown]` line, so a weft that follows Quarto reads it (cost note)
   mod <- c(nbs_module(), "", "# %% [markdown]", paste("#", NBS_BAD))
   v <- nbs_verify(list("util.py" = mod))
