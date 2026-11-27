@@ -53,3 +53,22 @@ that holds a construct and has no `engine: knitr` in its own front
 matter (9.2.8). It also opens the collection file
 `.weft/failures.jsonl`, which the filter and the documents append to and
 the post-render script reports.
+
+## Examples
+
+``` r
+dir <- tempfile("weft-example")
+dir.create(dir)
+writeLines("project:\n  type: default", file.path(dir, "_quarto.yml"))
+writeLines("", file.path(dir, "_weft.yml"))
+use_quarto(dir)
+#> weft will write, under /tmp/Rtmpi8oDuo/weft-example1aed725557c4:
+#>   _extensions/weft-check/_extension.yml, weft.lua, weftlib/ and weft-check.lua  (the weft filters)
+#>   _extensions/weft-check/weft-output.lua  (the rendered-output check; it runs after Quarto's own filters)
+#>   _weft/pre-render.R   (fails a .qmd with constructs and no `engine: knitr`; opens .weft/failures.jsonl)
+#>   _weft/post-render.R  (reports what the render collected)
+#>   _weft.yml  (exists: left as it is)
+#>   _quarto.yml  (adds the filter weft-check, the weft-output.lua filter entry, and the two scripts under project:)
+#> Wrote: _extensions/weft-check/_extension.yml, _extensions/weft-check/weft.lua, _extensions/weft-check/weftlib/cond.lua, _extensions/weft-check/weftlib/config.lua, _extensions/weft-check/weftlib/ledger.lua, _extensions/weft-check/weftlib/lines.lua, _extensions/weft-check/weftlib/num.lua, _extensions/weft-check/weftlib/report.lua, _extensions/weft-check/weftlib/stamp.lua, _extensions/weft-check/weftlib/words.lua, _extensions/weft-check/weft-check.lua, _extensions/weft-check/weft-output.lua, _weft/pre-render.R, _weft/post-render.R, _quarto.yml
+unlink(dir, recursive = TRUE)
+```

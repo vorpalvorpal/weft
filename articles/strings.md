@@ -451,6 +451,112 @@ returns the markdown. There a named value is Python’s, published with
 `put()`; see
 [`vignette("languages", package = "weft")`](https://vorpalvorpal.github.io/weft/articles/languages.md).
 
+## Self-formatting values
+
+Writing `fmt_num(x, digits = 2)` at every sink repeats the digits, and
+one copy goes stale.
+[`val_num()`](https://vorpalvorpal.github.io/weft/reference/val.md),
+[`val_pct()`](https://vorpalvorpal.github.io/weft/reference/val.md),
+[`val_sci()`](https://vorpalvorpal.github.io/weft/reference/val.md) and
+[`val_p()`](https://vorpalvorpal.github.io/weft/reference/val.md) state
+the format once, on the number. The result is a **self-formatting
+value**: still a number, with the class `weft_val` and the format it was
+made with.
+
+``` r
+
+top <- val_num(u(61.234, NTU), digits = 1)
+cover <- val_pct(0.4132, digits = 0)
+top
+```
+
+61.2 NTU
+
+The value compares, sorts and plots as the number. Only its text
+changes, and it is the same text everywhere that text is wanted:
+[`paste()`](https://rdrr.io/r/base/paste.html),
+[`glue::glue()`](https://glue.tidyverse.org/reference/glue.html),
+[`message()`](https://rdrr.io/r/base/message.html), `sprintf("%s", )`, a
+printed data frame,
+[`knitr::kable()`](https://rdrr.io/pkg/knitr/man/kable.html) and a
+ggplot2 title or label all give the plain form.
+
+``` r
+
+paste("The peak was", top, "and cover was", cover)
+#> [1] "The peak was 61.2 NTU and cover was 41%"
+top > u(50, NTU)
+#> [1] TRUE
+```
+
+[`format()`](https://rdrr.io/r/base/format.html) takes the target at the
+sink, as the `fmt_*()` functions do. The default is plain text.
+`"markdown"` and `"tex"` give those forms, and `"html"` and `"marquee"`
+give what the matching `fmt_*()` call gives, for ggtext, gt and marquee
+(see “Rich plot text”).
+
+``` r
+
+rate <- val_sci(0.000123, digits = 1)
+c(plain = format(rate), markdown = format(rate, target = "markdown"),
+  html = format(rate, target = "html"), marquee = format(rate, target = "marquee"))
+#>                   plain                markdown                    html 
+#>            "1.2 × 10⁻⁴"          "1.2 × 10^−4^" "1.2 × 10<sup>−4</sup>" 
+#>                 marquee 
+#>     "1.2 × 10{.sup −4}"
+```
+
+A value can label a plot. The label is its plain text, and a ggtext or
+marquee theme takes the html or marquee form through
+[`format()`](https://rdrr.io/r/base/format.html):
+
+``` r
+
+ggplot(d, aes(x, y)) + geom_point() +
+  annotate("text", x = 1, y = 1, label = top, vjust = -0.5) +
+  labs(title = paste("Peak:", top))
+```
+
+The texts are made when the value is made, under the configuration
+there. If you give no `digits` or `sigfig` and the number that is not
+zero would print as zero, weft warns once, as the zero check does in
+prose (a warned check in a knit, a `weft_zero_warning` outside one).
+Giving `digits` or `sigfig` to the constructor says that you meant it.
+
+``` r
+
+tryCatch(val_num(0.0004), weft_zero_warning = function(w) "warned")
+#> [1] "warned"
+val_num(0.0004, digits = 4)
+```
+
+0.0004
+
+**Arithmetic drops the format.** `+`, `*`,
+[`round()`](https://rdrr.io/r/base/Round.html) and
+[`sum()`](https://rdrr.io/r/base/sum.html) give the number underneath
+(here a quantity in NTU), because the format no longer describes the
+result. [`min()`](https://rdrr.io/r/base/Extremes.html),
+[`max()`](https://rdrr.io/r/base/Extremes.html),
+[`range()`](https://rdrr.io/r/base/range.html),
+[`mean()`](https://rdrr.io/r/base/mean.html) and
+[`median()`](https://rdrr.io/r/stats/median.html) keep it. To print a
+computed number, make a new value from it:
+
+``` r
+
+top * 2
+#> 122.468 [NTU]
+val_num(top * 2, digits = 1)
+```
+
+122.5 NTU
+
+[`cat()`](https://rdrr.io/r/base/cat.html) prints the number underneath
+and [`writeLines()`](https://rdrr.io/r/base/writeLines.html) refuses the
+value: give them `format(v)`. The full list is in
+[`?val`](https://vorpalvorpal.github.io/weft/reference/val.md).
+
 ## When something fails
 
 **Outside a knit**, in a script or at the console, the first failure

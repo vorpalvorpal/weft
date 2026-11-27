@@ -312,9 +312,12 @@ engine, so that every document with constructs is knitted. It leaves a
 document that names <code>jupyter:</code> alone, and files and folders
 whose names start with <code>_</code> or <code>.</code> (included
 files).</p>
-<p>The key must be in each document’s own front matter. An
-<code>engine:</code> in <code>_quarto.yml</code> does not count, and the
-lint <code>engine</code> finds a document that lacks it.</p>
+<p>The key must be in the first metadata block of the document (or in
+the first block of a file that the document includes on its first line;
+see below). An <code>engine:</code> in <code>_quarto.yml</code> or a
+<code>_metadata.yml</code> does not count, and nor does one in a later
+block, and the lint <code>engine</code> finds a document that lacks it.
+A <code>knitr:</code> key in the first block picks knitr too.</p>
 </div>
 <div class="section level3">
 <h3 id="when-an-edit-is-not-safe">When an edit is not safe<a class="anchor" aria-label="anchor" href="#when-an-edit-is-not-safe"></a>
@@ -580,6 +583,67 @@ when you ask for it)</td>
 still active. Without weft, a document that holds them prints each span
 as plain text, and <code><a href="../reference/claim.html">claim()</a></code> and <code><a href="../reference/u.html">u()</a></code> are not
 found.</p>
+</div>
+<div class="section level2">
+<h2 id="where-weft-reads-settings-and-front-matter">Where weft reads settings and front matter<a class="anchor" aria-label="anchor" href="#where-weft-reads-settings-and-front-matter"></a>
+</h2>
+<p>weft takes two kinds of setting from two places. Its own settings,
+the <code>weft:</code> key, come from <code>_weft.yml</code> and the
+document, and from nowhere else. Quarto’s settings that weft needs come
+from Quarto’s own layers.</p>
+<p><strong>Quarto’s layers.</strong> Outside a render, the lints build
+the metadata of a document as Quarto does. From lowest to highest:</p>
+<ol style="list-style-type: decimal">
+<li>
+<code>_quarto.yml</code>;</li>
+<li>the active profiles, <code>_quarto-&lt;name&gt;.yml</code>, those
+named in the environment variable <code>QUARTO_PROFILE</code> (the first
+named wins), else <code>profile: default</code> in
+<code>_quarto.yml.local</code>, else in <code>_quarto.yml</code>;</li>
+<li>
+<code>_quarto.yml.local</code>;</li>
+<li>the <code>_metadata.yml</code> of each folder, from the first folder
+below the project root down to the document’s, the nearest winning;</li>
+<li>the document’s own front matter.</li>
+</ol>
+<p>Maps merge at every depth, and lists add up, the project’s first.
+With no <code>_quarto.yml</code>, only the <code>_metadata.yml</code> of
+the document’s own folder counts. Under a render, weft reads Quarto’s
+merged view instead, so the two agree. Under rmarkdown or plain knitr
+there are no layers: weft reads <code>_weft.yml</code> and the document
+only. The settings weft takes from the layers are <code>lang</code>,
+<code>execute:</code> (the cache setting, for the <code>tar-cache</code>
+lint), and <code>bibliography</code>. The engine keys are not among
+them.</p>
+<p><strong>Every metadata block counts.</strong> A document’s front
+matter is every <code>---</code> block in it, merged in order, as Pandoc
+and Quarto read it. A block opens with a line that is exactly
+<code>---</code>, at the top or after a blank line, with a line that is
+not blank after it, and closes at <code>---</code> or <code>...</code>.
+When two blocks set one key, the later wins and replaces the whole
+value: a later <code>weft:</code> replaces an earlier one, with no merge
+inside it. <code>engine:</code>, <code>knitr:</code> and
+<code>jupyter:</code> are the exception. They are read from the first
+block alone, as Quarto reads them.</p>
+<p><strong>Included files.</strong> The front matter of a file brought
+in with <code>{{&lt; include &gt;}}</code> is part of the document, at
+the place of the include, and the later block wins. An include on line 1
+(blank lines above it are allowed) supplies the first block, so the
+included file can pick the engine. An include lower down never does. The
+included file’s folder <code>_metadata.yml</code> does not apply.</p>
+<p><strong>Notebooks and percent scripts.</strong> In an
+<code>.ipynb</code>, every raw or markdown cell whose source is a
+<code>---</code> block is a front-matter block, in cell order. In a
+percent script (<code>.py</code>) the same holds for
+<code># %% [markdown]</code> and <code># %% [raw]</code> cells, with the
+leading <code>#</code> taken off. A later cell’s block wins per key.
+Code cells hold none.</p>
+<p><strong><code>weft:</code> belongs in
+<code>_weft.yml</code>.</strong> Never put it in
+<code>_quarto.yml</code>, <code>_metadata.yml</code>, a profile,
+<code>_quarto.yml.local</code> or under <code>format: html:</code>. weft
+does not read it there, and the lint <code>config-place</code> reports
+it in each of those places, active or not.</p>
 </div>
 <div class="section level2">
 <h2 id="settings">Settings<a class="anchor" aria-label="anchor" href="#settings"></a>

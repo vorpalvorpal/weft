@@ -31,3 +31,28 @@ label_seed(paths = NULL, min_count = 2)
 A data frame with `word`, `n` (how many times), `files` (in how many
 files) and `where` (up to three places as
 `<file>:<line>: <word> <numeral>`), sorted by `n` and then `word`.
+
+## Examples
+
+``` r
+dir <- tempfile("weft-example")
+dir.create(dir)
+writeLines("", file.path(dir, "_weft.yml"))
+writeLines(c(
+  "---",
+  "title: Survey",
+  "---",
+  "",
+  "We visited 14 sites.",
+  "",
+  "```{r}",
+  "n_high <- 3",
+  "```",
+  "",
+  "[No site | One site | # sites]{n=n_high} read high."
+), file.path(dir, "survey.Rmd"))
+label_seed(file.path(dir, "survey.Rmd"), min_count = 1)
+#> [1] word  n     files where
+#> <0 rows> (or 0-length row.names)
+unlink(dir, recursive = TRUE)
+```

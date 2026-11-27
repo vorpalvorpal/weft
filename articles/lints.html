@@ -369,7 +369,37 @@ Rounding in code skips weft’s formatters, so the value has no printed
 record and <code><a href="https://rdrr.io/r/base/Round.html" class="external-link">round()</a></code> drops trailing zeros.
 <code>value-format</code> also lists a bare <code><a href="../reference/fmt.html">fmt_num()</a></code> or
 another <code>fmt_*()</code> in math, which writes markdown there; a
-class block writes TeX.</p>
+class block writes TeX. It lists a bare <code>fmt_*()</code> in prose
+given a literal <code>target = "html"</code> or
+<code>target = "marquee"</code> too: the document would show the marks
+or drop the tags. Those targets are for a sink such as a plot, where
+<code><a href="https://rdrr.io/r/base/format.html" class="external-link">format()</a></code> gives them; in prose write a class block.</p>
+</div>
+<div class="section level2">
+<h2 id="how-fences-and-chunks-are-read">How fences and chunks are read<a class="anchor" aria-label="anchor" href="#how-fences-and-chunks-are-read"></a>
+</h2>
+<p>One reader finds the fences of a document for every rule, the scanner
+and the front-matter readers alike. An executable chunk is found as
+knitr finds it, before anything else: three or more backticks, then
+<code>{</code> and an engine name, at any indent, behind
+<code>&gt;</code> quote markers, and even inside an HTML comment. Every
+other fence follows CommonMark, as Pandoc reads it: a <code>~~~</code>
+fence is never a chunk, a backtick fence whose info string holds a
+backtick is not a fence, and a <code>---</code> line inside any fence
+opens no front matter. An unclosed chunk or fence runs to the last
+line.</p>
+</div>
+<div class="section level2">
+<h2 id="notebooks">Notebooks<a class="anchor" aria-label="anchor" href="#notebooks"></a>
+</h2>
+<p><code><a href="../reference/lints.html">lints()</a></code> also reads Jupyter notebooks
+(<code>.ipynb</code>) as documents. A markdown cell is prose, a raw cell
+is its text, and a code cell is a chunk in the kernel’s language. A
+finding is placed in the JSON file: at the line of the JSON string that
+holds the source line, and at the column of the character in that line,
+with escapes counted as written. A finding about something weft adds to
+a cell, such as a fence, is placed at the cell’s <code>"source"</code>
+key. Percent scripts are not read.</p>
 </div>
 <div class="section level2">
 <h2 id="construct-errors">Construct errors<a class="anchor" aria-label="anchor" href="#construct-errors"></a>
@@ -621,13 +651,16 @@ run them over the lines added since a commit.</p>
 <p>Plot titles and console text are written in scripts as often as in
 chunks, so <code><a href="../reference/lints.html">lints()</a></code> also reads the <code>.R</code> and
 <code>.r</code> files of the project, but only for the literal strings
-they pass to <code><a href="../reference/weft.html">weft()</a></code>. A call is <code>weft(...)</code>,
-<code>weft::weft(...)</code> or <code>weft:::weft(...)</code>, or the
-right-hand side of a pipe; the argument read is the one R matches to
-<code>x</code>: a string (a raw string too) or the literal elements of a
-<code><a href="https://rdrr.io/r/base/c.html" class="external-link">c()</a></code>. A computed argument (<code><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0()</a></code>,
-<code><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf()</a></code>, a name) is skipped. The code around the call is
-not read, nor are <code><a href="../reference/claim.html">claim()</a></code> calls, the phrases of
+they pass to <code><a href="../reference/weft.html">weft()</a></code>. It also reads <code><a href="../reference/claim.html">claim()</a></code>
+calls, but only for the <code>inert-check</code> rule: how the gate
+counts them, and the <code>if (FALSE)</code> rule, are in “Claims in
+scripts” in <code><a href="../articles/gate.html">vignette("gate", package = "weft")</a></code>. A call is
+<code>weft(...)</code>, <code>weft::weft(...)</code> or
+<code>weft:::weft(...)</code>, or the right-hand side of a pipe; the
+argument read is the one R matches to <code>x</code>: a string (a raw
+string too) or the literal elements of a <code><a href="https://rdrr.io/r/base/c.html" class="external-link">c()</a></code>. A computed
+argument (<code><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0()</a></code>, <code><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf()</a></code>, a name) is
+skipped. The code around the call is not read, nor are the phrases of
 <code><a href="../reference/lookup.html">lookup()</a></code> and <code><a href="../reference/lookup.html">brk()</a></code>, or strings given to other
 functions.</p>
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
@@ -684,14 +717,14 @@ unless set, because test files hold typed numbers and broken markup on
 purpose; a list that you give replaces it, so keep <code>tests</code> in
 it, and <code>[]</code> reads every script. An empty or commented-out
 <code>scripts_skip:</code> (a null value) keeps the default. A script
-whose bytes do not hold <code>weft</code> is never read, one that is not
-valid UTF-8 gives the <code>read</code> finding, and one that does not
-parse as R gives a note and no findings. Naming a script that is left
-out, in <code>files</code> or as <code>path</code>, gives a note that
-says which rule left it out. <code>lints(reader = "pandoc")</code> reads
-scripts with weft’s reader too, since they need no Pandoc. The commit
-gate counts a script’s findings and constructs as it counts a
-document’s.</p>
+whose bytes hold neither <code>weft</code> nor a <code>claim(</code>
+call is never read, one that is not valid UTF-8 gives the
+<code>read</code> finding, and one that does not parse as R gives a note
+and no findings. Naming a script that is left out, in <code>files</code>
+or as <code>path</code>, gives a note that says which rule left it out.
+<code>lints(reader = "pandoc")</code> reads scripts with weft’s reader
+too, since they need no Pandoc. The commit gate counts a script’s
+findings and constructs as it counts a document’s.</p>
 </div>
 <div class="section level2">
 <h2 id="settings">Settings<a class="anchor" aria-label="anchor" href="#settings"></a>

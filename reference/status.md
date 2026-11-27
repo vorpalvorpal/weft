@@ -35,3 +35,38 @@ attribute is the first part, in the order of
 [`use_weft()`](https://vorpalvorpal.github.io/weft/reference/use_weft.md),
 that is `missing` or `outdated`, as a sentence; otherwise it says there
 is nothing to install.
+
+## Examples
+
+``` r
+dir <- tempfile("weft-example")
+dir.create(dir)
+writeLines("", file.path(dir, "_weft.yml"))
+writeLines(c(
+  "---",
+  "title: Survey",
+  "---",
+  "",
+  "We visited 14 sites.",
+  "",
+  "```{r}",
+  "n_high <- 3",
+  "```",
+  "",
+  "[No site | One site | # sites]{n=n_high} read high."
+), file.path(dir, "survey.Rmd"))
+status(dir)
+#> weft status: /tmp/Rtmpi8oDuo/weft-example1aed53980982
+#>   setup        ok        _weft.yml does not record a weft version (not recorded; installed: 0.1.0)
+#>   activation   missing   no .Rprofile line and no front-matter route
+#>   quarto       n/a       not a Quarto project
+#>   dictionary   missing   no dict.yml
+#>   hooks        n/a       not a git repository
+#>   ci           n/a       not a git repository
+#>   agent docs   missing   AGENTS.md block: missing; skill: missing
+#>   draft        ok        draft mode is off
+#>   verify_skip  ok        verify() skips nothing
+#>   strict       ok        no rule is strict
+#> Next: run weft::use_setup() to activate weft in the documents.
+unlink(dir, recursive = TRUE)
+```

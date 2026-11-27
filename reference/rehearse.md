@@ -104,3 +104,12 @@ child loads that directory, and otherwise it calls
 ## See also
 
 [`arms()`](https://vorpalvorpal.github.io/weft/reference/arms.md)
+
+## Examples
+
+``` r
+if (FALSE) {
+  # knits the document once for each case
+  rehearse("report.Rmd", list(low = list(site_count = 0), high = list(site_count = 9)))
+}
+```

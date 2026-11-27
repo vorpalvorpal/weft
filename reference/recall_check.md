@@ -62,3 +62,12 @@ print(x, ...)
 
 A `weft_recall` data frame, one row per rule and a last row `any`, with
 the attributes `matches` and `unlocated`.
+
+## Examples
+
+``` r
+if (FALSE) {
+  findings <- data.frame(id = "a", file = "ch1.qmd", line = 12)
+  recall_check(findings, source = "chapters")
+}
+```

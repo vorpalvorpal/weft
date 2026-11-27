@@ -49,3 +49,12 @@ project's own dictionary (`dict = NULL`) has no `avoid` left, a file it
 wrote is removed; a dictionary given as `dict` never removes anything.
 It never writes `.vale.ini`: when that file does not list the style in
 `BasedOnStyles`, it says what the file needs.
+
+## Examples
+
+``` r
+if (FALSE) {
+  # writes styles/Weft/Terms.yml from the dictionary in dict.yml
+  dict_vale()
+}
+```

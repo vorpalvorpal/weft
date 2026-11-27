@@ -98,3 +98,39 @@ as `path` gives a note. A script whose bytes hold neither `weft` nor a
 `claim(` call is not read; one that is not valid UTF-8 gives the `read`
 finding when its bytes hold `weft` and is otherwise not read; one that
 does not parse as R gives a note and no findings.
+
+## Examples
+
+``` r
+dir <- tempfile("weft-example")
+dir.create(dir)
+writeLines("", file.path(dir, "_weft.yml"))
+writeLines(c(
+  "---",
+  "title: Survey",
+  "---",
+  "",
+  "We visited 14 sites.",
+  "",
+  "```{r}",
+  "n_high <- 3",
+  "```",
+  "",
+  "[No site | One site | # sites]{n=n_high} read high."
+), file.path(dir, "survey.Rmd"))
+lints(dir)
+#> weft lints: 2 findings in 1 file (2 tier 1, 0 tier 2)
+#> 
+#> survey.Rmd
+#>   5:12  numeral      "14" is a number typed in prose (rule 5.2.1).
+#>                      Write it as a value, put it in the dictionary, or mark it [14]{.weft-literal why="..."}.
+#>   7:1   chunk-label  The r chunk `n_high <- 3` has no label (rule 5.8.1).
+#>                      Give the chunk a label, as `#| label: name`.
+lints(dir, rules = "numeral", tier = 1:2)
+#> weft lints: 1 finding in 1 file (1 tier 1, 0 tier 2)
+#> 
+#> survey.Rmd
+#>   5:12  numeral  "14" is a number typed in prose (rule 5.2.1).
+#>                  Write it as a value, put it in the dictionary, or mark it [14]{.weft-literal why="..."}.
+unlink(dir, recursive = TRUE)
+```

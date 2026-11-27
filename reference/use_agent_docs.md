@@ -75,3 +75,39 @@ exists and holds neither `@AGENTS.md` nor `@./AGENTS.md`, the call says
 to add that line; neither file is written. It says what it will write
 first. [`suppressMessages()`](https://rdrr.io/r/base/message.html)
 silences it.
+
+## Examples
+
+``` r
+dir <- tempfile("weft-example")
+dir.create(dir)
+writeLines("", file.path(dir, "_weft.yml"))
+writeLines(c(
+  "---",
+  "title: Survey",
+  "---",
+  "",
+  "We visited 14 sites.",
+  "",
+  "```{r}",
+  "n_high <- 3",
+  "```",
+  "",
+  "[No site | One site | # sites]{n=n_high} read high."
+), file.path(dir, "survey.Rmd"))
+use_agent_docs(dir)
+#> weft will write, under /tmp/Rtmpi8oDuo/weft-example1aed30757de9:
+#>   AGENTS.md  (new: the weft rules for coding agents)
+#>   .agents/skills/weft/SKILL.md  (new: the weft skill for coding agents)
+#>   .agents/skills/weft/references/reports.md  (new: the weft skill for coding agents)
+#>   .agents/skills/weft/references/syntax.md  (new: the weft skill for coding agents)
+#> Wrote: 4 files, listed above.
+list.files(dir, recursive = TRUE, all.files = TRUE)
+#> [1] ".agents/skills/weft/SKILL.md"             
+#> [2] ".agents/skills/weft/references/reports.md"
+#> [3] ".agents/skills/weft/references/syntax.md" 
+#> [4] "AGENTS.md"                                
+#> [5] "_weft.yml"                                
+#> [6] "survey.Rmd"                               
+unlink(dir, recursive = TRUE)
+```

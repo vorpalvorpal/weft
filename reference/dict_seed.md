@@ -49,3 +49,20 @@ every argument named or none. Logicals, `NA`, `NULL`, dates, `<<-` and
 Limits: a constant written by a computation, or inside a function or a
 block, is not seen; inline R is not read; a name reused for unrelated
 things in two documents is listed, and the author decides.
+
+## Examples
+
+``` r
+dir <- tempfile("weft-example")
+dir.create(dir)
+writeLines("", file.path(dir, "_weft.yml"))
+for (f in c("a.R", "b.R")) writeLines("depth <- 4.5", file.path(dir, f))
+dict_seed(file.path(dir, c("a.R", "b.R")))
+#>    name value differs n
+#> 1 depth   4.5   FALSE 2
+#>                                                                                        files
+#> 1 /tmp/Rtmpi8oDuo/weft-example1aed4a356c68/a.R, /tmp/Rtmpi8oDuo/weft-example1aed4a356c68/b.R
+#>                                                                                                      where
+#> 1 /tmp/Rtmpi8oDuo/weft-example1aed4a356c68/a.R:1: 4.5; /tmp/Rtmpi8oDuo/weft-example1aed4a356c68/b.R:1: 4.5
+unlink(dir, recursive = TRUE)
+```

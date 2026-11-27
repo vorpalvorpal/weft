@@ -67,3 +67,13 @@ A part is skipped when it is named in `verify_skip` in `_weft.yml`
 (`lints`, `decisions`, `render`, `ledger`), and the render and ledger
 parts are skipped by `static = TRUE`. `verify()` does not run in draft
 mode (rule 8.1.5).
+
+## Examples
+
+``` r
+if (FALSE) {
+  # renders every document: slow
+  verify()
+  verify(static = TRUE)
+}
+```

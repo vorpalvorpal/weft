@@ -648,11 +648,14 @@ in_millions <- function(x, target = "markdown") {
 }
 ```
 
-`targets:` is `[markdown]` unless set, and must include `markdown`. A
-function that lists `tex` is called with `target = "markdown"` or
-`target = "tex"` as its last argument, after any options, and must take
-`target` or `...`. A class that does not list `tex` is a construct error
-in math.
+`targets:` is `[markdown]` unless set, and must include `markdown`. It
+lists `markdown` and, optionally, `tex`: `plain`, `html` and `marquee`
+are refused with a configuration error (E104), because under those
+targets a formatter is called as for markdown and weft reads its text
+from that. A function that lists `tex` is called with
+`target = "markdown"` or `target = "tex"` as its last argument, after
+any options, and must take `target` or `...`. A class that does not list
+`tex` is a construct error in math.
 
 ## Changing the defaults
 

@@ -91,3 +91,13 @@ side (a ratio or a count).
 
 `print(x, brief = TRUE)` prints the header line, the structural changes,
 the ledgers not re-rendered and the new conditions, and nothing else.
+
+## Examples
+
+``` r
+if (FALSE) {
+  # in a git repository that holds _weft.yml
+  changes()
+  changes(since = "HEAD~3")
+}
+```

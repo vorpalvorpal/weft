@@ -47,3 +47,12 @@ call is the consent.
 [`suppressMessages()`](https://rdrr.io/r/base/message.html) silences it.
 [`dict_vale()`](https://vorpalvorpal.github.io/weft/reference/dict_vale.md)
 is not called: it is a tool, not set-up.
+
+## Examples
+
+``` r
+if (FALSE) {
+  # sets up the whole project: files, hook, workflow, agent skill
+  use_weft()
+}
+```

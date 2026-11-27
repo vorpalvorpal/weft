@@ -412,6 +412,54 @@ returns the rows in `checks`. The way to keep these lines short is the
 advice of the wording article: check a value once, where it is made, and
 use its name after.
 
+### Claims in scripts
+
+A [`claim()`](https://vorpalvorpal.github.io/weft/reference/claim.md) in
+an R script counts as one in a document. The gate reads every call of
+[`claim()`](https://vorpalvorpal.github.io/weft/reference/claim.md),
+[`weft::claim()`](https://vorpalvorpal.github.io/weft/reference/claim.md)
+or `weft:::claim()` in the script’s code, wherever it sits: in a
+function body, a target’s command, a lambda, a pipe or a loop. A call in
+a comment or a string is not one, nor is `claim` from another package,
+nor a claim inside a
+[`weft()`](https://vorpalvorpal.github.io/weft/reference/weft.md)
+literal, which is read as a string is. The script claims are added to
+the claims of the project’s documents in one total. So moving a claim
+between a chunk and a script, or between two scripts, removes nothing,
+while deleting one, deleting the script that holds it, or staging a
+script that no longer parses needs `Weft-Removed: N` like any other
+removal. A script that does not parse is named in a note, once.
+
+A claim in the body of an `if` whose condition is the constant `FALSE`
+is not a script claim: the gate does not count it,
+[`checks()`](https://vorpalvorpal.github.io/weft/reference/checks.md)
+does not list it and
+[`verify()`](https://vorpalvorpal.github.io/weft/reference/verify.md)
+does not collect its `decision`. The `else` arm is read. `F`, `0` and
+`FALSE && x` are not the constant. The rule holds in R chunk code too,
+and it makes wrapping a claim in `if (FALSE)` a removal, as turning
+`eval` off is.
+
+``` r
+
+if (FALSE) {
+  claim(max(turbidity), . < u(50, NTU))   # not counted: a removal
+}
+```
+
+A script claim does nothing different when it runs: outside a knit it
+stops (or warns at level `warn`), and it writes nothing to the ledger.
+[`checks()`](https://vorpalvorpal.github.io/weft/reference/checks.md)
+lists it as a check with the script as its file, `inert-check` reads it,
+and
+[`verify()`](https://vorpalvorpal.github.io/weft/reference/verify.md)
+checks a literal `decision` pointer, as it does for a document’s. A
+claim inside a function definition is listed as not read, because the
+check cannot be judged from the source. Python and Julia files are not
+read, nor are scripts left out by `scripts_skip`. See “Scripts” in
+[`vignette("lints", package = "weft")`](https://vorpalvorpal.github.io/weft/articles/lints.md)
+for how a script is opened.
+
 ## Construct errors
 
 A construct error is refused in any changed file, even one that held it
@@ -529,8 +577,11 @@ Two filters can name the same text. `bare_missing` warns at knit time
 about a bare value that prints `NA`, naming its expression, and the
 output check warns about the same “NA” in the output, naming its
 sentence. The `weft-check` filter fails on a weft attribute block it
-could not read, before Quarto’s filters, and the output check may list
-the same text again as leftover markup. Neither pair is merged.
+could not read, before Quarto’s filters, and also on a raw `<<weft:`
+marker anywhere in the document, raw HTML included (written `<<weft:` or
+`&lt;&lt;weft:`, so one in a gt or reactable cell is found too). The
+output check may list the same text again as leftover markup. Neither
+pair is merged.
 
 The filter must run after Quarto’s, which an extension cannot arrange,
 so

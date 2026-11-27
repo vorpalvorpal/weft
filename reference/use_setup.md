@@ -78,3 +78,44 @@ edit cannot be made safely (flow-style `knitr:` or `pandoc_args`, a YAML
 anchor, another `weft:` value under `opts_knit`), or a file's place
 holds a folder or a symbolic link, nothing is written, and the error
 prints the lines to add by hand.
+
+## Examples
+
+``` r
+dir <- tempfile("weft-example")
+dir.create(dir)
+writeLines("", file.path(dir, "_weft.yml"))
+writeLines(c(
+  "---",
+  "title: Survey",
+  "---",
+  "",
+  "We visited 14 sites.",
+  "",
+  "```{r}",
+  "n_high <- 3",
+  "```",
+  "",
+  "[No site | One site | # sites]{n=n_high} read high."
+), file.path(dir, "survey.Rmd"))
+use_setup(dir)
+#> weft will write, under /tmp/Rtmpi8oDuo/weft-example1aed6bef64b3:
+#>   _weft.yml  (edit: adds the weft_version line)
+#>   survey.Rmd  (edit: adds the weft setup line and names the weft-check filter)
+#>   weft-check.lua  (new: the weft-check filter for rmarkdown)
+#>   weft-output.lua  (new: the rendered-output check for rmarkdown)
+#>   weft.lua  (new: the weft filter for rmarkdown)
+#>   weftlib/cond.lua  (new: the weft filter for rmarkdown)
+#>   weftlib/config.lua  (new: the weft filter for rmarkdown)
+#>   weftlib/ledger.lua  (new: the weft filter for rmarkdown)
+#>   weftlib/lines.lua  (new: the weft filter for rmarkdown)
+#>   weftlib/num.lua  (new: the weft filter for rmarkdown)
+#>   weftlib/report.lua  (new: the weft filter for rmarkdown)
+#>   weftlib/stamp.lua  (new: the weft filter for rmarkdown)
+#>   weftlib/words.lua  (new: the weft filter for rmarkdown)
+#> Wrote: _weft.yml, survey.Rmd, weft-check.lua, weft-output.lua, weft.lua, weftlib/cond.lua, weftlib/config.lua, weftlib/ledger.lua, weftlib/lines.lua, weftlib/num.lua, weftlib/report.lua, weftlib/stamp.lua, weftlib/words.lua
+list.files(dir, all.files = TRUE)
+#> [1] "."               ".."              "_weft.yml"       "survey.Rmd"     
+#> [5] "weft-check.lua"  "weft-output.lua" "weft.lua"        "weftlib"        
+unlink(dir, recursive = TRUE)
+```

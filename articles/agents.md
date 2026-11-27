@@ -120,6 +120,16 @@ The hook refuses a commit that adds findings. Fix each one at its source:
 - Read it as `dict_local$key`; `dict$key` does not see it.
 - A key that two documents need belongs in `dict.yml`.
 
+## Scripts and settings
+
+- A `claim()` in an R script counts as one in a document. Deleting it, or its
+  script, needs `Weft-Removed: N`. A claim under `if (FALSE)` is not counted:
+  never wrap one in it to pass, that removes it.
+- `weft:` goes in `_weft.yml` or a document's front matter, never `_quarto.yml`,
+  `_metadata.yml` or a profile (`config-place`). Every `---` block counts and a
+  later block wins per key; `engine:` and `knitr:` count in the first block only.
+  `lang`, `execute:` and `bibliography` come from Quarto's layers.
+
 ## Draft mode
 
 With `draft: true` (or `WEFT_DRAFT`) a render passes everything. `verify()`

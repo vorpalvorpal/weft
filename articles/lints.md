@@ -282,7 +282,34 @@ skips weft’s formatters, so the value has no printed record and
 `value-format` also lists a bare
 [`fmt_num()`](https://vorpalvorpal.github.io/weft/reference/fmt.md) or
 another `fmt_*()` in math, which writes markdown there; a class block
-writes TeX.
+writes TeX. It lists a bare `fmt_*()` in prose given a literal
+`target = "html"` or `target = "marquee"` too: the document would show
+the marks or drop the tags. Those targets are for a sink such as a plot,
+where [`format()`](https://rdrr.io/r/base/format.html) gives them; in
+prose write a class block.
+
+## How fences and chunks are read
+
+One reader finds the fences of a document for every rule, the scanner
+and the front-matter readers alike. An executable chunk is found as
+knitr finds it, before anything else: three or more backticks, then `{`
+and an engine name, at any indent, behind `>` quote markers, and even
+inside an HTML comment. Every other fence follows CommonMark, as Pandoc
+reads it: a `~~~` fence is never a chunk, a backtick fence whose info
+string holds a backtick is not a fence, and a `---` line inside any
+fence opens no front matter. An unclosed chunk or fence runs to the last
+line.
+
+## Notebooks
+
+[`lints()`](https://vorpalvorpal.github.io/weft/reference/lints.md) also
+reads Jupyter notebooks (`.ipynb`) as documents. A markdown cell is
+prose, a raw cell is its text, and a code cell is a chunk in the
+kernel’s language. A finding is placed in the JSON file: at the line of
+the JSON string that holds the source line, and at the column of the
+character in that line, with escapes counted as written. A finding about
+something weft adds to a cell, such as a fence, is placed at the cell’s
+`"source"` key. Percent scripts are not read.
 
 ## Construct errors
 
@@ -393,16 +420,19 @@ chunks, so
 [`lints()`](https://vorpalvorpal.github.io/weft/reference/lints.md) also
 reads the `.R` and `.r` files of the project, but only for the literal
 strings they pass to
-[`weft()`](https://vorpalvorpal.github.io/weft/reference/weft.md). A
-call is `weft(...)`, `weft::weft(...)` or `weft:::weft(...)`, or the
+[`weft()`](https://vorpalvorpal.github.io/weft/reference/weft.md). It
+also reads
+[`claim()`](https://vorpalvorpal.github.io/weft/reference/claim.md)
+calls, but only for the `inert-check` rule: how the gate counts them,
+and the `if (FALSE)` rule, are in “Claims in scripts” in
+[`vignette("gate", package = "weft")`](https://vorpalvorpal.github.io/weft/articles/gate.md).
+A call is `weft(...)`, `weft::weft(...)` or `weft:::weft(...)`, or the
 right-hand side of a pipe; the argument read is the one R matches to
 `x`: a string (a raw string too) or the literal elements of a
 [`c()`](https://rdrr.io/r/base/c.html). A computed argument
 ([`paste0()`](https://rdrr.io/r/base/paste.html),
 [`sprintf()`](https://rdrr.io/r/base/sprintf.html), a name) is skipped.
-The code around the call is not read, nor are
-[`claim()`](https://vorpalvorpal.github.io/weft/reference/claim.md)
-calls, the phrases of
+The code around the call is not read, nor are the phrases of
 [`lookup()`](https://vorpalvorpal.github.io/weft/reference/lookup.md)
 and [`brk()`](https://vorpalvorpal.github.io/weft/reference/lookup.md),
 or strings given to other functions.
@@ -459,10 +489,10 @@ its own `tests` folder with its own `scripts_skip: []`. The setting is
 markup on purpose; a list that you give replaces it, so keep `tests` in
 it, and `[]` reads every script. An empty or commented-out
 `scripts_skip:` (a null value) keeps the default. A script whose bytes
-do not hold `weft` is never read, one that is not valid UTF-8 gives the
-`read` finding, and one that does not parse as R gives a note and no
-findings. Naming a script that is left out, in `files` or as `path`,
-gives a note that says which rule left it out.
+hold neither `weft` nor a `claim(` call is never read, one that is not
+valid UTF-8 gives the `read` finding, and one that does not parse as R
+gives a note and no findings. Naming a script that is left out, in
+`files` or as `path`, gives a note that says which rule left it out.
 `lints(reader = "pandoc")` reads scripts with weft’s reader too, since
 they need no Pandoc. The commit gate counts a script’s findings and
 constructs as it counts a document’s.

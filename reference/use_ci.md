@@ -36,3 +36,12 @@ file weft wrote and nobody edited is replaced when its text would
 differ; an edited one is left as it is unless `overwrite = TRUE`; a file
 with no such line is another author's and is never replaced.
 [`suppressMessages()`](https://rdrr.io/r/base/message.html) silences it.
+
+## Examples
+
+``` r
+if (FALSE) {
+  # writes .github/workflows/ in a git repository
+  use_ci()
+}
+```

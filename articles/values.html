@@ -810,7 +810,11 @@ registration:</p>
 <span>  <span class="kw">if</span> <span class="op">(</span><span class="va">target</span> <span class="op">==</span> <span class="st">"tex"</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0</a></span><span class="op">(</span><span class="st">"\\text{"</span>, <span class="va">txt</span>, <span class="st">"}"</span><span class="op">)</span> <span class="kw">else</span> <span class="va">txt</span></span>
 <span><span class="op">}</span></span></code></pre></div>
 <p><code>targets:</code> is <code>[markdown]</code> unless set, and must
-include <code>markdown</code>. A function that lists <code>tex</code> is
+include <code>markdown</code>. It lists <code>markdown</code> and,
+optionally, <code>tex</code>: <code>plain</code>, <code>html</code> and
+<code>marquee</code> are refused with a configuration error (E104),
+because under those targets a formatter is called as for markdown and
+weft reads its text from that. A function that lists <code>tex</code> is
 called with <code>target = "markdown"</code> or
 <code>target = "tex"</code> as its last argument, after any options, and
 must take <code>target</code> or <code>...</code>. A class that does not

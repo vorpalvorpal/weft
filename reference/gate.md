@@ -52,3 +52,12 @@ A `weft_gate`, invisibly: a list with `ok`, `errors` and `added` (a
 columns `project`, `file`, `line`, `cond`, `level`, `verdict`, `by`,
 `by_line` and `remains`). The report is printed to stderr with
 [`message()`](https://rdrr.io/r/base/message.html).
+
+## Examples
+
+``` r
+if (FALSE) {
+  # in a git repository, with changes staged
+  gate()
+}
+```

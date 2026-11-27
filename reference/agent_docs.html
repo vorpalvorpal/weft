@@ -94,6 +94,173 @@ matches the installed code. Nothing is written.</p>
 where <code><a href="use_agent_docs.html">use_agent_docs()</a></code> writes the same version into a copy.</p>
     </div>
 
+    <div class="section level2">
+    <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="fu">agent_docs</span><span class="op">(</span><span class="op">)</span></span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> skill    the rules and the workflow (SKILL.md)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> reports  how to read a failed render, a lint report and a refused commit</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> syntax   the constructs and their classes, one example each</span>
+<span class="r-in"><span><span class="fu">agent_docs</span><span class="op">(</span><span class="st">"syntax"</span><span class="op">)</span><span class="op">[</span><span class="fl">1</span><span class="op">:</span><span class="fl">5</span><span class="op">]</span></span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> # weft syntax</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> One example for each construct. Write these as shown; do not invent others.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> ## An inline value</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> A computed value, printed by its class. The class and options go in `{}`.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> ```markdown</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Mean turbidity was `r mean_ntu`{.num}, or `r mean_ntu`{.num digits="2"} to two places.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> `r share`{.pct} of samples exceeded the guideline (`r p_val`{.p}).</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> The mean rose by `r d_mean`{.num .plus} mg/L.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> We sampled `r sites`{.and trunc="3"}.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> ```</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Classes in use: `.num`, `.pct`, `.p`, `.sci`, `.ord`, `.count`, `.word`, `.date`,</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> `.range`, `.pairs`, `.and`, `.or`. `.plus` signs a number.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> weft reads inline R wherever knitr evaluates it: prose, a code span, a fenced</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> block that is not a chunk, an HTML comment, math. Wrapping text in an HTML</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> comment does not switch its values or checks off.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Inside math (`$...$`, `$$...$$`, a math environment such as `align`) and raw</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> LaTeX (a `{=latex}` fence, another `\begin{...}` environment) a class block</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> writes TeX, not markdown:</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> ```markdown</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> $a = `r x`{.num digits=2}$, $b = `r share`{.pct}$ -&gt; $a = 8.23$, $b = 12.3\%$</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> ```</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Use `.num`, `.pct`, `.sci`, `.p`, `.plus`, `.range` and the unit classes there.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> `.p` prints its own label, so write `` $`r p_val`{.p}$ ``. The words, emphasis</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> and list classes (`.word`, `.count`, `.ord`, `.date`, `.a`, `.cap`, `.em`,</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> `.strong`, `.and`, `.or`, `.pairs`, `.ul`, `.ol`, `.dl`) are a construct error</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> in math. A bare `` `r x` `` there prints as stock prints it, and `fmt_num(x)`</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> in it writes markdown; for code that builds a formula, `fmt_num(x, target =</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> "tex")` writes TeX. A project formatter needs `targets: [markdown, tex]` in</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> `_weft.yml` to be used in math. A named value (`` $`depth`{.num}$ ``) works in</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> math and raw LaTeX too: the filter resolves it and writes the same TeX.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> ## Spans that choose wording</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> ```markdown</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [No site | One site | # sites]{n="n_high"} read above the trigger.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> ```</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> `n`: the wording follows a count (none, one, many); `#` prints the count.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> ```markdown</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Turbidity [rose | fell]{if="slope &gt; 0"} over the year.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> ```</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> `if`: the first word when the condition is true, the second when false.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> ```markdown</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Abundance [rose by # | fell by # | did not change]{.pct sign="d_abund"}.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> ```</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> `sign`: the wording follows the sign of the value; `#` prints it.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> ```markdown</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [No sites were | # was | # were]{list="flagged"} flagged.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> ```</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> `list`: the wording follows the length of a vector; `#` prints the list.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> ```markdown</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Earlier work found [0.5 m in the upper reach]{cite="@doe2019"}.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> ```</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> `cite`: a number quoted from a source; the key is in the bibliography.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> ## Quoting a value</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> A value goes in double quotes, single quotes, or none when it is one word:</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> `{if="tier == 'sev'"}`, `{if='tier == "sev"'}`, `{n=n_sites}`. Inside quotes,</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> `\"`, `\'` and `\|` stand for the character and `\ ` for a space (a value that</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> starts with a space: `last="\ plus "`); any other `\` is an error. In an R</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> string, give the value the quote the string does not use:</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> `weft("[severe | mild]{if='tier == \"sev\"'}")`. A raw string needs no R</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> escapes: `weft(r"([severe | mild]{if='tier == "sev"'})")`; it ends at `)"`, so a</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> value ending in `)` takes single quotes.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> ## A check</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> ```r</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> n_sites &lt;- claim(nrow(d), . &gt;= 30)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> n_obs &lt;- claim(nrow(d), . &gt;= 30, level = "warn")</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> ```</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> `claim(x, check)` returns `x` and fails when `check` is false; `.` is the value.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> A failed claim is a finding to report; do not edit the check to pass it.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> In prose: `` `r claim(max(turbidity), . &lt; u(50, NTU))`{.num} ``.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> ## Named values</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> In a knitr document a name in the inline block reads R: `` `worst`{.num} ``</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> prints what `` `r worst`{.num} `` prints. In a document that is not knit, code</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> publishes it: `put()` in Python, `@put` in Julia. Text an R chunk prints goes</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> through `weft()`.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> ```markdown</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> The worst reading was `worst`{.num} NTU.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> ```</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> ## Strings in R code</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> `weft()` resolves the same markup in an R string, for text no chunk option</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> reaches: plot titles and labels, console and log messages, table cells. It</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> evaluates at the call, in the caller's environment; a name reads R there.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> There is no `weft_str()` in R.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> ```r</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> n_high &lt;- sum(turbidity &gt; 10)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> p + labs(subtitle = weft("[No site | One site | # sites]{n=n_high} above `trigger`{.num} NTU"))</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> ```</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> The result gives plain text (Unicode superscripts, no markup) to a plot,</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> `cat()`, `paste()` and `message()`, and markdown when a chunk prints it.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> `format(w, target = "markdown")` gives the markdown; `format(w, target =</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> "ansi")` the console form (emphasis in italic and bold where the console draws</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> styles), which `print()` uses. In cli, `{.val {w}}` draws the console form and</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> `{w}` the plain text. Tick labels: `labels = function(b) fmt_num(b, target =</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> "plain")`. For rich plot text, ggtext draws `format(w, target = "html")` and</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> marquee draws `format(w, target = "marquee")`; every `fmt_*()` takes the same</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> two targets for tick labels. Do not write `target = "html"` or `"marquee"` in</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> prose (lint `value-format`); a project formatter's `targets:` lists `markdown`</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> and `tex` only. A `weft` object given to ggtext or marquee as it is</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> draws its plain text. A failed check is collected as in prose in a knit with weft on;</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> elsewhere the first failure stops with an error.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Keep the markup a literal string: the lints and the commit gate read literal</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> `weft()` strings in chunks and in the project's `.R` files, and skip a computed</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> one (`paste0()`, `sprintf()`).</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> ## Self-formatting values</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> `val_num()`, `val_pct()`, `val_sci()` and `val_p()` state a number's format once.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> The result is still a number (class `weft_val`); it prints the same in every</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> sink: `paste()`, `glue()`, `message()`, a ggplot2 title or label, a data frame.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> ```r</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> top &lt;- val_num(u(61.234, NTU), digits = 1)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> labs(title = paste("Peak:", top))</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> format(top, target = "html")   # also "markdown", "tex", "marquee"; default plain</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> ```</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Arithmetic drops the format (`top * 2` has no format); `min()`, `max()`,</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> `range()`, `mean()` and `median()` keep it. `c()` of values with different</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> formats is an error. `cat()` prints the bare number and `writeLines()` refuses</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> it: give them `format(v)`. A default-digits value that prints a non-zero number</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> as zero warns once; pass `digits` or `sigfig` to say it is meant.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> ## A literal that must stay</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> ```markdown</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Samples were filtered through [0.45 um]{.weft-literal why="pore size set by the laboratory method"} membranes.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> ```</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> `.weft-literal` needs a real `why`. Do not use it to silence a finding.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "# weft syntax"                                                              </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [2] ""                                                                           </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [3] "One example for each construct. Write these as shown; do not invent others."</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [4] ""                                                                           </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [5] "## An inline value"                                                         </span>
+</code></pre></div>
+    </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside></div>
 

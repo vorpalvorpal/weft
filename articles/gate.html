@@ -466,6 +466,47 @@ line:</p>
 to keep these lines short is the advice of the wording article: check a
 value once, where it is made, and use its name after.</p>
 </div>
+<div class="section level3">
+<h3 id="claims-in-scripts">Claims in scripts<a class="anchor" aria-label="anchor" href="#claims-in-scripts"></a>
+</h3>
+<p>A <code><a href="../reference/claim.html">claim()</a></code> in an R script counts as one in a document.
+The gate reads every call of <code><a href="../reference/claim.html">claim()</a></code>,
+<code><a href="../reference/claim.html">weft::claim()</a></code> or <code>weft:::claim()</code> in the
+script’s code, wherever it sits: in a function body, a target’s command,
+a lambda, a pipe or a loop. A call in a comment or a string is not one,
+nor is <code>claim</code> from another package, nor a claim inside a
+<code><a href="../reference/weft.html">weft()</a></code> literal, which is read as a string is. The script
+claims are added to the claims of the project’s documents in one total.
+So moving a claim between a chunk and a script, or between two scripts,
+removes nothing, while deleting one, deleting the script that holds it,
+or staging a script that no longer parses needs
+<code>Weft-Removed: N</code> like any other removal. A script that does
+not parse is named in a note, once.</p>
+<p>A claim in the body of an <code>if</code> whose condition is the
+constant <code>FALSE</code> is not a script claim: the gate does not
+count it, <code><a href="../reference/checks.html">checks()</a></code> does not list it and
+<code><a href="../reference/verify.html">verify()</a></code> does not collect its <code>decision</code>. The
+<code>else</code> arm is read. <code>F</code>, <code>0</code> and
+<code>FALSE &amp;&amp; x</code> are not the constant. The rule holds in
+R chunk code too, and it makes wrapping a claim in
+<code>if (FALSE)</code> a removal, as turning <code>eval</code> off
+is.</p>
+<div class="sourceCode" id="cb23"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="kw">if</span> <span class="op">(</span><span class="cn">FALSE</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="fu"><a href="../reference/claim.html">claim</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">max</a></span><span class="op">(</span><span class="va">turbidity</span><span class="op">)</span>, <span class="va">.</span> <span class="op">&lt;</span> <span class="fu"><a href="../reference/u.html">u</a></span><span class="op">(</span><span class="fl">50</span>, <span class="va">NTU</span><span class="op">)</span><span class="op">)</span>   <span class="co"># not counted: a removal</span></span>
+<span><span class="op">}</span></span></code></pre></div>
+<p>A script claim does nothing different when it runs: outside a knit it
+stops (or warns at level <code>warn</code>), and it writes nothing to
+the ledger. <code><a href="../reference/checks.html">checks()</a></code> lists it as a check with the script as
+its file, <code>inert-check</code> reads it, and <code><a href="../reference/verify.html">verify()</a></code>
+checks a literal <code>decision</code> pointer, as it does for a
+document’s. A claim inside a function definition is listed as not read,
+because the check cannot be judged from the source. Python and Julia
+files are not read, nor are scripts left out by
+<code>scripts_skip</code>. See “Scripts” in
+<code><a href="../articles/lints.html">vignette("lints", package = "weft")</a></code> for how a script is
+opened.</p>
+</div>
 </div>
 <div class="section level2">
 <h2 id="construct-errors">Construct errors<a class="anchor" aria-label="anchor" href="#construct-errors"></a>
@@ -484,7 +525,7 @@ commit-msg: 0.2 s</code></pre>
 </h2>
 <p><code><a href="../reference/gate.html">gate()</a></code> is the function the hook runs. Call it to judge
 what is staged without committing:</p>
-<div class="sourceCode" id="cb24"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb25"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu">weft</span><span class="fu">::</span><span class="fu"><a href="../reference/gate.html">gate</a></span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="co">#&gt; commit-msg: 1 finding added that HEAD did not hold</span></span>
 <span><span class="co">#&gt;   report.qmd</span></span>
@@ -504,11 +545,11 @@ whole repository, including every subfolder that holds a
 </h2>
 <p><code><a href="../reference/use_hooks.html">use_hooks()</a></code> writes <code>.git/hooks/commit-msg</code>.
 The script is POSIX <code>sh</code> and starts:</p>
-<div class="sourceCode" id="cb25"><pre class="sourceCode sh"><code class="sourceCode bash"><span id="cb25-1"><a href="#cb25-1" tabindex="-1"></a><span class="co">#!/bin/sh</span></span>
-<span id="cb25-2"><a href="#cb25-2" tabindex="-1"></a><span class="co"># weft-file: use_hooks 0.1.0 063f9359c3c3c3c91daa6def625f32d8</span></span>
-<span id="cb25-3"><a href="#cb25-3" tabindex="-1"></a><span class="co"># The weft commit gate (rules 6.1 to 6.3), written by weft::use_hooks().</span></span>
-<span id="cb25-4"><a href="#cb25-4" tabindex="-1"></a><span class="co"># Remove it with weft::use_hooks(remove = TRUE). Skip it for one commit</span></span>
-<span id="cb25-5"><a href="#cb25-5" tabindex="-1"></a><span class="co"># with: git commit --no-verify</span></span></code></pre></div>
+<div class="sourceCode" id="cb26"><pre class="sourceCode sh"><code class="sourceCode bash"><span id="cb26-1"><a href="#cb26-1" tabindex="-1"></a><span class="co">#!/bin/sh</span></span>
+<span id="cb26-2"><a href="#cb26-2" tabindex="-1"></a><span class="co"># weft-file: use_hooks 0.1.0 063f9359c3c3c3c91daa6def625f32d8</span></span>
+<span id="cb26-3"><a href="#cb26-3" tabindex="-1"></a><span class="co"># The weft commit gate (rules 6.1 to 6.3), written by weft::use_hooks().</span></span>
+<span id="cb26-4"><a href="#cb26-4" tabindex="-1"></a><span class="co"># Remove it with weft::use_hooks(remove = TRUE). Skip it for one commit</span></span>
+<span id="cb26-5"><a href="#cb26-5" tabindex="-1"></a><span class="co"># with: git commit --no-verify</span></span></code></pre></div>
 <p>It records the <code>Rscript</code> and the library paths of the R
 session that ran <code><a href="../reference/use_hooks.html">use_hooks()</a></code>, and runs R without the
 project’s <code>.Rprofile</code> or <code>.Renviron</code>. If you
@@ -608,8 +649,11 @@ at knit time about a bare value that prints <code>NA</code>, naming its
 expression, and the output check warns about the same “NA” in the
 output, naming its sentence. The <code>weft-check</code> filter fails on
 a weft attribute block it could not read, before Quarto’s filters, and
-the output check may list the same text again as leftover markup.
-Neither pair is merged.</p>
+also on a raw <code>&lt;&lt;weft:</code> marker anywhere in the
+document, raw HTML included (written <code>&lt;&lt;weft:</code> or
+<code>&amp;lt;&amp;lt;weft:</code>, so one in a gt or reactable cell is
+found too). The output check may list the same text again as leftover
+markup. Neither pair is merged.</p>
 <p>The filter must run after Quarto’s, which an extension cannot
 arrange, so <code><a href="../reference/use_quarto.html">use_quarto()</a></code> adds an entry of its own to
 <code>_quarto.yml</code> (see
@@ -664,7 +708,7 @@ the findings of the rendered-output check, below</td>
 </tr>
 </tbody>
 </table>
-<div class="sourceCode" id="cb28"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb29"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu">weft</span><span class="fu">::</span><span class="fu"><a href="../reference/verify.html">verify</a></span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="co">#&gt; weft verify: passed</span></span>
 <span><span class="co">#&gt;   lints      1 tolerated finding</span></span>
@@ -683,7 +727,7 @@ is a measure of how far adoption has come. When a rule’s count reaches
 <code><a href="../reference/verify.html">verify()</a></code> if they changed.</p>
 <p>When something is wrong, <code><a href="../reference/verify.html">verify()</a></code> says what and fails.
 Here the Lower reading was mistyped as 79:</p>
-<div class="sourceCode" id="cb29"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb30"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu">weft</span><span class="fu">::</span><span class="fu"><a href="../reference/verify.html">verify</a></span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="co">#&gt; weft verify: failed</span></span>
 <span><span class="co">#&gt;   lints      1 tolerated finding</span></span>
@@ -720,7 +764,7 @@ documents only.</li>
 <code>verify(since = "v1.0")</code> compares the lints with another
 commit.</li>
 </ul>
-<div class="sourceCode" id="cb30"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb31"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu">weft</span><span class="fu">::</span><span class="fu"><a href="../reference/verify.html">verify</a></span><span class="op">(</span>static <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
 <span><span class="co">#&gt; weft verify: passed</span></span>
 <span><span class="co">#&gt;   lints      1 tolerated finding</span></span>
@@ -762,7 +806,7 @@ in place of the value. See
 <p>Draft mode does not change the commit gate, which still runs.
 <code><a href="../reference/verify.html">verify()</a></code> refuses to run in draft mode, because a draft
 render fails nothing:</p>
-<div class="sourceCode" id="cb31"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb32"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu">weft</span><span class="fu">::</span><span class="fu"><a href="../reference/verify.html">verify</a></span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Error: verify() does not run in draft mode (rule 8.1.5): draft is on in _weft.yml. A draft render fails nothing, so it can verify nothing.</span></span></code></pre></div>
 <p>Turn draft mode off before release. <code><a href="../reference/status.html">status()</a></code> shows it as
@@ -773,7 +817,7 @@ render fails nothing:</p>
 </h2>
 <p><code><a href="../reference/status.html">status()</a></code> reports what weft has installed, and what is
 missing or out of date:</p>
-<div class="sourceCode" id="cb32"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb33"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu">weft</span><span class="fu">::</span><span class="fu"><a href="../reference/status.html">status</a></span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="co">#&gt; weft status: creek-report</span></span>
 <span><span class="co">#&gt;   setup        ok        _weft.yml records weft 0.1.0 (installed: 0.1.0)</span></span>

@@ -60,3 +60,30 @@ includes with `child=` is listed only when it is given too.
 [`rehearse()`](https://vorpalvorpal.github.io/weft/reference/rehearse.md),
 which knits a document under several sets of parameters and reports
 which arms they chose.
+
+## Examples
+
+``` r
+dir <- tempfile("weft-example")
+dir.create(dir)
+writeLines("", file.path(dir, "_weft.yml"))
+writeLines(c(
+  "---",
+  "title: Survey",
+  "---",
+  "",
+  "We visited 14 sites.",
+  "",
+  "```{r}",
+  "n_high <- 3",
+  "```",
+  "",
+  "[No site | One site | # sites]{n=n_high} read high."
+), file.path(dir, "survey.Rmd"))
+arms(file.path(dir, "survey.Rmd"))
+#> survey.Rmd:11  n="n_high"
+#>   1 (zero)  No site
+#>   2 (one)  One site
+#>   3 (other)  # sites
+unlink(dir, recursive = TRUE)
+```

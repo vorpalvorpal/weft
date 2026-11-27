@@ -196,18 +196,28 @@ sits in each skills folder (see the next section), with two files in
 <span id="cb2-56"><a href="#cb2-56" tabindex="-1"></a><span class="sc">-</span> Read it as <span class="st">`</span><span class="at">dict_local$key</span><span class="st">`</span>; <span class="st">`</span><span class="at">dict$key</span><span class="st">`</span> does not see it.</span>
 <span id="cb2-57"><a href="#cb2-57" tabindex="-1"></a><span class="sc">-</span> A key that two documents need belongs <span class="cf">in</span> <span class="st">`</span><span class="at">dict.yml</span><span class="st">`</span>.</span>
 <span id="cb2-58"><a href="#cb2-58" tabindex="-1"></a></span>
-<span id="cb2-59"><a href="#cb2-59" tabindex="-1"></a><span class="do">## Draft mode</span></span>
+<span id="cb2-59"><a href="#cb2-59" tabindex="-1"></a><span class="do">## Scripts and settings</span></span>
 <span id="cb2-60"><a href="#cb2-60" tabindex="-1"></a></span>
-<span id="cb2-61"><a href="#cb2-61" tabindex="-1"></a>With <span class="st">`</span><span class="at">draft: true</span><span class="st">`</span> (or <span class="st">`</span><span class="at">WEFT_DRAFT</span><span class="st">`</span>) a render passes everything. <span class="st">`</span><span class="at">verify()</span><span class="st">`</span></span>
-<span id="cb2-62"><a href="#cb2-62" tabindex="-1"></a>refuses a draft, and the commit gate ignores it and judges every commit as</span>
-<span id="cb2-63"><a href="#cb2-63" tabindex="-1"></a>usual. Do not leave a project <span class="cf">in</span> draft mode to get a result.</span>
-<span id="cb2-64"><a href="#cb2-64" tabindex="-1"></a></span>
-<span id="cb2-65"><a href="#cb2-65" tabindex="-1"></a><span class="do">## Before you commit and before you hand back</span></span>
-<span id="cb2-66"><a href="#cb2-66" tabindex="-1"></a></span>
-<span id="cb2-67"><a href="#cb2-67" tabindex="-1"></a><span class="sc">-</span> <span class="st">`</span><span class="at">weft::lints()</span><span class="st">`</span> before a commit<span class="sc">:</span> it lists every finding. <span class="st">`</span><span class="at">weft::gate()</span><span class="st">`</span></span>
-<span id="cb2-68"><a href="#cb2-68" tabindex="-1"></a>  judges the staged commit as the hook does.</span>
-<span id="cb2-69"><a href="#cb2-69" tabindex="-1"></a><span class="sc">-</span> <span class="st">`</span><span class="at">weft::verify()</span><span class="st">`</span> before handing work back<span class="sc">:</span> it renders and checks the claims.</span>
-<span id="cb2-70"><a href="#cb2-70" tabindex="-1"></a><span class="sc">&lt;!--</span> weft<span class="sc">-</span>file<span class="sc">:</span> use_agent_docs <span class="sc">@</span>VERSION<span class="sc">@</span> <span class="er">@</span>HASH<span class="sc">@</span> <span class="sc">-</span><span class="ot">-&gt;</span></span></code></pre></div>
+<span id="cb2-61"><a href="#cb2-61" tabindex="-1"></a><span class="sc">-</span> A <span class="st">`</span><span class="at">claim()</span><span class="st">`</span> <span class="cf">in</span> an R script counts as one <span class="cf">in</span> a document. Deleting it, or its</span>
+<span id="cb2-62"><a href="#cb2-62" tabindex="-1"></a>  script, needs <span class="st">`</span><span class="at">Weft-Removed: N</span><span class="st">`</span>. A claim under <span class="st">`</span><span class="at">if (FALSE)</span><span class="st">`</span> is not counted<span class="sc">:</span></span>
+<span id="cb2-63"><a href="#cb2-63" tabindex="-1"></a>  never wrap one <span class="cf">in</span> it to pass, that removes it.</span>
+<span id="cb2-64"><a href="#cb2-64" tabindex="-1"></a><span class="sc">-</span> <span class="st">`</span><span class="at">weft:</span><span class="st">`</span> goes <span class="cf">in</span> <span class="st">`</span><span class="at">_weft.yml</span><span class="st">`</span> or a document<span class="st">'s front matter, never `_quarto.yml`,</span></span>
+<span id="cb2-65"><a href="#cb2-65" tabindex="-1"></a><span class="st">  `_metadata.yml` or a profile (`config-place`). Every `---` block counts and a</span></span>
+<span id="cb2-66"><a href="#cb2-66" tabindex="-1"></a><span class="st">  later block wins per key; `engine:` and `knitr:` count in the first block only.</span></span>
+<span id="cb2-67"><a href="#cb2-67" tabindex="-1"></a><span class="st">  `lang`, `execute:` and `bibliography` come from Quarto'</span>s layers.</span>
+<span id="cb2-68"><a href="#cb2-68" tabindex="-1"></a></span>
+<span id="cb2-69"><a href="#cb2-69" tabindex="-1"></a><span class="do">## Draft mode</span></span>
+<span id="cb2-70"><a href="#cb2-70" tabindex="-1"></a></span>
+<span id="cb2-71"><a href="#cb2-71" tabindex="-1"></a>With <span class="st">`</span><span class="at">draft: true</span><span class="st">`</span> (or <span class="st">`</span><span class="at">WEFT_DRAFT</span><span class="st">`</span>) a render passes everything. <span class="st">`</span><span class="at">verify()</span><span class="st">`</span></span>
+<span id="cb2-72"><a href="#cb2-72" tabindex="-1"></a>refuses a draft, and the commit gate ignores it and judges every commit as</span>
+<span id="cb2-73"><a href="#cb2-73" tabindex="-1"></a>usual. Do not leave a project <span class="cf">in</span> draft mode to get a result.</span>
+<span id="cb2-74"><a href="#cb2-74" tabindex="-1"></a></span>
+<span id="cb2-75"><a href="#cb2-75" tabindex="-1"></a><span class="do">## Before you commit and before you hand back</span></span>
+<span id="cb2-76"><a href="#cb2-76" tabindex="-1"></a></span>
+<span id="cb2-77"><a href="#cb2-77" tabindex="-1"></a><span class="sc">-</span> <span class="st">`</span><span class="at">weft::lints()</span><span class="st">`</span> before a commit<span class="sc">:</span> it lists every finding. <span class="st">`</span><span class="at">weft::gate()</span><span class="st">`</span></span>
+<span id="cb2-78"><a href="#cb2-78" tabindex="-1"></a>  judges the staged commit as the hook does.</span>
+<span id="cb2-79"><a href="#cb2-79" tabindex="-1"></a><span class="sc">-</span> <span class="st">`</span><span class="at">weft::verify()</span><span class="st">`</span> before handing work back<span class="sc">:</span> it renders and checks the claims.</span>
+<span id="cb2-80"><a href="#cb2-80" tabindex="-1"></a><span class="sc">&lt;!--</span> weft<span class="sc">-</span>file<span class="sc">:</span> use_agent_docs <span class="sc">@</span>VERSION<span class="sc">@</span> <span class="er">@</span>HASH<span class="sc">@</span> <span class="sc">-</span><span class="ot">-&gt;</span></span></code></pre></div>
 <p>In the project, the placeholders (the version in
 <code>metadata</code> and the last line, and the hash) hold the weft
 version and a hash, so that <code><a href="../reference/use_agent_docs.html">use_agent_docs()</a></code> can tell

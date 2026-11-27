@@ -506,6 +506,78 @@ markdown. There a named value is Python’s, published with
 <code><a href="../articles/languages.html">vignette("languages", package = "weft")</a></code>.</p>
 </div>
 <div class="section level2">
+<h2 id="self-formatting-values">Self-formatting values<a class="anchor" aria-label="anchor" href="#self-formatting-values"></a>
+</h2>
+<p>Writing <code>fmt_num(x, digits = 2)</code> at every sink repeats the
+digits, and one copy goes stale. <code><a href="../reference/val.html">val_num()</a></code>,
+<code><a href="../reference/val.html">val_pct()</a></code>, <code><a href="../reference/val.html">val_sci()</a></code> and <code><a href="../reference/val.html">val_p()</a></code>
+state the format once, on the number. The result is a
+<strong>self-formatting value</strong>: still a number, with the class
+<code>weft_val</code> and the format it was made with.</p>
+<div class="sourceCode" id="cb23"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">top</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/val.html">val_num</a></span><span class="op">(</span><span class="fu"><a href="../reference/u.html">u</a></span><span class="op">(</span><span class="fl">61.234</span>, <span class="va">NTU</span><span class="op">)</span>, digits <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
+<span><span class="va">cover</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/val.html">val_pct</a></span><span class="op">(</span><span class="fl">0.4132</span>, digits <span class="op">=</span> <span class="fl">0</span><span class="op">)</span></span>
+<span><span class="va">top</span></span></code></pre></div>
+<p>61.2 NTU</p>
+<p>The value compares, sorts and plots as the number. Only its text
+changes, and it is the same text everywhere that text is wanted:
+<code><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste()</a></code>, <code><a href="https://glue.tidyverse.org/reference/glue.html" class="external-link">glue::glue()</a></code>, <code><a href="https://rdrr.io/r/base/message.html" class="external-link">message()</a></code>,
+<code>sprintf("%s", )</code>, a printed data frame,
+<code><a href="https://rdrr.io/pkg/knitr/man/kable.html" class="external-link">knitr::kable()</a></code> and a ggplot2 title or label all give the
+plain form.</p>
+<div class="sourceCode" id="cb24"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste</a></span><span class="op">(</span><span class="st">"The peak was"</span>, <span class="va">top</span>, <span class="st">"and cover was"</span>, <span class="va">cover</span><span class="op">)</span></span>
+<span><span class="co">#&gt; [1] "The peak was 61.2 NTU and cover was 41%"</span></span>
+<span><span class="va">top</span> <span class="op">&gt;</span> <span class="fu"><a href="../reference/u.html">u</a></span><span class="op">(</span><span class="fl">50</span>, <span class="va">NTU</span><span class="op">)</span></span>
+<span><span class="co">#&gt; [1] TRUE</span></span></code></pre></div>
+<p><code><a href="https://rdrr.io/r/base/format.html" class="external-link">format()</a></code> takes the target at the sink, as the
+<code>fmt_*()</code> functions do. The default is plain text.
+<code>"markdown"</code> and <code>"tex"</code> give those forms, and
+<code>"html"</code> and <code>"marquee"</code> give what the matching
+<code>fmt_*()</code> call gives, for ggtext, gt and marquee (see “Rich
+plot text”).</p>
+<div class="sourceCode" id="cb25"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">rate</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/val.html">val_sci</a></span><span class="op">(</span><span class="fl">0.000123</span>, digits <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>plain <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/format.html" class="external-link">format</a></span><span class="op">(</span><span class="va">rate</span><span class="op">)</span>, markdown <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/format.html" class="external-link">format</a></span><span class="op">(</span><span class="va">rate</span>, target <span class="op">=</span> <span class="st">"markdown"</span><span class="op">)</span>,</span>
+<span>  html <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/format.html" class="external-link">format</a></span><span class="op">(</span><span class="va">rate</span>, target <span class="op">=</span> <span class="st">"html"</span><span class="op">)</span>, marquee <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/format.html" class="external-link">format</a></span><span class="op">(</span><span class="va">rate</span>, target <span class="op">=</span> <span class="st">"marquee"</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt;                   plain                markdown                    html </span></span>
+<span><span class="co">#&gt;            "1.2 × 10⁻⁴"          "1.2 × 10^−4^" "1.2 × 10&lt;sup&gt;−4&lt;/sup&gt;" </span></span>
+<span><span class="co">#&gt;                 marquee </span></span>
+<span><span class="co">#&gt;     "1.2 × 10{.sup −4}"</span></span></code></pre></div>
+<p>A value can label a plot. The label is its plain text, and a ggtext
+or marquee theme takes the html or marquee form through
+<code><a href="https://rdrr.io/r/base/format.html" class="external-link">format()</a></code>:</p>
+<div class="sourceCode" id="cb26"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggplot.html" class="external-link">ggplot</a></span><span class="op">(</span><span class="va">d</span>, <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/aes.html" class="external-link">aes</a></span><span class="op">(</span><span class="va">x</span>, <span class="va">y</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span> <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/geom_point.html" class="external-link">geom_point</a></span><span class="op">(</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/annotate.html" class="external-link">annotate</a></span><span class="op">(</span><span class="st">"text"</span>, x <span class="op">=</span> <span class="fl">1</span>, y <span class="op">=</span> <span class="fl">1</span>, label <span class="op">=</span> <span class="va">top</span>, vjust <span class="op">=</span> <span class="op">-</span><span class="fl">0.5</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html" class="external-link">labs</a></span><span class="op">(</span>title <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste</a></span><span class="op">(</span><span class="st">"Peak:"</span>, <span class="va">top</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<p>The texts are made when the value is made, under the configuration
+there. If you give no <code>digits</code> or <code>sigfig</code> and the
+number that is not zero would print as zero, weft warns once, as the
+zero check does in prose (a warned check in a knit, a
+<code>weft_zero_warning</code> outside one). Giving <code>digits</code>
+or <code>sigfig</code> to the constructor says that you meant it.</p>
+<div class="sourceCode" id="cb27"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/conditions.html" class="external-link">tryCatch</a></span><span class="op">(</span><span class="fu"><a href="../reference/val.html">val_num</a></span><span class="op">(</span><span class="fl">0.0004</span><span class="op">)</span>, weft_zero_warning <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">w</span><span class="op">)</span> <span class="st">"warned"</span><span class="op">)</span></span>
+<span><span class="co">#&gt; [1] "warned"</span></span>
+<span><span class="fu"><a href="../reference/val.html">val_num</a></span><span class="op">(</span><span class="fl">0.0004</span>, digits <span class="op">=</span> <span class="fl">4</span><span class="op">)</span></span></code></pre></div>
+<p>0.0004</p>
+<p><strong>Arithmetic drops the format.</strong> <code>+</code>,
+<code>*</code>, <code><a href="https://rdrr.io/r/base/Round.html" class="external-link">round()</a></code> and <code><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum()</a></code> give the
+number underneath (here a quantity in NTU), because the format no longer
+describes the result. <code><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">min()</a></code>, <code><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">max()</a></code>,
+<code><a href="https://rdrr.io/r/base/range.html" class="external-link">range()</a></code>, <code><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean()</a></code> and <code><a href="https://rdrr.io/r/stats/median.html" class="external-link">median()</a></code> keep
+it. To print a computed number, make a new value from it:</p>
+<div class="sourceCode" id="cb28"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">top</span> <span class="op">*</span> <span class="fl">2</span></span>
+<span><span class="co">#&gt; 122.468 [NTU]</span></span>
+<span><span class="fu"><a href="../reference/val.html">val_num</a></span><span class="op">(</span><span class="va">top</span> <span class="op">*</span> <span class="fl">2</span>, digits <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span></code></pre></div>
+<p>122.5 NTU</p>
+<p><code><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat()</a></code> prints the number underneath and
+<code><a href="https://rdrr.io/r/base/writeLines.html" class="external-link">writeLines()</a></code> refuses the value: give them
+<code>format(v)</code>. The full list is in <code><a href="../reference/val.html">?val</a></code>.</p>
+</div>
+<div class="section level2">
 <h2 id="when-something-fails">When something fails<a class="anchor" aria-label="anchor" href="#when-something-fails"></a>
 </h2>
 <p><strong>Outside a knit</strong>, in a script or at the console, the
@@ -517,14 +589,14 @@ effect. A warning, such as a value printed as zero, is signalled and the
 object is returned.</p>
 <p>The same holds in a knit where <code><a href="../reference/weft_setup.html">weft_setup()</a></code> was not
 called, as in this article. There the message names the chunk:</p>
-<div class="sourceCode" id="cb23"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb29"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">peak</span> <span class="op">&lt;-</span> <span class="fl">61</span></span>
 <span><span class="fu"><a href="../reference/weft.html">weft</a></span><span class="op">(</span><span class="st">"The peak was `r claim(peak, . &lt; 50)`{.num} NTU."</span><span class="op">)</span></span>
 <span><span class="co">#&gt; <span style="color: #BBBB00; font-weight: bold;">Error</span><span style="font-weight: bold;">:</span></span></span>
 <span><span class="co">#&gt; <span style="color: #BBBB00;">!</span> weft: chunk peak: 1 failed claim</span></span>
 <span><span class="co">#&gt;   check `. &lt; 50` failed (value: 61)</span></span></code></pre></div>
 <p>A script can catch a failure by its class:</p>
-<div class="sourceCode" id="cb24"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb30"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">title</span> <span class="op">&lt;-</span> <span class="kw"><a href="https://rdrr.io/r/base/conditions.html" class="external-link">tryCatch</a></span><span class="op">(</span></span>
 <span>  <span class="fu"><a href="../reference/weft.html">weft</a></span><span class="op">(</span><span class="st">"The peak was `r claim(peak, . &lt; 50)`{.num} NTU."</span><span class="op">)</span>,</span>
 <span>  weft_claim_failed <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">e</span><span class="op">)</span> <span class="op">{</span></span>

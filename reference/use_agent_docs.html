@@ -135,6 +135,41 @@ add that line; neither file is written. It says what it will write first.
 <code><a href="https://rdrr.io/r/base/message.html" class="external-link">suppressMessages()</a></code> silences it.</p>
     </div>
 
+    <div class="section level2">
+    <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="va">dir</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/tempfile.html" class="external-link">tempfile</a></span><span class="op">(</span><span class="st">"weft-example"</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/files2.html" class="external-link">dir.create</a></span><span class="op">(</span><span class="va">dir</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/writeLines.html" class="external-link">writeLines</a></span><span class="op">(</span><span class="st">""</span>, <span class="fu"><a href="https://rdrr.io/r/base/file.path.html" class="external-link">file.path</a></span><span class="op">(</span><span class="va">dir</span>, <span class="st">"_weft.yml"</span><span class="op">)</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/writeLines.html" class="external-link">writeLines</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span></span></span>
+<span class="r-in"><span>  <span class="st">"---"</span>,</span></span>
+<span class="r-in"><span>  <span class="st">"title: Survey"</span>,</span></span>
+<span class="r-in"><span>  <span class="st">"---"</span>,</span></span>
+<span class="r-in"><span>  <span class="st">""</span>,</span></span>
+<span class="r-in"><span>  <span class="st">"We visited 14 sites."</span>,</span></span>
+<span class="r-in"><span>  <span class="st">""</span>,</span></span>
+<span class="r-in"><span>  <span class="st">"```{r}"</span>,</span></span>
+<span class="r-in"><span>  <span class="st">"n_high &lt;- 3"</span>,</span></span>
+<span class="r-in"><span>  <span class="st">"```"</span>,</span></span>
+<span class="r-in"><span>  <span class="st">""</span>,</span></span>
+<span class="r-in"><span>  <span class="st">"[No site | One site | # sites]{n=n_high} read high."</span></span></span>
+<span class="r-in"><span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/file.path.html" class="external-link">file.path</a></span><span class="op">(</span><span class="va">dir</span>, <span class="st">"survey.Rmd"</span><span class="op">)</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="fu">use_agent_docs</span><span class="op">(</span><span class="va">dir</span><span class="op">)</span></span></span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> weft will write, under /tmp/Rtmpi8oDuo/weft-example1aed30757de9:</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span>   AGENTS.md  (new: the weft rules for coding agents)</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span>   .agents/skills/weft/SKILL.md  (new: the weft skill for coding agents)</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span>   .agents/skills/weft/references/reports.md  (new: the weft skill for coding agents)</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span>   .agents/skills/weft/references/syntax.md  (new: the weft skill for coding agents)</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> Wrote: 4 files, listed above.</span>
+<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/list.files.html" class="external-link">list.files</a></span><span class="op">(</span><span class="va">dir</span>, recursive <span class="op">=</span> <span class="cn">TRUE</span>, all.files <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] ".agents/skills/weft/SKILL.md"             </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [2] ".agents/skills/weft/references/reports.md"</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [3] ".agents/skills/weft/references/syntax.md" </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [4] "AGENTS.md"                                </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [5] "_weft.yml"                                </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [6] "survey.Rmd"                               </span>
+<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/unlink.html" class="external-link">unlink</a></span><span class="op">(</span><span class="va">dir</span>, recursive <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></span>
+</code></pre></div>
+    </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside></div>
 
