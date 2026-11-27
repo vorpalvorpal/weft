@@ -6582,8 +6582,15 @@ prefix and a unit, is a problem that says what `units` reads the key as
 because it would rewrite every unit derived from it; the exceptions are a token
 on the misread list of 4.4.20 and a key of the default table (`gal`, `mt`,
 `pH`). An `is` that names a unit weft installed is read against it; where its
-definition is exactly that unit (`is: 1 zzr`) and `units` cannot hold two symbols
-for one unit, the problem is the "same unit" one, naming the other key.
+definition is exactly that unit (factor 1: `is: 1 zzr`, or another spelling of
+the same unit), the problem is the "same unit" one, naming the other key. This
+holds for a row of the default table too (`zzmph: {is: mi/h}` against `mph`).
+An `is` that is exactly a database unit with no symbol or a symbol that is not
+ASCII (`1 degree`, `degree`, `1 ohm`, `gallon`) is a problem that says the key
+is already that unit and to write its symbol. In neither case is anything
+installed. The `units` package (1.0-1.7 and later) would accept both as a second
+symbol for the unit, which would change how the unit prints; weft checks this
+itself, before `install_unit()`.
 
 `before` is `true` or `false` (the default) and puts the unit before the number
 (4.4.22).
