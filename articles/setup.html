@@ -305,19 +305,24 @@ run <code><a href="../reference/use_setup.html">use_setup()</a></code> again. In
 <div class="section level3">
 <h3 id="quarto-documents-need-engine-knitr">Quarto documents need <code>engine: knitr</code><a class="anchor" aria-label="anchor" href="#quarto-documents-need-engine-knitr"></a>
 </h3>
-<p>Quarto chooses an engine for each document from the code it holds,
-and weft runs only under knitr. <code><a href="../reference/use_setup.html">use_setup()</a></code> therefore adds
-<code>engine: knitr</code> to each <code>.qmd</code> that names no
-engine, so that every document with constructs is knitted. It leaves a
-document that names <code>jupyter:</code> alone, and files and folders
-whose names start with <code>_</code> or <code>.</code> (included
-files).</p>
+<p>Quarto chooses an engine for each document from its front matter,
+then from the code it holds, and weft runs only under knitr.
+<code><a href="../reference/use_setup.html">use_setup()</a></code> therefore adds <code>engine: knitr</code> to
+each <code>.qmd</code> that names no engine, so that every document with
+constructs is knitted. It leaves a document that names
+<code>jupyter:</code> alone, and files and folders whose names start
+with <code>_</code> or <code>.</code> (included files).</p>
 <p>The key must be in the first metadata block of the document (or in
 the first block of a file that the document includes on its first line;
 see below). An <code>engine:</code> in <code>_quarto.yml</code> or a
 <code>_metadata.yml</code> does not count, and nor does one in a later
 block, and the lint <code>engine</code> finds a document that lacks it.
-A <code>knitr:</code> key in the first block picks knitr too.</p>
+A <code>knitr:</code> key in the first block picks knitr too, even
+beside <code>engine: jupyter</code> or a <code>jupyter:</code> key, as
+Quarto takes it; <code>engine: julia</code> keeps Julia. With no engine
+key, an <code>{r}</code> chunk (or <code>{R}</code>) picks knitr, and a
+chunk in a language Quarto has no engine for, <code>{bash}</code> say,
+picks Jupyter.</p>
 </div>
 <div class="section level3">
 <h3 id="when-an-edit-is-not-safe">When an edit is not safe<a class="anchor" aria-label="anchor" href="#when-an-edit-is-not-safe"></a>

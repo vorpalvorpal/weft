@@ -206,8 +206,8 @@ installs the same filters as an extension.
 
 ### Quarto documents need `engine: knitr`
 
-Quarto chooses an engine for each document from the code it holds, and
-weft runs only under knitr.
+Quarto chooses an engine for each document from its front matter, then
+from the code it holds, and weft runs only under knitr.
 [`use_setup()`](https://vorpalvorpal.github.io/weft/reference/use_setup.md)
 therefore adds `engine: knitr` to each `.qmd` that names no engine, so
 that every document with constructs is knitted. It leaves a document
@@ -219,7 +219,10 @@ first block of a file that the document includes on its first line; see
 below). An `engine:` in `_quarto.yml` or a `_metadata.yml` does not
 count, and nor does one in a later block, and the lint `engine` finds a
 document that lacks it. A `knitr:` key in the first block picks knitr
-too.
+too, even beside `engine: jupyter` or a `jupyter:` key, as Quarto takes
+it; `engine: julia` keeps Julia. With no engine key, an `{r}` chunk (or
+`{R}`) picks knitr, and a chunk in a language Quarto has no engine for,
+`{bash}` say, picks Jupyter.
 
 ### When an edit is not safe
 

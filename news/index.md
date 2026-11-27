@@ -2,6 +2,24 @@
 
 ## weft (development version)
 
+- **Behaviour change:** plain fences are now read as Pandoc’s `markdown`
+  reader, which Quarto uses, reads them (A18 amended): a fence that
+  never closes is no fence, so its text is prose and a `---` block after
+  it is front matter; a fence opens only with an info string of one
+  word, an attribute block (`{.text}`) or a raw attribute (`{=html}`),
+  so ```` ```text a ```` and a word holding a backtick are prose for
+  tilde fences too; in a list item a fence at indent 4 or more needs a
+  blank line above it; and an empty item’s content starts at column 2.
+  Chunks are still found as knitr finds them. The Quarto filter’s,
+  Python’s and Julia’s front-matter readers now find the same blocks as
+  R’s. Quarto’s engine choice now follows Quarto 1.11.9 for the knit’s
+  scanner, the lints and the filter: a project’s `engines:` list goes
+  first, a truthy `knitr:` key beats `engine: jupyter`, a `jupyter:` key
+  and `engine: markdown` (and `engine: julia` beats a `knitr:` key),
+  `execute: engine:` counts, chunk languages are lower-cased (`{R}`,
+  `{Python}`, [Julia](https://github.com/msuzen/Julia)), `{ r }` is no
+  chunk, a chunk in a language Quarto has no engine for picks Jupyter,
+  and an unclosed chunk does not count.
 - **Behaviour change:** the commit gate,
   [`verify()`](https://vorpalvorpal.github.io/weft/reference/verify.md),
   [`checks()`](https://vorpalvorpal.github.io/weft/reference/checks.md)

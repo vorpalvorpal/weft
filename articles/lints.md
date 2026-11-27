@@ -291,14 +291,18 @@ prose write a class block.
 ## How fences and chunks are read
 
 One reader finds the fences of a document for every rule, the scanner
-and the front-matter readers alike. An executable chunk is found as
+and the front-matter readers alike, and the Quarto filter, Python and
+Julia read front matter the same way. An executable chunk is found as
 knitr finds it, before anything else: three or more backticks, then `{`
 and an engine name, at any indent, behind `>` quote markers, and even
-inside an HTML comment. Every other fence follows CommonMark, as Pandoc
-reads it: a `~~~` fence is never a chunk, a backtick fence whose info
-string holds a backtick is not a fence, and a `---` line inside any
-fence opens no front matter. An unclosed chunk or fence runs to the last
-line.
+inside an HTML comment. An unclosed chunk runs to the last line. Every
+other fence is read as Pandoc’s markdown reader, which Quarto uses,
+reads it: a `~~~` fence is never a chunk; a fence opens only with an
+info string of one word or an attribute block (```` ```text ```` or
+```` ```{.text} ````, not ```` ```text a ```` or a word holding a
+backtick); a fence that never closes is no fence, and its text is prose;
+and in a list item, a fence indented four or more spaces needs a blank
+line above it. A `---` line inside any fence opens no front matter.
 
 ## Notebooks
 

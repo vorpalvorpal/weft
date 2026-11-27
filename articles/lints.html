@@ -379,15 +379,20 @@ or drop the tags. Those targets are for a sink such as a plot, where
 <h2 id="how-fences-and-chunks-are-read">How fences and chunks are read<a class="anchor" aria-label="anchor" href="#how-fences-and-chunks-are-read"></a>
 </h2>
 <p>One reader finds the fences of a document for every rule, the scanner
-and the front-matter readers alike. An executable chunk is found as
+and the front-matter readers alike, and the Quarto filter, Python and
+Julia read front matter the same way. An executable chunk is found as
 knitr finds it, before anything else: three or more backticks, then
 <code>{</code> and an engine name, at any indent, behind
-<code>&gt;</code> quote markers, and even inside an HTML comment. Every
-other fence follows CommonMark, as Pandoc reads it: a <code>~~~</code>
-fence is never a chunk, a backtick fence whose info string holds a
-backtick is not a fence, and a <code>---</code> line inside any fence
-opens no front matter. An unclosed chunk or fence runs to the last
-line.</p>
+<code>&gt;</code> quote markers, and even inside an HTML comment. An
+unclosed chunk runs to the last line. Every other fence is read as
+Pandoc’s markdown reader, which Quarto uses, reads it: a
+<code>~~~</code> fence is never a chunk; a fence opens only with an info
+string of one word or an attribute block (<code>```text</code> or
+<code>```{.text}</code>, not <code>```text a</code> or a word holding a
+backtick); a fence that never closes is no fence, and its text is prose;
+and in a list item, a fence indented four or more spaces needs a blank
+line above it. A <code>---</code> line inside any fence opens no front
+matter.</p>
 </div>
 <div class="section level2">
 <h2 id="notebooks">Notebooks<a class="anchor" aria-label="anchor" href="#notebooks"></a>
