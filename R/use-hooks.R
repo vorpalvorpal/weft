@@ -38,6 +38,12 @@
 #' @param lib The library paths the hook gives R, which must hold weft.
 #'   Default: `.libPaths()`.
 #' @return The paths written, invisibly (`character()` when nothing changed).
+#' @examples
+#' if (FALSE) {
+#'   # installs the commit hook in a git repository
+#'   use_hooks()
+#'   use_hooks(remove = TRUE)
+#' }
 #' @export
 use_hooks <- function(path = ".", remove = FALSE, overwrite = FALSE, rscript = NULL, lib = NULL) {
   root <- install_root(path, "use_hooks")

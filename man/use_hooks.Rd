@@ -58,3 +58,10 @@ the hook your setup runs (and a \code{repo: local} entry when there is a
 folder \verb{<git common dir>/weft/} (the script copy and the gate's cache). Another
 tool's hook is left, and the call says to remove the weft line from it.
 }
+\examples{
+if (FALSE) {
+  # installs the commit hook in a git repository
+  use_hooks()
+  use_hooks(remove = TRUE)
+}
+}

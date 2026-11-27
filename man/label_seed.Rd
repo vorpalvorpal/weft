@@ -25,3 +25,23 @@ exempts the number after them from the \code{numeral} lint. Cross-reference word
 (\code{Figure}, \code{Table}, ...), common function words and words already in
 \code{label_words} are left out. Nothing is written.
 }
+\examples{
+dir <- tempfile("weft-example")
+dir.create(dir)
+writeLines("", file.path(dir, "_weft.yml"))
+writeLines(c(
+  "---",
+  "title: Survey",
+  "---",
+  "",
+  "We visited 14 sites.",
+  "",
+  "```{r}",
+  "n_high <- 3",
+  "```",
+  "",
+  "[No site | One site | # sites]{n=n_high} read high."
+), file.path(dir, "survey.Rmd"))
+label_seed(file.path(dir, "survey.Rmd"), min_count = 1)
+unlink(dir, recursive = TRUE)
+}

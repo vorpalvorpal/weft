@@ -46,6 +46,26 @@ not valid UTF-8, lists no spans and no errors.
 Only the spans of the files given are listed; a document that a chunk
 includes with \verb{child=} is listed only when it is given too.
 }
+\examples{
+dir <- tempfile("weft-example")
+dir.create(dir)
+writeLines("", file.path(dir, "_weft.yml"))
+writeLines(c(
+  "---",
+  "title: Survey",
+  "---",
+  "",
+  "We visited 14 sites.",
+  "",
+  "```{r}",
+  "n_high <- 3",
+  "```",
+  "",
+  "[No site | One site | # sites]{n=n_high} read high."
+), file.path(dir, "survey.Rmd"))
+arms(file.path(dir, "survey.Rmd"))
+unlink(dir, recursive = TRUE)
+}
 \seealso{
 \code{\link[=rehearse]{rehearse()}}, which knits a document under several sets of
 parameters and reports which arms they chose.

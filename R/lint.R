@@ -82,6 +82,8 @@ lint_rule_table_build <- function() {
 #' its `scope` (`"file"` or `"project"`) and what it finds.
 #'
 #' @return A data frame with `id`, `spec`, `tier`, `scope` and `what`.
+#' @examples
+#' head(lint_rules()[, c("id", "tier", "scope")])
 #' @export
 lint_rules <- function() {
   r <- lint_rule_table()
@@ -499,6 +501,26 @@ new_lint_ctx <- function(root, files, md_files, report, tier, rules, reader) {
 #'   with columns `file`, `line`, `col`, `end_line`, `rule`, `tier`, `spec`,
 #'   `context`, `text`, `message`, `hint` and `sentence`, and the attribute
 #'   `notes`.
+#' @examples
+#' dir <- tempfile("weft-example")
+#' dir.create(dir)
+#' writeLines("", file.path(dir, "_weft.yml"))
+#' writeLines(c(
+#'   "---",
+#'   "title: Survey",
+#'   "---",
+#'   "",
+#'   "We visited 14 sites.",
+#'   "",
+#'   "```{r}",
+#'   "n_high <- 3",
+#'   "```",
+#'   "",
+#'   "[No site | One site | # sites]{n=n_high} read high."
+#' ), file.path(dir, "survey.Rmd"))
+#' lints(dir)
+#' lints(dir, rules = "numeral", tier = 1:2)
+#' unlink(dir, recursive = TRUE)
 #' @export
 lints <- function(path = ".", files = NULL, rules = NULL, tier = 1, reader = c("weft", "pandoc")) {
   tier_given <- !missing(tier)

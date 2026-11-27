@@ -47,3 +47,11 @@ that holds a construct and has no \code{engine: knitr} in its own front matter
 (9.2.8). It also opens the collection file \code{.weft/failures.jsonl}, which
 the filter and the documents append to and the post-render script reports.
 }
+\examples{
+dir <- tempfile("weft-example")
+dir.create(dir)
+writeLines("project:\n  type: default", file.path(dir, "_quarto.yml"))
+writeLines("", file.path(dir, "_weft.yml"))
+use_quarto(dir)
+unlink(dir, recursive = TRUE)
+}

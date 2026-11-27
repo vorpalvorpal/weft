@@ -24,3 +24,7 @@ matches the installed code. Nothing is written.
 The text has the installed package's version in the \code{skill} front matter,
 where \code{\link[=use_agent_docs]{use_agent_docs()}} writes the same version into a copy.
 }
+\examples{
+agent_docs()
+agent_docs("syntax")[1:5]
+}

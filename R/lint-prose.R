@@ -374,6 +374,25 @@ LABEL_STOP <- c("In", "On", "At", "By", "For", "From", "To", "Of", "The", "An", 
 #' @return A data frame with `word`, `n` (how many times), `files` (in how many
 #'   files) and `where` (up to three places as `<file>:<line>: <word> <numeral>`),
 #'   sorted by `n` and then `word`.
+#' @examples
+#' dir <- tempfile("weft-example")
+#' dir.create(dir)
+#' writeLines("", file.path(dir, "_weft.yml"))
+#' writeLines(c(
+#'   "---",
+#'   "title: Survey",
+#'   "---",
+#'   "",
+#'   "We visited 14 sites.",
+#'   "",
+#'   "```{r}",
+#'   "n_high <- 3",
+#'   "```",
+#'   "",
+#'   "[No site | One site | # sites]{n=n_high} read high."
+#' ), file.path(dir, "survey.Rmd"))
+#' label_seed(file.path(dir, "survey.Rmd"), min_count = 1)
+#' unlink(dir, recursive = TRUE)
 #' @export
 label_seed <- function(paths = NULL, min_count = 2) {
   if (!is.numeric(min_count) || length(min_count) != 1L || !is.finite(min_count) ||

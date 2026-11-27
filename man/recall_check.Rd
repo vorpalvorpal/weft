@@ -45,3 +45,9 @@ Locates each recorded finding in a source folder by its quoted text (or by
 file and line), lints the folder, and reports per rule how many located
 findings the rule reproduces and how much of the source it flags.
 }
+\examples{
+if (FALSE) {
+  findings <- data.frame(id = "a", file = "ch1.qmd", line = 12)
+  recall_check(findings, source = "chapters")
+}
+}

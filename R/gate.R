@@ -30,6 +30,11 @@ GATE_CONSTRUCT_RULES <- c("construct", "block-start", "read")
 #'   that are gone since `HEAD`, each with what still checks it: information only, rule 6.3.7; columns
 #'   `project`, `file`, `line`, `cond`, `level`, `verdict`, `by`, `by_line` and `remains`). The
 #'   report is printed to stderr with [message()].
+#' @examples
+#' if (FALSE) {
+#'   # in a git repository, with changes staged
+#'   gate()
+#' }
 #' @export
 gate <- function(message = NULL, path = ".") {
   t0 <- proc.time()[["elapsed"]]

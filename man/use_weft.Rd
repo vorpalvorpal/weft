@@ -32,3 +32,9 @@ whether the session is interactive or not: the call is the consent.
 \code{suppressMessages()} silences it. \code{\link[=dict_vale]{dict_vale()}} is not called: it is a tool,
 not set-up.
 }
+\examples{
+if (FALSE) {
+  # sets up the whole project: files, hook, workflow, agent skill
+  use_weft()
+}
+}

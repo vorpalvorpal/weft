@@ -37,3 +37,9 @@ dictionary (\code{dict = NULL}) has no \code{avoid} left, a file it wrote is rem
 a dictionary given as \code{dict} never removes anything. It never writes \code{.vale.ini}: when that file does not list the
 style in \code{BasedOnStyles}, it says what the file needs.
 }
+\examples{
+if (FALSE) {
+  # writes styles/Weft/Terms.yml from the dictionary in dict.yml
+  dict_vale()
+}
+}

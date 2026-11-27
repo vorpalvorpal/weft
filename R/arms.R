@@ -52,6 +52,25 @@ arm_roles <- function(key, narms) {
 #'   it is nested in, or `NA`).
 #' @seealso [rehearse()], which knits a document under several sets of
 #'   parameters and reports which arms they chose.
+#' @examples
+#' dir <- tempfile("weft-example")
+#' dir.create(dir)
+#' writeLines("", file.path(dir, "_weft.yml"))
+#' writeLines(c(
+#'   "---",
+#'   "title: Survey",
+#'   "---",
+#'   "",
+#'   "We visited 14 sites.",
+#'   "",
+#'   "```{r}",
+#'   "n_high <- 3",
+#'   "```",
+#'   "",
+#'   "[No site | One site | # sites]{n=n_high} read high."
+#' ), file.path(dir, "survey.Rmd"))
+#' arms(file.path(dir, "survey.Rmd"))
+#' unlink(dir, recursive = TRUE)
 #' @export
 arms <- function(file) {
   file <- as.character(file)

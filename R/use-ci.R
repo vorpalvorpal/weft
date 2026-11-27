@@ -17,6 +17,11 @@
 #' @param path A directory in the project, inside a git work tree.
 #' @param overwrite Replace a workflow weft wrote that has since been edited.
 #' @return The paths written, invisibly (`character()` when nothing changed).
+#' @examples
+#' if (FALSE) {
+#'   # writes .github/workflows/ in a git repository
+#'   use_ci()
+#' }
 #' @export
 use_ci <- function(path = ".", overwrite = FALSE) {
   root <- install_root(path, "use_ci")

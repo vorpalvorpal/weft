@@ -92,6 +92,26 @@ FM_FILTER_ARGS_OLD <- "pandoc_args: [\"--lua-filter\", \"weft-check.lua\"]"
 #' @param route `"auto"`, `"rprofile"` or `"front-matter"`.
 #' @return The paths written, relative to the root, invisibly (`character()`
 #'   when nothing changed).
+#' @examples
+#' dir <- tempfile("weft-example")
+#' dir.create(dir)
+#' writeLines("", file.path(dir, "_weft.yml"))
+#' writeLines(c(
+#'   "---",
+#'   "title: Survey",
+#'   "---",
+#'   "",
+#'   "We visited 14 sites.",
+#'   "",
+#'   "```{r}",
+#'   "n_high <- 3",
+#'   "```",
+#'   "",
+#'   "[No site | One site | # sites]{n=n_high} read high."
+#' ), file.path(dir, "survey.Rmd"))
+#' use_setup(dir)
+#' list.files(dir, all.files = TRUE)
+#' unlink(dir, recursive = TRUE)
 #' @export
 use_setup <- function(path = ".", route = c("auto", "rprofile", "front-matter")) {
   route <- match.arg(route)

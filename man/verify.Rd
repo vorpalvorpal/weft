@@ -45,3 +45,10 @@ A part is skipped when it is named in \code{verify_skip} in \verb{_weft.yml} (\c
 \code{decisions}, \code{render}, \code{ledger}), and the render and ledger parts are skipped by
 \code{static = TRUE}. \code{verify()} does not run in draft mode (rule 8.1.5).
 }
+\examples{
+if (FALSE) {
+  # renders every document: slow
+  verify()
+  verify(static = TRUE)
+}
+}

@@ -51,6 +51,11 @@ recall_windows <- function(q) {
 #'   everything".
 #' @return A `weft_recall` data frame, one row per rule and a last row `any`,
 #'   with the attributes `matches` and `unlocated`.
+#' @examples
+#' if (FALSE) {
+#'   findings <- data.frame(id = "a", file = "ch1.qmd", line = 12)
+#'   recall_check(findings, source = "chapters")
+#' }
 #' @export
 recall_check <- function(findings, source, rules = NULL, commit = NULL, window = 2L, nearly = 0.8) {
   if (!is.data.frame(findings) || !"id" %in% names(findings)) {

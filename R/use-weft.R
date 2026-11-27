@@ -39,6 +39,11 @@ quarto_copies <- function() {
 #'
 #' @param path A folder or one document, as for [use_setup()].
 #' @return The paths written, invisibly (`character()` when nothing changed).
+#' @examples
+#' if (FALSE) {
+#'   # sets up the whole project: files, hook, workflow, agent skill
+#'   use_weft()
+#' }
 #' @export
 use_weft <- function(path = ".") {
   setup <- setup_plan(path, "auto")
@@ -307,6 +312,25 @@ dictionary_plan <- function(root) {
 #' @param path A directory in the project.
 #' @return A `weft_status`: a data frame with `part`, `state` and `detail`, and
 #'   the attribute `next`.
+#' @examples
+#' dir <- tempfile("weft-example")
+#' dir.create(dir)
+#' writeLines("", file.path(dir, "_weft.yml"))
+#' writeLines(c(
+#'   "---",
+#'   "title: Survey",
+#'   "---",
+#'   "",
+#'   "We visited 14 sites.",
+#'   "",
+#'   "```{r}",
+#'   "n_high <- 3",
+#'   "```",
+#'   "",
+#'   "[No site | One site | # sites]{n=n_high} read high."
+#' ), file.path(dir, "survey.Rmd"))
+#' status(dir)
+#' unlink(dir, recursive = TRUE)
 #' @export
 status <- function(path = ".") {
   root <- install_root(path, "status")

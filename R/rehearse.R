@@ -78,6 +78,11 @@ rehearsing <- function() identical(Sys.getenv("WEFT_REHEARSE"), "1")
 #'   * `unevaluated`: the rows of the spans that no case evaluated at all
 #'     (those nested in arms that were never chosen).
 #' @seealso [arms()]
+#' @examples
+#' if (FALSE) {
+#'   # knits the document once for each case
+#'   rehearse("report.Rmd", list(low = list(site_count = 0), high = list(site_count = 9)))
+#' }
 #' @export
 rehearse <- function(file, cases) {
   if (!is.character(file) || length(file) != 1L || is.na(file) || !file.exists(file)) {

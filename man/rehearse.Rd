@@ -88,6 +88,12 @@ The child process loads the same weft as this one: when it was loaded by
 child loads that directory, and otherwise it calls \code{library(weft)}.
 }
 
+\examples{
+if (FALSE) {
+  # knits the document once for each case
+  rehearse("report.Rmd", list(low = list(site_count = 0), high = list(site_count = 9)))
+}
+}
 \seealso{
 \code{\link[=arms]{arms()}}
 }

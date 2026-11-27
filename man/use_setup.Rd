@@ -62,3 +62,24 @@ anchor, another \verb{weft:} value under \code{opts_knit}), or a file's place ho
 folder or a symbolic link, nothing is written, and the error prints the lines
 to add by hand.
 }
+\examples{
+dir <- tempfile("weft-example")
+dir.create(dir)
+writeLines("", file.path(dir, "_weft.yml"))
+writeLines(c(
+  "---",
+  "title: Survey",
+  "---",
+  "",
+  "We visited 14 sites.",
+  "",
+  "```{r}",
+  "n_high <- 3",
+  "```",
+  "",
+  "[No site | One site | # sites]{n=n_high} read high."
+), file.path(dir, "survey.Rmd"))
+use_setup(dir)
+list.files(dir, all.files = TRUE)
+unlink(dir, recursive = TRUE)
+}

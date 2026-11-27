@@ -40,3 +40,9 @@ those of the documents and every \code{claim()} call in a script's code (rule
 script removes nothing. It reads git only and changes nothing in the
 repository; its cache lives under the git directory.
 }
+\examples{
+if (FALSE) {
+  # in a git repository, with changes staged
+  gate()
+}
+}

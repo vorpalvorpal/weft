@@ -63,3 +63,24 @@ exists and holds neither \verb{@AGENTS.md} nor \verb{@./AGENTS.md}, the call say
 add that line; neither file is written. It says what it will write first.
 \code{suppressMessages()} silences it.
 }
+\examples{
+dir <- tempfile("weft-example")
+dir.create(dir)
+writeLines("", file.path(dir, "_weft.yml"))
+writeLines(c(
+  "---",
+  "title: Survey",
+  "---",
+  "",
+  "We visited 14 sites.",
+  "",
+  "```{r}",
+  "n_high <- 3",
+  "```",
+  "",
+  "[No site | One site | # sites]{n=n_high} read high."
+), file.path(dir, "survey.Rmd"))
+use_agent_docs(dir)
+list.files(dir, recursive = TRUE, all.files = TRUE)
+unlink(dir, recursive = TRUE)
+}

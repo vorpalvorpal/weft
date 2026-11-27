@@ -40,3 +40,11 @@ Limits: a constant written by a computation, or inside a function or a
 block, is not seen; inline R is not read; a name reused for unrelated things
 in two documents is listed, and the author decides.
 }
+\examples{
+dir <- tempfile("weft-example")
+dir.create(dir)
+writeLines("", file.path(dir, "_weft.yml"))
+for (f in c("a.R", "b.R")) writeLines("depth <- 4.5", file.path(dir, f))
+dict_seed(file.path(dir, c("a.R", "b.R")))
+unlink(dir, recursive = TRUE)
+}

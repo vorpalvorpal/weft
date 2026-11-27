@@ -52,6 +52,26 @@
 #' @return The paths written, invisibly (`character()` when nothing changed):
 #'   `AGENTS.md` first, then the skill files folder by folder in the order
 #'   given.
+#' @examples
+#' dir <- tempfile("weft-example")
+#' dir.create(dir)
+#' writeLines("", file.path(dir, "_weft.yml"))
+#' writeLines(c(
+#'   "---",
+#'   "title: Survey",
+#'   "---",
+#'   "",
+#'   "We visited 14 sites.",
+#'   "",
+#'   "```{r}",
+#'   "n_high <- 3",
+#'   "```",
+#'   "",
+#'   "[No site | One site | # sites]{n=n_high} read high."
+#' ), file.path(dir, "survey.Rmd"))
+#' use_agent_docs(dir)
+#' list.files(dir, recursive = TRUE, all.files = TRUE)
+#' unlink(dir, recursive = TRUE)
 #' @export
 use_agent_docs <- function(path = ".", overwrite = FALSE, skills = "auto") {
   root <- install_root(path, "use_agent_docs")
@@ -84,6 +104,9 @@ use_agent_docs <- function(path = ".", overwrite = FALSE, skills = "auto") {
 #' @param topic `NULL`, or one of `"skill"`, `"syntax"`, `"reports"`.
 #' @return The text as a character vector of lines, invisibly (the topics when
 #'   `topic` is `NULL`).
+#' @examples
+#' agent_docs()
+#' agent_docs("syntax")[1:5]
 #' @export
 agent_docs <- function(topic = NULL) {
   topics <- agent_topics()

@@ -561,6 +561,12 @@ compare_entries <- function(tx, nx, ledger, output, stale, tb, ta) {
 #' @return A `weft_changes`, a list of the tables `entries`, `conditions`,
 #'   `stale`, `ledgers` and `findings`, with the attributes `since`, `commit`
 #'   (the full hash, or `NA`) and `root`. It prints as plain text.
+#' @examples
+#' if (FALSE) {
+#'   # in a git repository that holds _weft.yml
+#'   changes()
+#'   changes(since = "HEAD~3")
+#' }
 #' @export
 changes <- function(since = "HEAD", path = ".", files = NULL) {
   if (!is.character(since) || length(since) != 1L || is.na(since) || !nzchar(since)) {

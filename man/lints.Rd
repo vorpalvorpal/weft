@@ -71,3 +71,24 @@ neither \code{weft} nor a \verb{claim(} call is not read; one that is not valid 
 gives the \code{read} finding when its bytes hold \code{weft} and is otherwise not
 read; one that does not parse as R gives a note and no findings.
 }
+\examples{
+dir <- tempfile("weft-example")
+dir.create(dir)
+writeLines("", file.path(dir, "_weft.yml"))
+writeLines(c(
+  "---",
+  "title: Survey",
+  "---",
+  "",
+  "We visited 14 sites.",
+  "",
+  "```{r}",
+  "n_high <- 3",
+  "```",
+  "",
+  "[No site | One site | # sites]{n=n_high} read high."
+), file.path(dir, "survey.Rmd"))
+lints(dir)
+lints(dir, rules = "numeral", tier = 1:2)
+unlink(dir, recursive = TRUE)
+}

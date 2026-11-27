@@ -31,6 +31,12 @@ verify_abort <- function(message, ...) weft_abort(message, "weft_verify_error", 
 #'   (`part`, `status`, `detail`), `errors`, `added`, `strict`, `names`, `tier2` (each a
 #'   `weft_findings`), `removed`, `decisions`, `knit`, `output` (the rendered-output findings: `file`, `format`, `kind`, `level`, `section`, `text`, `excerpt`; each `fail` row is a reason, `warn` rows are listed), `unexecuted`, `unfresh`, `stale`, `tolerated`,
 #'   `log`, `notes` and `seconds`. The report is printed to stderr with [message()].
+#' @examples
+#' if (FALSE) {
+#'   # renders every document: slow
+#'   verify()
+#'   verify(static = TRUE)
+#' }
 #' @export
 verify <- function(files = NULL, since = NULL, static = FALSE, path = ".") {
   t0 <- proc.time()[["elapsed"]]

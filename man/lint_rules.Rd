@@ -14,3 +14,6 @@ A data frame with \code{id}, \code{spec}, \code{tier}, \code{scope} and \code{wh
 \code{spec} rule number, its \code{tier} (1 blocks, 2 is listed over added material),
 its \code{scope} (\code{"file"} or \code{"project"}) and what it finds.
 }
+\examples{
+head(lint_rules()[, c("id", "tier", "scope")])
+}

@@ -34,6 +34,13 @@
 #'   and writes there. Where there is none, it stops: it does not turn a
 #'   directory into a Quarto project.
 #' @return The paths it wrote or changed, relative to `path`, invisibly.
+#' @examples
+#' dir <- tempfile("weft-example")
+#' dir.create(dir)
+#' writeLines("project:\n  type: default", file.path(dir, "_quarto.yml"))
+#' writeLines("", file.path(dir, "_weft.yml"))
+#' use_quarto(dir)
+#' unlink(dir, recursive = TRUE)
 #' @export
 use_quarto <- function(path = ".") {
   if (!dir.exists(path)) {

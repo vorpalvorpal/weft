@@ -29,3 +29,23 @@ step), \code{off} (draft mode on, or parts of \code{verify()} skipped) and \code
 \code{missing} or \code{outdated}, as a sentence; otherwise it says there is nothing to
 install.
 }
+\examples{
+dir <- tempfile("weft-example")
+dir.create(dir)
+writeLines("", file.path(dir, "_weft.yml"))
+writeLines(c(
+  "---",
+  "title: Survey",
+  "---",
+  "",
+  "We visited 14 sites.",
+  "",
+  "```{r}",
+  "n_high <- 3",
+  "```",
+  "",
+  "[No site | One site | # sites]{n=n_high} read high."
+), file.path(dir, "survey.Rmd"))
+status(dir)
+unlink(dir, recursive = TRUE)
+}
