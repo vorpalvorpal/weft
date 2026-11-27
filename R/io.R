@@ -259,8 +259,11 @@ DOC_EXT_RE <- "\\.(qmd|Rmd|rmd)$"
 LINT_DOC_EXT_RE <- "\\.(qmd|Rmd|rmd|ipynb)$"
 
 # Folders that are never a project's own documents, by name: the libraries
-# a project vendors, and the folders Quarto writes to or reads from.
-DOC_VENDORED_DIRS <- c("renv", "packrat", "node_modules")
+# a project vendors, and the folders Quarto writes to or reads from. The first are the folders Quarto leaves
+# out of a project's inputs (1.11.9, measured with `quarto inspect`): `node_modules`, and the engines'
+# ignore lists (knitr: renv, packrat, rsconnect; julia: venv, env). Quarto skips by name, at any depth,
+# whatever the folder holds (not by `pyvenv.cfg`), and case counts. The one place this list lives (5.1.8).
+DOC_VENDORED_DIRS <- c("renv", "packrat", "rsconnect", "node_modules", "venv", "env")
 DOC_QUARTO_DIRS <- c("_site", "_book", "_freeze", "_extensions")
 
 # Which relative paths (under the project root, with "/") are documents of a
@@ -345,14 +348,19 @@ project_script_paths <- function(root) {
 # (relative to it, or absolute), as normalised paths relative to `root`. `abort` is the caller's condition
 # raiser; `strict` also refuses a folder and drops repeats (`verify()`).
 resolve_files <- function(files, root, abort, strict = FALSE) {
-  if (!is.character(files) || anyNA(files)) abort("`files` must be paths to .qmd, .Rmd or .R files.")
+  if (!is.character(files) || anyNA(files)) abort("`files` must be paths to .qmd, .Rmd, .ipynb, percent-script .py or .R files.")
   absf <- ifelse(is_abs_path(files), files, file.path(root, files))
   nf <- normalizePath(absf, winslash = "/", mustWork = FALSE)
-  prob <- !file.exists(absf) | !startsWith(nf, paste0(root, "/")) | !grepl("\\.(qmd|Rmd|rmd|R|r)$", files)
+  prob <- !file.exists(absf) | !startsWith(nf, paste0(root, "/")) | !grepl("\\.(qmd|Rmd|rmd|ipynb|py|R|r)$", files)
   if (strict) prob <- prob | dir.exists(absf)
-  if (any(prob)) {
-    abort(paste0("`files` must name existing .qmd, .Rmd or .R files under the project root; not so: ",
-                 paste0("`", files[prob], "`", collapse = ", "), " (rule 5.1.1)."))
+  # a .py is a document only when it is a percent script (Quarto's isJupyterPercentScript)
+  badext <- !grepl("\\.(qmd|Rmd|rmd|ipynb|py|R|r)$", files)
+  notpct <- !prob & grepl("\\.[Pp][Yy]$", files) & !vapply(absf, is_percent_file, NA, USE.NAMES = FALSE)
+  if (any(prob | notpct)) {
+    abort(paste0("`files` must name existing .qmd, .Rmd, .ipynb, percent script (.py) or .R files under the ",
+                 "project root; not so: ", paste0("`", files[prob | notpct], "`", collapse = ", "),
+                 if (any(notpct | (badext & file.exists(absf)))) " (a file that is not a document Quarto renders, such as a .py that is not a percent script, is refused)",
+                 " (rule 5.1.1)."))
   }
   rel <- rel_to(nf, root)
   if (strict) unique(rel) else rel

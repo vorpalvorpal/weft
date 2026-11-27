@@ -44,7 +44,7 @@ verify <- function(files = NULL, since = NULL, static = FALSE, path = ".") {
     verify_abort("`path` must be one existing file or folder (rule 8.1.1).")
   }
   if (!is.null(files) && (!is.character(files) || !length(files) || anyNA(files) || any(!nzchar(files)))) {
-    verify_abort("`files` must be paths to .qmd, .Rmd or .R files.")
+    verify_abort("`files` must be paths to .qmd, .Rmd, .ipynb, percent-script .py or .R files.")
   }
   if (!is.null(since) && (!is.character(since) || length(since) != 1L || is.na(since) || !nzchar(since))) {
     verify_abort("`since` must be NULL or one string naming a commit (rule 8.1.1).")
