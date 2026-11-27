@@ -47,13 +47,15 @@ construct errors and other problems the rules of \code{\link[=lint_rules]{lint_r
 Nothing in a document is run.
 }
 \details{
-The \code{.R} and \code{.r} files of the project (its scripts) are read too, but only
-for the literal strings they pass to \code{weft()}: in a script, \code{weft("We found 12 sites")} is prose like any other and its \code{12} is a finding, placed at its
-line and column in the script. A call is \code{weft(...)}, \code{weft::weft(...)} or
-\code{weft:::weft(...)}, or the right-hand side of a pipe; the argument read is the
-one R matches to \code{x}, a string literal (a raw string too) or the literal
-elements of a \code{c()}. The code around the call is not read, and neither are
-\code{claim()} calls, phrases or strings given to other functions. The rules that
+The \code{.R} and \code{.r} files of the project (its scripts) are read too, for the
+literal strings they pass to \code{weft()} and for their \code{claim()} calls: in a
+script, \code{weft("We found 12 sites")} is prose like any other and its \code{12} is a
+finding, placed at its line and column in the script. A call is \code{weft(...)},
+\code{weft::weft(...)} or \code{weft:::weft(...)}, or the right-hand side of a pipe; the
+argument read is the one R matches to \code{x}, a string literal (a raw string
+too) or the literal elements of a \code{c()}. Of the rest of a script's code only
+its \code{claim()} calls are read, by \code{inert-check} alone; phrases and strings
+given to other functions are not. The rules that
 read scripts are those with \code{scripts} \code{TRUE} in \code{\link[=lint_rules]{lint_rules()}}; the project
 rules read documents only. A script is left out when it is in a folder
 whose name starts with \code{.} or \verb{_}, or in \code{renv}, \code{packrat}, \code{node_modules},
@@ -62,7 +64,8 @@ whose name starts with \code{.} or \verb{_}, or in \code{renv}, \code{packrat}, 
 to it: a list of folder or file names, or paths from that folder, with no
 wildcards. Its default is \verb{[tests]}, \verb{[]} reads every script, and a list that
 is given replaces the default, so keep \code{tests} in it. A skipped or excluded
-script named in \code{files} or as \code{path} gives a note. A script whose bytes do not hold \code{weft}
-is not read, one that is not valid UTF-8 gives the \code{read} finding, and one
-that does not parse as R gives a note and no findings.
+script named in \code{files} or as \code{path} gives a note. A script whose bytes hold
+neither \code{weft} nor a \verb{claim(} call is not read; one that is not valid UTF-8
+gives the \code{read} finding when its bytes hold \code{weft} and is otherwise not
+read; one that does not parse as R gives a note and no findings.
 }

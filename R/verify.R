@@ -145,7 +145,8 @@ verify <- function(files = NULL, since = NULL, static = FALSE, path = ".") {
   if (!is.na(why("decisions"))) {
     parts <- set_part(parts, "decisions", "skipped", paste0("skipped: ", why("decisions")))
   } else {
-    dp <- verify_document_pointers(root, docs)
+    # the documents' pointers and the scripts' (rule 3.11.6)
+    dp <- verify_document_pointers(root, c(docs, scripts))
     if (!file.exists(file.path(root, "dict.yml")) && !nrow(dp)) {
       parts <- set_part(parts, "decisions", "skipped", "skipped: no decision pointers")
     } else {
@@ -413,8 +414,8 @@ verify_base_side <- function(gi, since_sha, files_rel) {
 
 # ---- the decisions part (G24.2) ---------------------------------------------------------------------
 
-# The decision pointers of the documents verified (N104): the scanner's rows on a `.weft-literal` and a
-# `cite`, and each `claim()` with a literal `decision`.
+# The decision pointers of the documents and scripts verified (N104, 3.11.6): the scanner's rows on a
+# `.weft-literal` and a `cite`, and each `claim()` with a literal `decision`.
 verify_document_pointers <- function(root, docs) {
   rows <- lapply(docs, function(rel) {
     tryCatch(decision_pointer_rows(lint_open(root, rel)), error = function(e) NULL)

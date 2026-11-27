@@ -34,6 +34,9 @@ commit will hold) with \code{HEAD} for every project of the repository, a projec
 being a folder that holds \verb{_weft.yml}, and fails the commit on a construct
 error in a changed document, on a tier-1 finding that \code{HEAD} did not hold, and
 on weft constructs removed when the message does not say so with a
-\code{Weft-Removed: N} trailer (rules 6.1 to 6.3). It reads git only and changes
-nothing in the repository; its cache lives under the git directory.
+\code{Weft-Removed: N} trailer (rules 6.1 to 6.3). The constructs counted are
+those of the documents and every \code{claim()} call in a script's code (rule
+3.11.3), in one total per project, so a claim moved between a document and a
+script removes nothing. It reads git only and changes nothing in the
+repository; its cache lives under the git directory.
 }

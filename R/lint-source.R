@@ -1122,23 +1122,40 @@ source_sentences <- function(src) {
 
 is_script_path <- function(path) grepl("\\.[rR]$", path)
 
-# Whether the bytes of a script hold the ASCII letters `weft` (C3). A NUL byte does not stop the search.
-bytes_mention_weft <- function(bytes) {
+# The bytes of a script as one string, a NUL byte read as a space so that it does not stop a search.
+script_bytes_text <- function(bytes) {
   bytes[bytes == as.raw(0L)] <- as.raw(32L)
-  grepl("weft", rawToChar(bytes), fixed = TRUE, useBytes = TRUE)
+  rawToChar(bytes)
 }
 
-# What reading a script's `weft()` literals gives (C3, C4): `status` is "invalid" (not text), "skip" (no
-# `weft` in its bytes, or no literal), "noparse", or "ok", with the text, lines, line starts, the literals and
-# the scanner's rows (an empty table when none of them holds a construct).
+# Whether the bytes of a script hold the ASCII letters `weft` (C3): what decides whether a script that is not
+# text is reported (rule 3.11.7).
+bytes_mention_weft <- function(bytes) grepl("weft", script_bytes_text(bytes), fixed = TRUE, useBytes = TRUE)
+
+# A `claim(` call in a script's bytes: `claim` after a character that is not a letter, digit, `_` or `.` (or
+# at the start), then optional spaces or tabs, then `(` (rule 3.11.7).
+SCRIPT_CLAIM_RE <- "(^|[^A-Za-z0-9_.])claim[ \t]*\\("
+
+# Whether a script is opened (rule 3.11.7, SC1): its bytes hold `weft` or a `claim(` call.
+script_may_hold_weft <- function(bytes) {
+  txt <- script_bytes_text(bytes)
+  grepl("weft", txt, fixed = TRUE, useBytes = TRUE) || grepl(SCRIPT_CLAIM_RE, txt, perl = TRUE, useBytes = TRUE)
+}
+
+# What reading a script's `weft()` literals and `claim()` calls gives (C3, C4, SC2, SC3): `status` is "invalid"
+# (not text, and its bytes hold `weft`), "skip" (not opened by rule 3.11.7, not text without `weft` in its
+# bytes, or neither a literal nor a counted claim call), "noparse", or "ok", with the text, lines, line starts,
+# the literals, the scanner's rows (an empty table when none of them holds a construct) and the parse data
+# `pd`, which the claim readers reuse.
 script_scan <- function(path, rel, cfg, bytes = NULL) {
   none <- function(status) list(status = status, text = "", lines = character(), ls = numeric(), lit = NULL,
-                                rows = NULL)
+                                rows = NULL, pd = NULL)
   if (is.null(bytes)) bytes <- read_source_bytes(path)
-  if (!bytes_mention_weft(bytes)) return(none("skip"))
+  if (!script_may_hold_weft(bytes)) return(none("skip"))
   # the bytes already read are the text's: the file is read once (K14)
   text <- tryCatch(read_source_text(path, bytes = bytes), weft_encoding_error = function(e) NULL)
-  if (is.null(text)) return(none("invalid"))
+  # a file that is not text is weft's business only when it holds `weft` (D4)
+  if (is.null(text)) return(none(if (bytes_mention_weft(bytes)) "invalid" else "skip"))
   lines <- split_source_lines(text)
   p <- tryCatch(parse(text = lines, keep.source = TRUE), error = function(e) NULL)
   if (is.null(p)) return(none("noparse"))
@@ -1146,22 +1163,25 @@ script_scan <- function(path, rel, cfg, bytes = NULL) {
   if (is.null(pd)) return(none("skip"))
   ls <- line_starts(lines)
   lit <- weft_literals(lines, pd)
-  if (!nrow(lit)) return(none("skip"))
-  rows <- scan_weft_code(lines, 1L, NA_character_, rel, cfg, ls, lit = lit)
+  if (!nrow(lit) && !nrow(claim_calls(lines, pd = pd))) return(none("skip"))
+  rows <- if (nrow(lit)) scan_weft_code(lines, 1L, NA_character_, rel, cfg, ls, lit = lit)
   if (is.null(rows)) {
     rows <- scan_rows("", file = rel, first_line = 1L, config = cfg)
     rows$fstart <- rows$fend <- rows$fblock <- numeric()
     rows$context <- rows$chunk <- rows$option <- character()
   }
-  list(status = "ok", text = text, lines = lines, ls = ls, lit = lit, rows = rows)
+  list(status = "ok", text = text, lines = lines, ls = ls, lit = lit, rows = rows, pd = pd)
 }
 
 # A script is a second kind of source: its text, lines and line starts, the rows of its `weft()` literals, a
-# prose mask that is their pieces, and no chunks, metadata or blocks of its own. One that does not mention
-# `weft`, does not parse or is not text has no rows and a `status` of "skip", "noparse" or "invalid" (a source
-# read in full has none, or "ok"), with the `note` a run gives for it (NULL when it gives none).
+# prose mask that is their pieces, the parse data of its code (`code_pd`, for its claims), and no chunks,
+# metadata or blocks of its own. One that is not opened, holds nothing to read, does not parse or is not text
+# has no rows and a `status` of "skip", "noparse" or "invalid" (a source read in full has none, or "ok"), with
+# the `note` a run gives for it (NULL when it gives none, M1).
 script_stub <- function(rel, path, cfg, status) {
-  note <- if (status == "noparse") sprintf("`%s` does not parse as R, so its weft() strings were not read.", rel)
+  note <- if (status == "noparse") {
+    sprintf("`%s` does not parse as R, so its weft() strings and claim() calls were not read.", rel)
+  }
   structure(list(file = rel, path = path, ext = sub("^.*\\.", "", basename(path)), script = TRUE, cfg = cfg,
                  text = "", lines = character(), line_start = numeric(), rows = NULL, chunks = NULL,
                  status = status, note = note, invalid = status == "invalid"),
@@ -1184,6 +1204,9 @@ read_script_source <- function(path, root, cfg, bytes = NULL) {
                        end = ex$end, grp = ex$idx, stringsAsFactors = FALSE)
   chunks <- chunk_table(lines, list())
   ff <- front_fields(character())
-  source_assemble(rel, path, ext, cfg, sc$text, lines, sc$ls, logical(nl), rep(TRUE, nl), pieces, sc$rows,
-                  chunks, ff, list(), list(), "en", script = TRUE)
+  src <- source_assemble(rel, path, ext, cfg, sc$text, lines, sc$ls, logical(nl), rep(TRUE, nl), pieces, sc$rows,
+                         chunks, ff, list(), list(), "en", script = TRUE)
+  # the parse the scan made, for the script's claims (SC2): claim_calls() and claim_decisions() do not parse again
+  src$code_pd <- sc$pd
+  src
 }

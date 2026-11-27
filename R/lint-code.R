@@ -245,8 +245,9 @@ cond_two_literals <- function(val) {
 }
 
 # Every piece of R code in a document: the expression of each inline construct and the
-# code of each executed R chunk, parsed. `off` is the file offset of the piece's first
-# character, `line_off` the file offset of the start of each of its lines.
+# code of each executed R chunk, parsed; for a script, the whole of its code as well.
+# `off` is the file offset of the piece's first character, `line_off` the file offset
+# of the start of each of its lines.
 code_pieces <- function(src) {
   if (!is.null(src$cache$code_pieces)) return(src$cache$code_pieces)
   out <- list()
@@ -299,6 +300,13 @@ code_pieces <- function(src) {
     if (max(ln) > length(src$lines) || !identical(src$lines[ln], code)) next
     p <- mk("chunk", "chunk", paste(code, collapse = "\n"), src$line_start[cl], chunk = c)
     p$line_off <- src$line_start[ln]
+    out[[length(out) + 1L]] <- p
+  }
+  # a script read in full is one more piece, its whole code (SC7, SC8): a kind of its own, so that the rules
+  # that read chunk code never read a script (D11)
+  if (isTRUE(src$script) && identical(source_status(src), "ok") && length(src$lines)) {
+    p <- mk("script", "script", paste(src$lines, collapse = "\n"), src$line_start[1L])
+    p$line_off <- src$line_start[seq_along(src$lines)]
     out[[length(out) + 1L]] <- p
   }
   src$cache$code_pieces <- out

@@ -3357,8 +3357,8 @@ claim(diffs, all(. > 0))                 # not read: the check is a call
   value that is not named `level` or `decision` (3.1.3, 3.1.12): role
   `claim`. Its level is `fail` when `level` is absent, `warn` when it is the
   string `"warn"`, and `unknown` when it is computed. Claims are found where
-  the gate counts them (6.3.1): in executed R chunks, inline values and
-  governor expressions;
+  the gate counts them (6.3.1): in executed R chunks, inline values, governor
+  expressions and scripts (3.11);
 - for `checks()` only, each comma part of a two-arm `if`: role `branch`, with
   no level. A branch chooses wording and fails nothing (1.5.3), so the gate
   never counts it.
@@ -3700,6 +3700,51 @@ read twice that changes between the reads. Since the gate's verdicts decide
 nothing (6.3.7), such a miss costs a wrong line in a report, not a wrong
 commit. `verify(since = )` keeps listing constructs only (8.2.2), and the filter
 does not change.
+
+### 3.11 Claims in scripts
+
+**3.11.1** A `claim()` in a script (5.1.9) is read from the source. Every
+call of `claim`, `weft::claim` or `weft:::claim` in the script's code is a
+*script claim*, wherever it sits: in a function body, a target's command, a
+lambda, a pipe or a loop. Not script claims: a call in a comment or a string;
+`claim` qualified by another package; `claim` not in call position; a claim
+inside the expression of a `weft()` literal, which is read as 3.6.7 says.
+
+**3.11.2** Nothing changes when a script claim runs. Outside a knit it stops,
+or warns at level `warn`; in a running target it stops; in a script that a
+chunk `source()`s it is chunk code, and `chunk_claims` applies (2.4.2,
+2.4.4). A claim that runs records nothing and writes nothing.
+
+**3.11.3** The gate counts each script claim as a `claim()` call of the
+project that holds the script, in the same total as the claims of its
+documents (6.3.1, 6.3.2). So moving a claim between a chunk and a script, or
+between scripts, removes nothing.
+
+**3.11.4** `checks()` lists each script claim as a check of role `claim`
+(3.10.1), read by 3.10.2 to 3.10.9 with the script as the file. A claim inside
+a function definition is not readable (3.10.6).
+
+**3.11.5** `inert-check` (3.1.6) reads script claims. A finding's context is
+`script`. No other rule reads a script's code (5.1.9).
+
+**3.11.6** `verify()` checks the literal `decision` pointer of a script claim
+as it checks a document's (4.5.5).
+
+**3.11.7** A script is opened when its bytes hold `weft` or a `claim(` call:
+the letters `claim`, after a character that is not a letter, digit, `_` or
+`.` (or at the start), then optional spaces or tabs, then `(`. A script that
+is not valid UTF-8 gives the `read` finding only when its bytes hold `weft`;
+otherwise it is not read and nothing is said. A script that does not parse
+is not read: its claims are gone, as its `weft()` strings are, and
+`lints()` and `checks()` say so in a note. When the gate counts the claims or
+constructs of a staged script that does not parse as removed, it names the
+file in a note, once.
+
+**3.11.8** Not read: claims in Python and Julia files; claims in files
+outside the project root or left out by `scripts_skip`; chunk options
+written in a script's comments (`#+`, `#|`); whether a claim's function is
+ever called. Script claims have no ledger entries (7.1.1), and `changes()`
+does not list them.
 
 ---
 
@@ -4710,7 +4755,8 @@ each distinct pointer once, the pointers of `dict.yml` and of the documents it
 verifies: every `decision` on a `.weft-literal` or a `cite` span in the
 source, and every `claim()` call in an R chunk or in inline code whose
 `decision` argument is a literal string or number, except in a chunk that is
-statically not evaluated (1.8.12). A computed argument is not
+statically not evaluated (1.8.12), and every script claim (3.11.1) of the
+scripts verified, with `file` the script. A computed argument is not
 checked. Each document pointer is a row of the table of 4.5.3: `file` the
 document, `line` the construct's line, and `key` one of `.weft-literal`,
 `cite="<value>"` or `claim()`.
@@ -4969,19 +5015,21 @@ key; the lints read the YAML and install no units. The scripts of the project
 `_book`, `_freeze`, `_extensions`, a `_` folder), not a file whose name starts
 with `.`, and outside `scripts_skip` (9.1.4), which is `[tests]` unless set.
 Each script is judged by the `scripts_skip` of its own settings root (the nearest
-`_weft.yml`), with its path from that folder. A script whose bytes do not hold
-`weft` is not read, whatever its encoding; neither it nor a skipped script is
-counted in `n_files`. Scripts are read whatever `reader` is. A script named in
-`files` or as `path` that is left out gives a note in `lints()`, `checks()` and
-`verify()`. In a script the lints read the literal strings passed to `weft()`,
-as 3.6.7 says, and nothing else: not the code around them, its `claim()` calls
-or its phrases (5.1.6). The rules that read them are `numeral`, `construct`,
+`_weft.yml`), with its path from that folder. A script is opened as 3.11.7
+says; one that is not opened, or holds neither a `weft()` literal nor a script
+claim, is not counted in `n_files`, nor is a skipped script. Scripts are read
+whatever `reader` is. A script named in `files` or as `path` that is left out
+gives a note in `lints()`, `checks()` and `verify()`. In a script the lints
+read the literal strings passed to `weft()`, as 3.6.7 says, and `inert-check`
+reads its claims (3.11.5); nothing else is read: not the rest of its code, or
+its phrases (5.1.6). The rules that read them are `numeral`, `construct`,
 `read`, `block-start`, `lone-bar`, `if-zero`, `name`, `inert-check`,
 `long-guard`, `claim-word`, `literal-value`, `value-constant` and
 `value-format`; the project rules read documents only. A finding is placed at
 the character of the script that holds it, through escapes and raw strings. A
 script that does not parse as R is not read, and `lints()` and `checks()` say so
-in a note; one that is not valid UTF-8 gives the `read` finding. A
+in a note; one that is not valid UTF-8 gives the `read` finding when its bytes
+hold `weft` (3.11.7). A
 script has no front matter: its settings are its project's, and its language
 English.
 
@@ -5709,8 +5757,8 @@ in a Python chunk and `@claim` in a Julia chunk count as `claim()` calls, by
 pattern. A claim in a chunk that is not evaluated counts for none of them, so
 turning `eval` off on a chunk with a claim is a removal. A hand-written `weft-values` block's names and a
 values file are not counted. In a script it counts the values and spans of its
-`weft()` strings, and a `claim()` inside one of their expressions; a `claim()`
-elsewhere in a script is not counted (5.1.9). A script that `scripts_skip` leaves
+`weft()` strings, and a `claim()` inside one of their expressions, and every
+script claim (3.11.1). A script that `scripts_skip` leaves
 out counts for nothing, so skipping one is a removal.
 
 **6.3.2** There are two totals in each project: calls to `claim()`, and
@@ -7894,6 +7942,16 @@ listed rather than safe ones, which would leave most of R unread.
 
 ### Dictionary
 
+**3.11** A claim is a check wherever it is written, and a targets project
+writes its checks in `R/`, where 3.1.13 tells the author to put them. Until
+weft read scripts, that advice cost a trailer and hid the check. The claims
+are read from the source because the gate can use nothing else (6.1.4): a
+record of claims that ran is evidence of an earlier version of the code, and
+would make `claim()` write files from inside the author's loops and workers.
+A script that stops parsing loses its claims, as it loses its `weft()`
+strings, and the gate names the file, because a syntax error in `R/` would
+otherwise read as a puzzling list of removals.
+
 **4.1.2** The key is a plain token in the parsed expression, so a static lint
 verifies every read without running R (5.8 rule 6).
 
@@ -8296,10 +8354,6 @@ replaces is asked for `Weft-Removed: 1`, although the final commit removes more
 from its parent. This is accepted for now. A `_weft.yml` that does not read at
 `HEAD` must not turn off the removal count, or a commit could remove
 constructs with no trailer.
-
-**6.3.1** A script's `claim()` calls are not counted because nothing else in
-weft knows them yet; counting them only in the gate would charge a trailer for a
-check no report shows.
 
 **6.3.1, 6.3.2** A deletion is the change that leaves nothing to look at
 afterwards (B1). Every removal is allowed; the commit says how many. The

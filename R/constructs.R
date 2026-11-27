@@ -2,9 +2,9 @@
 #
 # `count_constructs(src)` gives one row per construct: the scanner's value and
 # span rows (every context) and each `claim()` call found in the code of an R
-# chunk or in a value or governor expression. `.weft-literal` and link rows do
-# not count. `kind` is `value` (scanner kinds value and bare), `span` (n, if,
-# sign, list, cite, text) or `claim`.
+# chunk, in a value or governor expression, or in a script's code (3.11).
+# `.weft-literal` and link rows do not count. `kind` is `value` (scanner kinds
+# value and bare), `span` (n, if, sign, list, cite, text) or `claim`.
 
 construct_empty <- function() {
   data.frame(file = character(), line = integer(), kind = character(), text = character(),
@@ -16,20 +16,23 @@ gate_ws <- function(x) gsub("[ \t\r\n]+", " ", trimws(x))
 # The `claim()` and `weft::claim()` calls in R code: a data frame of the call's
 # first line (1-based, within `code`) and its source text. For `engine` python
 # or julia, the token patterns of N59 (no parser): each match on a line whose
-# first non-blank character is not `#`.
-claim_calls <- function(code, engine = "r") {
+# first non-blank character is not `#`. `pd` is the parse data of `code` when
+# the caller has it already (a script's, SC2), so it is not parsed again.
+claim_calls <- function(code, engine = "r", pd = NULL) {
   none <- data.frame(line = integer(), text = character(), stringsAsFactors = FALSE)
   if (engine %in% c("python", "julia")) return(guest_claim_calls(code, engine))
-  if (!length(code) || !any(grepl("claim", code, fixed = TRUE))) return(none)
-  code <- paste(code, collapse = "\n")
-  pd <- parse_data(code)
   if (is.null(pd)) {
-    # unparsable code: take the text from each `claim(` to the end of its line
-    ls <- strsplit(code, "\n", fixed = TRUE)[[1L]]
-    hit <- which(grepl("(^|[^A-Za-z0-9_.])(weft::)?claim\\s*\\(", ls))
-    if (!length(hit)) return(none)
-    txt <- sub("^.*?((weft::)?claim\\s*\\(.*)$", "\\1", ls[hit], perl = TRUE)
-    return(data.frame(line = hit, text = gate_ws(txt), stringsAsFactors = FALSE))
+    if (!length(code) || !any(grepl("claim", code, fixed = TRUE))) return(none)
+    code <- paste(code, collapse = "\n")
+    pd <- parse_data(code)
+    if (is.null(pd)) {
+      # unparsable code: take the text from each `claim(` to the end of its line
+      ls <- strsplit(code, "\n", fixed = TRUE)[[1L]]
+      hit <- which(grepl("(^|[^A-Za-z0-9_.])(weft::)?claim\\s*\\(", ls))
+      if (!length(hit)) return(none)
+      txt <- sub("^.*?((weft::)?claim\\s*\\(.*)$", "\\1", ls[hit], perl = TRUE)
+      return(data.frame(line = hit, text = gate_ws(txt), stringsAsFactors = FALSE))
+    }
   }
   sfc <- pd[pd$token == "SYMBOL_FUNCTION_CALL" & pd$text == "claim", , drop = FALSE]
   if (!nrow(sfc)) return(none)
@@ -115,6 +118,16 @@ construct_rows <- function(src) {
       }
     }
   }
+  # a script's claims, from the parse its scan made (rule 3.11.1, SC4): a claim inside a `weft()` literal is
+  # a string to this parse, and is counted above, from the literal's row
+  if (isTRUE(src$script) && !is.null(src$code_pd)) {
+    cc <- claim_calls(src$lines, pd = src$code_pd)
+    if (nrow(cc)) {
+      parts[[length(parts) + 1L]] <- data.frame(
+        file = rep(src$file, nrow(cc)), line = as.integer(cc$line), kind = "claim", text = cc$text, bad = FALSE,
+        stringsAsFactors = FALSE)
+    }
+  }
   if (!length(parts)) return(cbind(construct_empty(), bad = logical()))
   out <- do.call(rbind, parts)
   out <- out[order(out$line, seq_len(nrow(out))), , drop = FALSE]
@@ -146,11 +159,11 @@ working_constructs <- function(src) {
 # The `decision` of each `claim()` call in R code whose argument is a literal string or number: a data
 # frame of the call's first line (1-based, within `code`) and the pointer as text. A computed argument,
 # `NULL`, a blank string and a number that is not a whole number from 1 give no row (they are not checked
-# statically; claim() itself refuses the bad ones).
-claim_decisions <- function(code) {
+# statically; claim() itself refuses the bad ones). `pd` is the parse data of `code` when the caller has it.
+claim_decisions <- function(code, pd = NULL) {
   none <- data.frame(line = integer(), decision = character(), stringsAsFactors = FALSE)
   if (!length(code) || !any(grepl("decision", code, fixed = TRUE))) return(none)
-  pd <- parse_data(code)
+  if (is.null(pd)) pd <- parse_data(code)
   if (is.null(pd)) return(none)
   ix <- pd_index(pd)
   sfc <- pd[pd$token == "SYMBOL_FUNCTION_CALL" & pd$text == "claim", , drop = FALSE]
@@ -177,7 +190,7 @@ claim_decisions <- function(code) {
 }
 
 # The decision pointers of a source (N104): one row per `decision` on a `.weft-literal` or a `cite`
-# span, and per `claim()` call in an R chunk or in inline code with a literal `decision`. `file`, `line`,
+# span, and per `claim()` call in an R chunk, in inline code or in a script's code with a literal `decision`. `file`, `line`,
 # `key` (".weft-literal", `cite="<value>"` or "claim()") and `decision`.
 decision_pointer_rows <- function(src) {
   empty <- data.frame(file = character(), line = integer(), key = character(), decision = character(),
@@ -213,6 +226,11 @@ decision_pointer_rows <- function(src) {
       cd <- claim_decisions(ch$code[[j]])
       if (nrow(cd)) add(ch$code_line[j] + cd$line - 1L, "claim()", cd$decision)
     }
+  }
+  # a script's claims (rule 3.11.6, SC10)
+  if (isTRUE(src$script) && !is.null(src$code_pd)) {
+    cd <- claim_decisions(src$lines, pd = src$code_pd)
+    if (nrow(cd)) add(cd$line, "claim()", cd$decision)
   }
   if (!length(tbl$parts)) return(empty)
   out <- do.call(rbind, tbl$parts)

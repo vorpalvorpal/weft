@@ -417,8 +417,9 @@ checks_read <- function(src) {
   assigned <- character()
   for (p in pieces) {
     t <- p$tree
-    if (!is.null(t) && p$kind %in% c("value", "bare", "chunk")) assigned <- c(assigned, ck_assigned_in(t))
-    row <- if (p$kind == "chunk") NA_integer_ else ck_row_of(rows, p)
+    if (!is.null(t) && p$kind %in% c("value", "bare", "chunk", "script")) assigned <- c(assigned, ck_assigned_in(t))
+    # a chunk and a script's code (3.11.4) belong to no row
+    row <- if (p$kind %in% c("chunk", "script")) NA_integer_ else ck_row_of(rows, p)
     row_always <- ck_row_always(rows, row)
     # guards, and the branches of a two-arm `if`
     if (identical(p$kind, "if") && !is.na(row)) {
@@ -703,8 +704,9 @@ check_covered <- function(b, new) length(ck_cover_rows(b, new)) > 0L
 #' are compared: a comparison whose sides are names, dictionary reads, expressions such as `max(turbidity)` and
 #' literals, or a bool name; the rest are listed under `not read`. Nothing in a document is run.
 #'
-#' The `.R` scripts of the project are read too, for the guards and the `claim()` calls inside the values of
-#' the literal strings they pass to `weft()` (see [lints()]); a `claim()` in a script's code is not read.
+#' The `.R` scripts of the project are read too: the guards and the `claim()` calls inside the values of the
+#' literal strings they pass to `weft()` (see [lints()]), and every `claim()` in a script's code. A claim
+#' inside a function definition is listed under `not read`, since its names are the function's.
 #'
 #' A value is *flagged* when two of its checks compare it with the same other operand under operators that
 #' differ only in strictness (`operators`), or with different literals in one direction (`literals`). The
@@ -752,7 +754,7 @@ checks <- function(path = ".", files = NULL, repeats = 3L) {
       next
     }
     if (status == "noparse") notes <- c(notes, src$note)
-    # a script that holds no weft() literal has no checks to read (C15)
+    # a script that holds no weft() literal and no claim() call has no checks to read (C15, 3.11.4)
     if (status != "ok") next
     n_docs <- n_docs + 1L
     r <- checks_read(src)

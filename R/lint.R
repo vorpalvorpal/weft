@@ -403,9 +403,10 @@ lint_open <- function(root, rel) {
   bytes <- NULL
   text <- NULL
   if (is_script_path(rel)) {
-    # a script whose bytes do not hold `weft` is judged before any settings are read (K14), and is read once
+    # a script whose bytes hold neither `weft` nor a `claim(` call is judged before any settings are read
+    # (K14, rule 3.11.7), and is read once
     bytes <- read_source_bytes(path)
-    if (!bytes_mention_weft(bytes)) return(script_stub(rel, path, NULL, "skip"))
+    if (!script_may_hold_weft(bytes)) return(script_stub(rel, path, NULL, "skip"))
   } else {
     # the text the settings are read from is the text the document is read from (E6); it is read when the
     # settings first need it, after `_weft.yml`, as before
@@ -459,14 +460,15 @@ new_lint_ctx <- function(root, files, md_files, report, tier, rules, reader) {
 #' construct errors and other problems the rules of [lint_rules()] find.
 #' Nothing in a document is run.
 #'
-#' The `.R` and `.r` files of the project (its scripts) are read too, but only
-#' for the literal strings they pass to `weft()`: in a script, `weft("We found
-#' 12 sites")` is prose like any other and its `12` is a finding, placed at its
-#' line and column in the script. A call is `weft(...)`, `weft::weft(...)` or
-#' `weft:::weft(...)`, or the right-hand side of a pipe; the argument read is the
-#' one R matches to `x`, a string literal (a raw string too) or the literal
-#' elements of a `c()`. The code around the call is not read, and neither are
-#' `claim()` calls, phrases or strings given to other functions. The rules that
+#' The `.R` and `.r` files of the project (its scripts) are read too, for the
+#' literal strings they pass to `weft()` and for their `claim()` calls: in a
+#' script, `weft("We found 12 sites")` is prose like any other and its `12` is a
+#' finding, placed at its line and column in the script. A call is `weft(...)`,
+#' `weft::weft(...)` or `weft:::weft(...)`, or the right-hand side of a pipe; the
+#' argument read is the one R matches to `x`, a string literal (a raw string
+#' too) or the literal elements of a `c()`. Of the rest of a script's code only
+#' its `claim()` calls are read, by `inert-check` alone; phrases and strings
+#' given to other functions are not. The rules that
 #' read scripts are those with `scripts` `TRUE` in [lint_rules()]; the project
 #' rules read documents only. A script is left out when it is in a folder
 #' whose name starts with `.` or `_`, or in `renv`, `packrat`, `node_modules`,
@@ -475,9 +477,10 @@ new_lint_ctx <- function(root, files, md_files, report, tier, rules, reader) {
 #' to it: a list of folder or file names, or paths from that folder, with no
 #' wildcards. Its default is `[tests]`, `[]` reads every script, and a list that
 #' is given replaces the default, so keep `tests` in it. A skipped or excluded
-#' script named in `files` or as `path` gives a note. A script whose bytes do not hold `weft`
-#' is not read, one that is not valid UTF-8 gives the `read` finding, and one
-#' that does not parse as R gives a note and no findings.
+#' script named in `files` or as `path` gives a note. A script whose bytes hold
+#' neither `weft` nor a `claim(` call is not read; one that is not valid UTF-8
+#' gives the `read` finding when its bytes hold `weft` and is otherwise not
+#' read; one that does not parse as R gives a note and no findings.
 #'
 #' @param path One existing file or folder. The project root is found from it.
 #' @param files `NULL`, or documents and scripts (relative to the root or

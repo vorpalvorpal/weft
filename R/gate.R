@@ -14,8 +14,11 @@ GATE_CONSTRUCT_RULES <- c("construct", "block-start", "read")
 #' being a folder that holds `_weft.yml`, and fails the commit on a construct
 #' error in a changed document, on a tier-1 finding that `HEAD` did not hold, and
 #' on weft constructs removed when the message does not say so with a
-#' `Weft-Removed: N` trailer (rules 6.1 to 6.3). It reads git only and changes
-#' nothing in the repository; its cache lives under the git directory.
+#' `Weft-Removed: N` trailer (rules 6.1 to 6.3). The constructs counted are
+#' those of the documents and every `claim()` call in a script's code (rule
+#' 3.11.3), in one total per project, so a claim moved between a document and a
+#' script removes nothing. It reads git only and changes nothing in the
+#' repository; its cache lives under the git directory.
 #'
 #' @param message `NULL`, or the path of a file holding the commit message. With
 #'   none, the message has no trailer.
@@ -189,7 +192,8 @@ gate_side_keys <- function(g, s, vers) {
 
 # Which of the document entries `e` (relative paths and blobs of one side) the lints read: every document,
 # and a script only when its own settings root's `scripts_skip` does not leave it out and its bytes hold
-# `weft` (K13), so a script that adds nothing to the findings or the counts has no cache entry.
+# `weft` or a `claim(` call (K13, rule 3.11.7), so a script that adds nothing to the findings or the counts
+# has no cache entry.
 gate_script_read <- function(g, e, docs = rep(TRUE, nrow(e))) {
   keep <- rep(TRUE, nrow(e))
   scr <- which(docs & is_script_path(e$rel))
@@ -221,7 +225,7 @@ gate_script_read <- function(g, e, docs = rep(TRUE, nrow(e))) {
     bl <- git_blobs(g$top, e$blob[scr[read]], g$blobs)
     read[read] <- vapply(e$blob[scr[read]], function(b) {
       x <- bl[[b]]
-      length(x) > 0L && bytes_mention_weft(x)
+      length(x) > 0L && script_may_hold_weft(x)
     }, NA)
   }
   keep[scr] <- read
@@ -393,7 +397,8 @@ gate_side_results <- function(g, s, p, ids) {
         src <- captured[[rel]]
         ent <- list(findings = ff[by[[rel]], , drop = FALSE],
                     constructs = if (is.null(src)) construct_empty() else working_constructs(src),
-                    checks = gate_file_checks(src, rel))
+                    checks = gate_file_checks(src, rel),
+                    noparse = !is.null(src) && identical(source_status(src), "noparse"))
         rownames(ent$findings) <- NULL
         per[[rel]] <- ent
         k <- docs$file_key[match(rel, docs$rel)]
@@ -408,7 +413,9 @@ gate_side_results <- function(g, s, p, ids) {
   list(error = NULL,
        findings = bind_plain(c(unname(lapply(per, `[[`, "findings")), list(pf)), empty_plain_findings()),
        constructs = bind_plain(unname(lapply(per, `[[`, "constructs")), construct_empty()),
-       checks = gate_bind_checks(lapply(per, `[[`, "checks")))
+       checks = gate_bind_checks(lapply(per, `[[`, "checks")),
+       # the scripts of the side that do not parse (M2)
+       noparse = names(per)[vapply(per, function(ent) isTRUE(ent$noparse), NA)])
 }
 
 # ---- judging one project (G9, G10, G12, G17, G18) ------------------------------------------------------------
@@ -483,6 +490,11 @@ gate_judge_project <- function(g, p, new_res, base_res) {
   if (nrow(r)) {
     out$removed <- data.frame(project = rep(p$display, nrow(r)), file = vapply(r$file, top_path, "", USE.NAMES = FALSE),
                               line = as.integer(r$line), kind = r$kind, text = r$text, stringsAsFactors = FALSE)
+    # a staged script that does not parse loses its constructs and claims (D8): say why, once per file (M2)
+    np <- vapply(new_res$noparse %||% character(), top_path, "", USE.NAMES = FALSE)
+    np <- sort(intersect(np, out$removed$file), method = "radix")
+    msg <- sprintf("%s does not parse as R, so its constructs and claims count as removed (rule 3.11.7).", np)
+    g$notes <- c(g$notes, setdiff(msg, g$notes))
   }
   out
 }
