@@ -11,8 +11,9 @@
 #              `---` at the top (only blank lines above) or after a blank line, a next line that is not
 #              blank, closed at the next `---` or `...` line, holding a mapping, and not inside a fence
 #              or an HTML comment. A later block's `weft:` replaces an earlier one's whole, so the value
-#              is read from the last block with a top-level `weft:` key. The document's value, when it
-#              has one, wins.
+#              is read from the last block with a top-level `weft:` key. The blocks are read with the
+#              document's includes expanded as Quarto expands them (rule P5, include.jl): an included
+#              file's blocks sit where its include sits. The document's value, when it has one, wins.
 #
 # The result is "collect" exactly when the value that applies is `collect`, else "stop".
 
@@ -197,6 +198,7 @@ end
 function _cc_front_value(source::AbstractString)
     lines = _cc_lines(source)
     (lines === nothing || isempty(lines)) && return nothing
+    lines = _inc_expanded(source, lines, _cc_lines)
     weft = filter(b -> any(l -> occursin(_CC_WEFT_KEY, l), b), _cc_blocks(lines))
     isempty(weft) && return nothing
     _cc_weft_value(last(weft))
