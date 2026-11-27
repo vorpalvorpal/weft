@@ -1187,6 +1187,15 @@ behaviour went through test-first.
   newline not counted (a quirk, modelled because the engine decides what runs). knitr's pattern
   still decides which chunks run, so `{r-x}` picks knitr and runs nothing. The grammar row for
   `{ r }` and the sweep-d `{Python}`/`{Julia}` cases are corrected to Quarto's reading.
+  **The kept readings are gone (28 Nov):** weft follows Quarto in every case. Each language, in the
+  order it first appears, goes to the first engine that claims it (so a julia chunk above an r chunk
+  is julia); a chunk inside a plain fence counts; `engine:` is case-sensitive; a front block indented
+  as a whole is read; a header whose `}` is on a later line is a chunk for the engine but runs
+  nothing in knitr (`quarto_chunk_headers()` is Quarto's view, `find_chunks()` is knitr's); the
+  project's `engines:` list merges profile files and the `.local` file through the one layer list
+  (`quarto_layer_files()`), which now also reads `_quarto.yaml.local` and `QUARTO_PROFILE` from
+  `_environment[.local]`. The Lua twin does the same. The one reading kept is the mapping form of
+  `engine:` (Quarto refuses it; weft takes the first key). Golden check over 670 files: no change.
 - **Script claims tests.** `claim(x, interactive())` is an inert check in a script as in a chunk
   (it never looks at the value); a literal `decision =` is not a check (3.10.1), fixed in
   inert-check for chunks too; the E4 "no note" test follows the new M2 note.

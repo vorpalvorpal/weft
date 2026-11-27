@@ -1702,19 +1702,26 @@ only. The rule is Pandoc's, which Quarto follows for its own options:
    `engine: markdown`, and `engine: julia` beats a `knitr:` key. With no
    claim, the chunk languages decide, read with Quarto's pattern
    (`` ^[\t >]*```+\s*\{lang...\} ``) and lower-cased, so `{R}` is R,
-   `{r-x}` is R and `{ r }` is no chunk: an R chunk picks knitr, else a Julia
-   chunk julia, else a chunk of any language but mermaid, dot and ojs picks
-   jupyter, else markdown. A chunk that never closes does not count (Quarto
-   drops its header, in a file that ends in a newline), nor does one shown
-   inside a plain fence. knitr's own pattern still decides which chunks run, so
-   a `{r-x}` chunk picks knitr and runs nothing. The knit's scanner
-   (`filter_resolves()`), the lints and the filter's `source_is_knitr` read the
-   engine so. Where weft keeps a reading of its own against Quarto 1.11.9, its
-   tests pin it: an `engine:` value is lower-cased and its mapping form names
-   its first key (Quarto refuses both), keys are read at column 0 only (Quarto
-   reads a block indented as a whole), an R chunk anywhere beats a Julia chunk
-   above it (Quarto takes the first), and a chunk inside a plain fence does
-   not count (Quarto counts it).
+   `{r-x}` is R and `{ r }` is no chunk. The pattern is read over the whole
+   text, so a header may run across lines: `{r` with its `}` on a later line
+   is an R chunk (knitr runs none). The languages are walked in the order they
+   first appear, and each goes to the first engine that claims it (julia
+   claims julia, knitr claims r, jupyter claims julia when it comes before the
+   julia engine); a language nobody claims, outside mermaid, dot and ojs,
+   picks jupyter, else markdown. So a Julia chunk above an R chunk picks
+   julia. A chunk that never closes does not count (Quarto drops its header,
+   in a file that ends in a newline); a chunk inside a plain fence does. knitr's
+   own pattern still decides which chunks run, so a `{r-x}` chunk picks knitr
+   and runs nothing. The knit's scanner (`filter_resolves()`), the lints and
+   the filter's `source_is_knitr` read the engine so. weft keeps no reading of
+   its own: an `engine:` value is matched as written (`engine: Knitr` claims
+   nothing), a block indented as a whole is read (the one exception is the
+   mapping form of `engine:`, which Quarto refuses and weft reads as its
+   first key). The project's `engines:` list is merged as Quarto merges it:
+   `_quarto.yml`, then each active profile's `_quarto-<profile>.yml|yaml`, then
+   `_quarto.yml.local|yaml.local`, base entries first; a profile is active
+   through QUARTO_PROFILE, a `QUARTO_PROFILE=` line in `_environment.local` or
+   `_environment`, or `profile: default:` in the local file or `_quarto.yml`.
 
 Quarto reads two more blocks than Pandoc, a `---` block with text directly
 above it and one inside a `~~~` fence; weft follows Pandoc, and the lint
