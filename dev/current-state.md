@@ -31,6 +31,14 @@ first, then `dev/build-log.md`.
 - Stages 1 and 2, the trial fixes (2i), the speed work and the closing
   review. `main` at 0e65096: check 0 errors, 0 warnings, 2 notes.
 
+## Upstream posts (27 Nov, Robin approved; posted from his account, weft not named in 2)
+
+- quarto-cli #15431 (YAML block inside a `~~~` fence is applied as metadata), #15432 (YAML block
+  with no blank line before it; Pandoc reads a setext heading), #15433 (Jupyter engine prints a later
+  YAML block that Quarto applies). JuliaCall #285: comment asking for the CRAN release with the
+  libunwind fix. weft now takes JuliaCall from GitHub (`Remotes:`, 6dc0050) and keeps its own
+  preload for a CRAN copy.
+
 ## In progress
 
 (Dated 13 Nov. Everything in this section was closed by the build's
