@@ -3983,7 +3983,8 @@ it.
 | `as.character(v)` | plain (1.4.24); names kept; `NA` for an `NA` element |
 | `format(v)`, `format(v, target = "plain")` | plain; `NA` is `"NA"`; other arguments are ignored |
 | `format(v, target = "markdown")`, `"tex"`, `"ansi"` | markdown; TeX (3.4.11's error for a class with none); plain |
-| `format(v, target = other)` | `weft_construct_error`: "`target` must be \"plain\", \"markdown\", \"tex\" or \"ansi\"; got %s." |
+| `format(v, target = "html")`, `"marquee"` | what the matching `fmt_*()` call gives for the same number and format (1.4.25, 1.4.26): the markdown read by PL and rendered; names kept; `NA` is `"NA"`; the html form has class `c("html", "character")` and `html = TRUE`, as `format()` of a `weft` object does |
+| `format(v, target = other)` | `weft_construct_error`: "`target` must be \"plain\", \"markdown\", \"tex\", \"ansi\", \"html\" or \"marquee\"; got %s." |
 | `print(v)` | one line `<weft_val CLASS KEY=VALUE ...>`, then the plain texts unquoted, with names; returns `v` invisibly; a length-0 value prints `<weft_val[0] CLASS ...>` |
 | `knitr::knit_print(v, inline = TRUE)` | the markdown elements joined by ", " |
 | `knitr::knit_print(v)` | the markdown elements, one per line |
