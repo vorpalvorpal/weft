@@ -41,6 +41,7 @@ reference:
     contents:
       - fmt
       - fmt_unit
+      - val
       - u
       - unit_defaults
       - weft
