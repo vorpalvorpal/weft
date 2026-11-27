@@ -1766,8 +1766,21 @@ themselves, by these rules (the evidence is in
   a notebook is placed in its JSON file: at the line of the JSON string that
   holds the source line, and at the column of the character in that JSON line,
   escapes counted as written; a finding a fence or blank line weft adds holds
-  is placed at the cell's `"source"` key. The lints do not read percent
-  scripts.
+  is placed at the cell's `"source"` key. A percent script is read the same
+  way: a markdown cell is prose with its `# ` taken off, a raw cell its text,
+  and a code cell a Python chunk; a finding is placed at its line and column
+  in the `.py` file, and one in a fence or blank line weft adds at the cell's
+  `# %%` line. Which files are such documents is Quarto's rule: an `.ipynb`
+  the project lists (none in a `.` folder, such as `.ipynb_checkpoints`, or a
+  `_` folder, such as `_freeze`), and a `.py` that has, on some line,
+  `^\s*#\s*%%+\s+\[(markdown|raw)\]` (quarto.js `isJupyterPercentScript`);
+  a `.py` with only code cells, or none, is code, and is not read. A module
+  with a stray `# %% [markdown]` line is a document, since Quarto renders it.
+  `lints()`, `checks()`, `verify()` and the gate read both kinds of document
+  (5.1.8, 3.10.13, 8.3.7, 6.1.2); `status()` asks only whether one exists
+  (9.5.3). Rows read from them (findings, checks, constructs, decision
+  pointers) are at the lines of the file: a notebook's JSON line, a percent
+  script's own line.
 - **P8. Under rmarkdown or plain knitr there are no layers**: weft reads
   `_weft.yml` and the document only. At knit time the renderer is known
   (`QUARTO_EXECUTE_INFO`). For the lints, `.qmd`, `.ipynb` and `.py` are
@@ -3844,7 +3857,9 @@ judged within one document: the same name in two documents is two values
 (2.13.10).
 
 **3.10.13** `checks(path = ".", files = NULL, repeats = 3L)` is exported. It
-reports the checks of each document, grouped by value. `path` and `files` are
+reports the checks of each document, grouped by value; notebooks and percent
+scripts are documents, their checks at the lines of their files (2.1.6 P7).
+`path` and `files` are
 read as `lints()` reads them (5.1.7), with its errors. `repeats` is a whole
 number from 2, else a `weft_lint_error`: "`repeats` must be a whole number from
 2." Each document is read from the work tree as `lints()` reads it, from the
@@ -5338,8 +5353,9 @@ when asked for. When `tier` is given and a named rule lies outside it, a note
 says so. `reader` is `"weft"`, the package's own reader and the default, or
 `"pandoc"` (2.10.3). An unknown rule id is an error that offers the nearest.
 
-**5.1.8** Every `.qmd`, `.Rmd`, `.rmd` and, for `lints()`, `.ipynb` under
-the root is read (a notebook as the document its cells make, 2.1.6 P7), whatever
+**5.1.8** Every `.qmd`, `.Rmd`, `.rmd`, `.ipynb` and percent `.py` under
+the root is read (a notebook or a percent script as the document its cells
+make, 2.1.6 P7), by `lints()`, `checks()`, `verify()` and the gate alike, whatever
 `files` says, because ids, anchors, includes and child documents are
 project-wide. Folders whose name starts with `.`, and `renv`, are skipped.
 Folders whose name starts with `_` (an include folder, `_partials`) are read
@@ -5750,7 +5766,7 @@ nothing, and no finding says so. Without the setting nothing changes.
 | 6 | `dict-key` | every `dict$key` and `dict_local$key` read names a key that exists, under the rules of §4.3 | 1 |
 | 7 | `tar-cache` | a chunk that reads a pipeline target (`tar_read()`, `tar_load()`) does not have `cache: true` | 1 |
 | 8 | `config-place` | no `weft:` key in Quarto's project files, nor under `format: <fmt>:` in them or in front matter (9.1.1); where `_weft.yml` exists, no `draft` and no part switched off in a document's front matter (9.1.4) | 1 |
-| 9 | `engine` | a `.qmd` that holds a construct, and is rendered on its own rather than included or knit as a child, has `engine: knitr` in its own front matter (9.2.8), or holds only named values and spans in the grammar of 1.12.4 and has the resolver installed; an `.ipynb` that holds a construct holds only those, with the resolver installed (no key makes a notebook knitr's, 2.1.6 P7) | 1 |
+| 9 | `engine` | a `.qmd` that holds a construct, and is rendered on its own rather than included or knit as a child, has `engine: knitr` in its own front matter (9.2.8), or holds only named values and spans in the grammar of 1.12.4 and has the resolver installed; an `.ipynb` or a percent `.py` that holds a construct holds only those, with the resolver installed (no key makes a notebook or a percent script knitr's, 2.1.6 P7) | 1 |
 | 10 | `front-matter-quarto` | in a `.qmd`, no `---` block that Quarto reads as front matter and Pandoc does not (2.1.6): one with text directly above its `---` line, and one inside a `~~~` fence; and under the Jupyter engine no block after the front block (2.1.6 P6) | 1 |
 
 - Rule 1: `section-anchor` skips a heading inside a callout or a
@@ -5796,7 +5812,8 @@ nothing, and no finding says so. Without the setting nothing changes.
   For a notebook, whatever its front matter says (2.1.6 P7, J8): "a.ipynb
   holds weft constructs, and a notebook always runs on Jupyter, which does not
   evaluate weft constructs (rule 5.8.9)." Hint: "Move the prose that holds
-  them to a .qmd marked `engine: knitr`." The chunks of cases 2 to 4 are
+  them to a .qmd marked `engine: knitr`." A percent script has the same
+  message with "a percent script" for "a notebook". The chunks of cases 2 to 4 are
   those of the include-expanded text (2.1.6 P4).
 
   A `.qmd` rendered on its own that is not knit is valid when every
@@ -5997,8 +6014,13 @@ All rules have scope `file`.
 **6.1.2** It compares each staged file that weft reads with its version in
 `HEAD`. A new file has an empty `HEAD` version, and a deleted file an empty
 staged one. A renamed file is compared with the file it was renamed from
-(`git diff -M`). The files weft reads are the documents, the scripts (5.1.9) and the
-project files the lints read (5.4.4, §5.8). It judges each project of the repository on its
+(`git diff -M`). The files weft reads are the documents (notebooks and percent
+scripts among them, 2.1.6 P7), the scripts (5.1.9) and the project files the
+lints read (5.4.4, §5.8). A `.py` is a document only when its staged bytes make
+it a percent script; the answer is kept in the cache by blob (6.1.6), so the
+gate reads only the `.py` files a commit stages. A notebook's finding, check or
+construct is at its JSON line on both sides, and the lines added are those of
+the JSON diff. It judges each project of the repository on its
 own: a project is a folder that holds `_weft.yml`, on either side, at any
 depth. A repository with none passes, with a note. A document belongs to the
 innermost project that holds it, for its findings and for its constructs.
@@ -6033,7 +6055,9 @@ staged (the anchors and reference labels of 5.7, the citation keys of 5.4),
 come from the cache when they are in it. An entry that will not read is
 a miss. A source's entry holds its findings, its constructs and its checks
 (6.3.7); an entry without checks, as one written before the checks were read,
-is a miss too. The cache is pruned to 800 entries when it passes 1,000. When the
+is a miss too. One entry holds, by blob, which `.py` blobs are percent
+scripts (6.1.2), the newest 20,000 of them. The cache is pruned to 800 entries
+when it passes 1,000. When the
 folder cannot be written the gate runs without it and says so.
 `use_hooks(remove = TRUE)` deletes it.
 
@@ -6766,6 +6790,24 @@ the first heading), a warned one followed by `  (warned)`, with the excerpt on
 the next line, indented six spaces.
 `verify_skip: [render]` skips them with the render.
 
+**8.3.7** Notebooks and percent scripts (2.1.6 P7) are verified as `.qmd`
+documents are: linted, rendered, and judged by their stamps. The render runs
+each exactly as `quarto render` of the project would, and executes no more: an
+`.ipynb` is rendered as stored and not executed, unless its front matter says
+`execute: enabled: true`; a percent `.py` is executed through Jupyter, unless
+`execute: enabled: false` or a `_freeze` entry says not. A document that holds
+a construct and was not executed in this render fails as one served from
+freeze does (8.3.4). A failed Python `claim()` in either is placed at the line
+of its call in the file. When it stopped the render (`chunk_claims: stop`), it
+is read from the render log: the cell's source Quarto prints after "An error
+occurred while executing the following cell:", found among the document's
+Python cells, and the line of the cell the traceback names; it is a knit-time
+failure of kind `failed claim`. When it was collected, its stamp has no line,
+since the kernel does not know where a cell sits in the file: the call is found
+among the document's own claims by its checks (its arguments but the first and
+`level`), the k-th failure of one set of checks at the k-th call that makes
+them. One that matches none has no line.
+
 ### 8.4 CI
 
 **8.4.1** `use_ci()` writes a workflow that runs
@@ -7375,8 +7417,11 @@ with the next step in its `next` attribute. The parts are `setup`, `activation`,
 `quarto`, `dictionary`, `hooks`, `ci`, `agent docs`, `draft`, `verify_skip` and
 `strict`, and `python`, a row that appears only when a jupyter-engine document
 exists and says whether `import weft` runs in the Python Quarto would use. A
-jupyter-engine document has `engine: jupyter`, a `jupyter:` key, or a `{python}`
-chunk with no `engine:` key and no `{r}` chunk. A state is one of:
+jupyter-engine document is a notebook or a percent script (2.1.6 P7, the files
+`status()` acts on: none in a `.` or `_` folder, and no `_` file), or a `.qmd`
+with `engine: jupyter`, a `jupyter:` key, or a `{python}` chunk with no
+`engine:` key and no `{r}` chunk. Finding one reads no notebook, and reads the
+`.py` files only when there is no notebook. A state is one of:
 
 - `ok`
 - `missing`

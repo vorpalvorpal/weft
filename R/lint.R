@@ -465,7 +465,11 @@ new_lint_ctx <- function(root, files, md_files, report, tier, rules, reader) {
 #' construct errors and other problems the rules of [lint_rules()] find.
 #' Nothing in a document is run. A Jupyter notebook (`.ipynb`) is read as the
 #' document its cells make, its markdown cells prose and its code cells chunks,
-#' and a finding in it is placed at its line and column in the JSON file.
+#' and a finding in it is placed at its line and column in the JSON file. A
+#' percent script (a `.py` file with a `# %% [markdown]` or `# %% [raw]` cell,
+#' the ones Quarto renders) is read the same way, and a finding in it is placed
+#' at its line and column in the `.py` file; any other `.py` file is code, and
+#' is not read.
 #'
 #' The `.R` and `.r` files of the project (its scripts) are read too, for the
 #' literal strings they pass to `weft()` and for their `claim()` calls: in a
@@ -566,8 +570,8 @@ lints <- function(path = ".", files = NULL, rules = NULL, tier = 1, reader = c("
   full <- normalizePath(path, winslash = "/", mustWork = TRUE)
   root <- normalizePath(find_project_root(full), winslash = "/", mustWork = FALSE)
   local_walk_memo()
-  # the documents, notebooks among them (rule P7)
-  all_files <- lint_files_under(root, LINT_DOC_EXT_RE)
+  # the documents, notebooks and percent scripts among them (rule P7)
+  all_files <- lint_doc_files(root)
   # the scripts, less those `scripts_skip` leaves out (C1, C2, K4), whatever the reader (K7); the settings are
   # read here, so a bad one stops the run whatever the project holds
   all_scripts <- project_script_paths(root)

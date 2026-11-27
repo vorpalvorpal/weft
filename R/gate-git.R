@@ -118,9 +118,13 @@ git_blobs <- function(top, blobs, cache = new.env(parent = emptyenv())) {
 
 # ---- classifying a project's side (G6-G8) -------------------------------------------------------------
 
-# a document of L3's file set, or a script (C17: the gate reads both as content; which scripts a side skips is
-# its own `scripts_skip`, read when the side is linted), by its path relative to the project root
-is_doc_path <- function(rel) (grepl(DOC_EXT_RE, rel) | grepl(SCRIPT_EXT_RE, rel)) & doc_path_ok(rel, "lint")
+# a document of L3's file set, a notebook, a `.py` that may be a percent script, or a script (C17: the gate
+# reads both as content; which scripts a side skips is its own `scripts_skip`, read when the side is linted;
+# which `.py` files are percent scripts, gate_side_entries() reads from their bytes), by its path relative to
+# the project root
+is_doc_path <- function(rel) {
+  (grepl(LINT_DOC_EXT_RE, rel) | grepl(SCRIPT_EXT_RE, rel) | is_percent_path(rel)) & doc_path_ok(rel, "lint")
+}
 
 is_content_path <- function(rel) grepl(GATE_CONTENT_RE, rel) | basename(rel) == ".Rprofile" | is_doc_path(rel)
 

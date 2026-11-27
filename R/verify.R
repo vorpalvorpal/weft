@@ -72,8 +72,8 @@ verify <- function(files = NULL, since = NULL, static = FALSE, path = ".") {
   }
   verify_version_warning(root)
 
-  # the documents verified
-  docs <- lint_files_under(root)
+  # the documents verified, notebooks and percent scripts among them (rule P7)
+  docs <- lint_doc_files(root)
   all_docs <- docs
   scripts <- project_script_paths(root)
   all_scripts <- scripts
@@ -227,7 +227,7 @@ print.weft_verify <- function(x, ...) {
 verify_config <- function(root, has_file) {
   front <- list()
   if (!has_file) {
-    d <- lint_files_under(root)
+    d <- lint_doc_files(root)
     if (length(d) == 1L) front <- read_front_matter(file.path(root, d))
   }
   # read as YAML only: read_config() installs the unit tables and writes the units cache in the user's

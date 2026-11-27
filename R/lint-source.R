@@ -876,7 +876,8 @@ build_blocks <- function(S) {
 # A document's source; `text` is its text when the caller has read it already (lint_open()), `bytes` a
 # script's bytes. The document's skeleton is computed once for the read (local_doc_memo()). A notebook is
 # read as the document its cells make (notebook_view()), and keeps where each of its lines is written in
-# the JSON (`nb_places`, for nb_place_findings()).
+# the JSON (`nb_places`, for nb_place_findings() and src_place_lines()); a percent script likewise
+# (percent_doc_view()), with the line and column of the `.py` file.
 read_source <- function(path, root, cfg, bytes = NULL, text = NULL) {
   if (is_script_path(path)) return(read_script_source(path, root, cfg, bytes))
   local_doc_memo()
@@ -892,6 +893,9 @@ read_source <- function(path, root, cfg, bytes = NULL, text = NULL) {
     nb <- notebook_view(text, code = TRUE)
     nb$json <- text
     text <- paste(nb$lines, collapse = "\n")
+  } else if (is_percent_path(path)) {
+    nb <- percent_doc_view(text)
+    if (!is.null(nb)) text <- paste(nb$lines, collapse = "\n")
   }
   lines <- if (nzchar(text)) strsplit(text, "\n", fixed = TRUE)[[1L]] else character()
   nl <- length(lines)
@@ -959,9 +963,9 @@ read_source <- function(path, root, cfg, bytes = NULL, text = NULL) {
   src <- source_assemble(rel, path, ext, cfg, text, lines, ls, inmeta, infence, pieces, rows, chunks, ff, meta,
                          front, lang)
   src$code_regions <- cr
-  # a notebook is Jupyter's whatever its front matter says (J8): its blocks set no engine
+  # a notebook or a percent script is Jupyter's whatever its front matter says (J8): its blocks set no engine
   src$first_block <- if (is.null(nb)) front_block_yaml(xl) else list()
-  if (!is.null(nb)) src$nb_places <- notebook_places(nb$json, nb)
+  if (!is.null(nb)) src$nb_places <- if (is.null(nb$places)) notebook_places(nb$json, nb) else nb$places
   src
 }
 

@@ -156,7 +156,8 @@ working_constructs <- function(src) {
   x <- construct_rows(src)
   out <- x[!x$bad, c("file", "line", "kind", "text"), drop = FALSE]
   rownames(out) <- NULL
-  out
+  # a notebook's or a percent script's constructs are at the lines of its file (rule P7)
+  src_place_lines(src, out)
 }
 
 # ---- decision pointers (N104) ---------------------------------------------------------------------
@@ -243,5 +244,6 @@ decision_pointer_rows <- function(src) {
   out <- do.call(rbind, tbl$parts)
   out <- out[order(out$line, seq_len(nrow(out))), , drop = FALSE]
   rownames(out) <- NULL
-  out
+  # a notebook's or a percent script's pointers are at the lines of its file (rule P7)
+  src_place_lines(src, out)
 }

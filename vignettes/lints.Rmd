@@ -173,8 +173,23 @@ cell is prose, a raw cell is its text, and a code cell is a chunk in the
 kernel's language. A finding is placed in the JSON file: at the line of the JSON
 string that holds the source line, and at the column of the character in that
 line, with escapes counted as written. A finding about something weft adds to
-a cell, such as a fence, is placed at the cell's `"source"` key. Percent scripts
-are not read.
+a cell, such as a fence, is placed at the cell's `"source"` key.
+
+Percent scripts are read the same way: a `.py` file with a `# %% [markdown]`
+or `# %% [raw]` cell, which is how Quarto decides that a `.py` is a document.
+Its markdown cells are prose with the `# ` taken off, its code cells Python
+chunks, and a finding is placed at its line and column in the `.py` file. A
+`.py` with only code cells, or an ordinary module, is code and is not read.
+Notebooks in `.ipynb_checkpoints` or `_freeze` are not read either.
+
+The other surfaces read the same documents. The commit gate judges a staged
+notebook or percent script as it judges a `.qmd`, `checks()` lists its checks,
+and `verify()` lints and renders it, with every row at the line of the file
+(the JSON line of a notebook). `verify()` renders a notebook as `quarto
+render` does, as stored and not executed unless its front matter says
+`execute: enabled: true`, and executes a percent script unless `execute:
+enabled: false` or `_freeze` says not. `status()` shows its `python` row when
+the project holds either.
 
 ## Construct errors
 

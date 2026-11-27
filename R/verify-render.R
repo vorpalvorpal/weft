@@ -77,7 +77,7 @@ freeze_rmdir_empty <- function(d) {
 freeze_stamp_run <- function(root, stem) {
   dir <- file.path(root, ".weft", "stamps")
   if (!dir.exists(dir)) return(NA_character_)
-  f <- stamp_file_name(paste0(stem, c(".qmd", ".Rmd", ".rmd")))
+  f <- stamp_file_name(paste0(stem, c(".qmd", ".Rmd", ".rmd", ".ipynb", ".py")))
   f <- f[file.exists(file.path(dir, f))]
   if (!length(f)) return(NA_character_)
   s <- tryCatch(json_read_file(file.path(dir, f[1L])), error = function(e) NULL)
@@ -203,7 +203,8 @@ verify_render <- function(root, docs, files_rel, cfg, all_docs = docs) {
   log <- tempfile("weft-verify-", fileext = ".log")
   on.exit(unlink(log), add = TRUE)
   has_proj <- any(file.exists(file.path(root, QUARTO_MARKERS)))
-  quarto_mode <- has_proj || any(grepl("\\.qmd$", docs))
+  # a notebook and a percent script are Quarto's to render, as a .qmd is (rule P7)
+  quarto_mode <- has_proj || any(grepl("\\.qmd$", docs)) || any(is_jupyter_path(docs))
   status <- 0L
   notes <- character()
   rendered <- docs
@@ -273,7 +274,9 @@ verify_render <- function(root, docs, files_rel, cfg, all_docs = docs) {
   stamps <- verify_read_stamps(root, rendered, run)
   need <- vapply(rendered, function(rel) verify_has_constructs(root, rel), NA)
   unexec <- rendered[need & !(rendered %in% stamps$current)]
-  knit <- stamps$failures
+  knit <- verify_place_guest_claims(root, stamps$failures)
+  # a failed Python claim() that stopped the render of a notebook or a percent script is in the log only
+  if (status != 0L && quarto_mode) knit <- rbind(knit, verify_log_claims(root, rendered, all_log))
 
   logl <- character()
   if (status != 0L && !nrow(knit)) {
@@ -332,6 +335,138 @@ verify_has_constructs <- function(root, rel) {
     src <- lint_open(root, rel)
     !isTRUE(src$invalid) && nrow(count_constructs(src)) > 0L
   }, error = function(e) FALSE)
+}
+
+# The failures `f` (verify_read_stamps()) with each failed Python `claim()` of a notebook or a percent script
+# placed at the line of its call in the file (rule P7): the kernel does not know where a cell's code sits in
+# the file, so the stamp has no line. The call is found among the document's own claims (working_constructs(),
+# at their file lines) by its checks, `claim(<value>, <checks>)` as the kernel shows it; the k-th failure of a
+# set of checks is the k-th call that makes them. A failure no call matches keeps no line.
+verify_place_guest_claims <- function(root, f) {
+  todo <- which(f$kind %in% "failed claim" & is.na(f$line) & is_jupyter_path(f$file) & !is.na(f$expr))
+  if (!length(todo)) return(f)
+  for (rel in unique(f$file[todo])) {
+    cl <- tryCatch({
+      src <- lint_open(root, rel)
+      w <- if (isTRUE(src$invalid)) construct_empty() else working_constructs(src)
+      w[w$kind == "claim", , drop = FALSE]
+    }, error = function(e) construct_empty())
+    if (!nrow(cl)) next
+    keys <- vapply(cl$text, guest_claim_key, "", USE.NAMES = FALSE)
+    used <- integer()
+    for (i in todo[f$file[todo] == rel]) {
+      j <- setdiff(which(keys == guest_claim_key(f$expr[i])), used)
+      if (!length(j)) next
+      f$line[i] <- cl$line[j[1L]]
+      used <- c(used, j[1L])
+    }
+  }
+  f
+}
+
+# The failed Python `claim()` calls that stopped the render of a notebook or a percent script (rule P7), from
+# the render's log `lines`: under `chunk_claims: stop` the claim raises `ClaimFailed`, the cell's error stops
+# Quarto, and no stamp holds it. Quarto prints the cell's source between `------------------` lines after
+# "An error occurred while executing the following cell:", and the traceback names the line of the cell
+# ("Cell In[2], line 3"). The cell is found by its source among the Python chunks of the documents rendered
+# whose name Quarto's "Executing '<name>.quarto_ipynb'" line gives, and the failure is placed at the line of
+# the file (src_place_lines()). One row of failures_frame_empty() per claim; none when no cell matches.
+verify_log_claims <- function(root, docs, lines) {
+  out <- failures_frame_empty()
+  lines <- gsub("\033\\[[0-9;]*[A-Za-z]", "", lines)
+  docs <- docs[is_jupyter_path(docs)]
+  starts <- which(lines == "An error occurred while executing the following cell:")
+  if (!length(docs) || !length(starts)) return(out)
+  exec <- grep("^Executing '.*'$", lines)
+  rows <- lapply(starts, function(i) {
+    sep <- which(lines == "------------------" & seq_along(lines) > i)
+    if (length(sep) < 2L || sep[1L] != i + 1L) return(NULL)
+    code <- lines[seq.int(sep[1L] + 1L, length.out = sep[2L] - sep[1L] - 1L)]
+    nxt <- c(starts[starts > i], exec[exec > i], length(lines) + 1L)
+    tail_ <- lines[seq.int(sep[2L] + 1L, min(nxt) - 1L)]
+    fail <- grep("^ClaimFailed: ", tail_, value = TRUE)
+    at <- regmatches(tail_, regexec("^Cell In\\[[0-9]+\\], line ([0-9]+)", tail_))
+    at <- Filter(length, at)
+    if (!length(fail) || !length(at) || !length(code)) return(NULL)
+    k <- as.integer(at[[1L]][2L])
+    ex <- exec[exec < i]
+    name <- if (length(ex)) sub("^Executing '(.*)'$", "\\1", lines[max(ex)]) else ""
+    stem <- sub("\\.quarto_ipynb$|\\.ipynb$", "", basename(name))
+    cand <- docs[verify_stem(basename(docs)) == stem]
+    for (rel in cand) {
+      line <- verify_cell_line(root, rel, code, k)
+      if (is.na(line)) next
+      detail <- sub("\\.$", "", sub("^ClaimFailed: (weft: a claim failed: )?", "", fail[1L]))
+      return(data.frame(kind = "failed claim", file = rel, line = line, chunk = NA_character_,
+                        expr = trim_ws(code[min(k, length(code))]), detail = detail, hint = NA_character_,
+                        option = NA_character_, chunk_line = NA_integer_, stringsAsFactors = FALSE))
+    }
+    NULL
+  })
+  rows <- Filter(Negate(is.null), rows)
+  if (length(rows)) do.call(rbind, c(list(out), rows)) else out
+}
+
+# The line of the file `rel` (a notebook or a percent script) that holds line `k` of the code cell whose
+# source is `code`, found among the document's Python chunks; NA when none is.
+verify_cell_line <- function(root, rel, code, k) {
+  tryCatch({
+    src <- lint_open(root, rel)
+    ch <- src$chunks
+    if (isTRUE(src$invalid) || is.null(ch) || !nrow(ch) || k < 1L || k > length(code)) return(NA_integer_)
+    for (j in seq_len(nrow(ch))) {
+      # the lines between the chunk's fences, in the document weft reads
+      inner <- seq.int(ch$open[j] + 1L, length.out = max(0L, ch$close[j] - ch$open[j] - 1L))
+      if (!identical(tolower(ch$engine[j]), "python") || length(inner) < length(code)) next
+      for (o in seq_len(length(inner) - length(code) + 1L) - 1L) {
+        if (!identical(src$lines[inner[o + seq_along(code)]], code)) next
+        return(src_place_lines(src, data.frame(line = inner[o + k]))$line)
+      }
+    }
+    NA_integer_
+  }, error = function(e) NA_integer_)
+}
+
+# The checks of a Python `claim()` call written as `text` (from `claim(` on), for matching a call with the
+# kernel's `claim(..., '> 10')`: its arguments but the first and any `level =`, white space and the kind of
+# quote ignored. "" when the call cannot be read so.
+guest_claim_key <- function(text) {
+  m <- regexpr("claim(", text, fixed = TRUE)
+  if (m < 0L) return("")
+  chars <- strsplit(substring(text, m + 6L), "")[[1L]]
+  args <- character()
+  cur <- character()
+  depth <- 0L
+  q <- ""
+  for (x in chars) {
+    if (nzchar(q)) {
+      if (x == q) q <- ""
+      cur <- c(cur, if (nzchar(q)) x else "'")
+      next
+    }
+    if (x %in% c("'", "\"")) {
+      q <- x
+      cur <- c(cur, "'")
+      next
+    }
+    if (x %in% c("(", "[", "{")) depth <- depth + 1L
+    if (x %in% c(")", "]", "}")) {
+      if (depth == 0L) {
+        args <- c(args, paste(cur, collapse = ""))
+        break
+      }
+      depth <- depth - 1L
+    }
+    if (x == "," && depth == 0L) {
+      args <- c(args, paste(cur, collapse = ""))
+      cur <- character()
+      next
+    }
+    cur <- c(cur, x)
+  }
+  args <- gsub("[ \t]+", "", args[-1L])
+  args <- args[!grepl("^level=", args)]
+  paste(args, collapse = ",")
 }
 
 # The failures of the stamps this run wrote, and the documents they cover.

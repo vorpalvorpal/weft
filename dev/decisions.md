@@ -1039,6 +1039,94 @@ behaviour went through test-first.
   and hint" make a document with its own `{r}` chunk and no key a finding, so
   one whose `{r}` chunk is included is one too. Left failing, for a ruling.
 
+## Notebooks on the gate, verify(), checks() and status() (2026-11-27)
+
+- **Rulings (27 Nov).** A `.py` is a document only when Quarto claims it:
+  `isJupyterPercentScript`'s `^\s*#\s*%%+\s+\[(markdown|raw)\]` on some
+  line. An `.ipynb` is one Quarto lists: none under a `.` folder or a `_`
+  folder. `verify()` renders a notebook or a percent `.py` exactly as `quarto
+  render` of the project would, no more: an `.ipynb` as stored, a percent
+  `.py` executed, freeze and `execute: enabled: false` honoured, `execute:
+  enabled: true` in a notebook's front matter executing it. Positions are the
+  JSON line of a notebook and the `.py` file's own line.
+- **One list of documents, `lint_doc_files()`** (`R/notebook.R`): the `.qmd`
+  and `.Rmd` files, the notebooks and the percent scripts, for `lints()`,
+  `checks()`, `verify()` and a gate side. The percent test reads each `.py`'s
+  bytes once in a walk (`walk_memo()`); a `.py` with a NUL byte is not text and
+  not one. Refused: a lookup by `# %%` alone (a code-only script is not
+  Quarto's), and leaving percent scripts unlinted (verify's static part is
+  the lints, so they would fail nothing). So `lints()` now reads percent
+  scripts too, which the stage-3 entry above had left out.
+- **A percent script is a virtual document, as a notebook is.** One cell
+  reader, `percent_cells()`, serves both the front-matter view
+  (`percent_view()`, its output unchanged) and the lints' view
+  (`percent_doc_view()`): markdown cells prose with the `# ` off, a raw cell
+  its text (fenced `{=raw}` when it names a format), a code cell a `{python}`
+  chunk. Its places are a frame like `notebook_places()`'s, marked `plain`:
+  the column is the cell's cut plus the column in the view, since the text is
+  the file's own. A fence or a blank line weft adds is placed at the cell's
+  `# %%` line, as a notebook's at its `"source"` key.
+- **Rows are placed where they are read.** `checks_read()`,
+  `working_constructs()` and `decision_pointer_rows()` end with
+  `src_place_lines()`, so `checks()`, the gate's checks gone and its removed
+  constructs, and `verify()`'s pointers and removals all carry file lines with
+  no change to their callers; the lints already had `nb_place_findings()`,
+  widened to percent scripts. The gate's added and deleted lines are then the
+  lines of the JSON diff, which match.
+- **The gate reads only staged `.py` files.** `is_doc_path()` takes `.ipynb`
+  and `.py` by path; in `gate_side_entries()` a `.py` is content only when its
+  blob is a percent script, answered by `gate_percent_blobs()`: one cache entry
+  (layer `pct`, keyed by the regex) maps blob ids to the answer, so a blob is
+  read once ever, and a commit that stages no `.py` reads none (the newest
+  20,000 answers are kept). A `.py` blob over 5 MB is not read and is not one.
+  A module is then neither content nor a document, so editing one does not
+  change the keys of the other files. Refused: per-blob cache files (a Python
+  project would fill the 1,000-entry cache), `git grep` per side (the sides
+  are listings, not tree-ishes, and its regex dialect varies), reading every
+  `.py` each run as the R scripts are. A notebook is read from the cache by
+  blob as a `.qmd` is; a notebook over 5 MB (outputs with images) is read as
+  empty, as every content file is (6.1.2).
+- **The render is Quarto's.** `verify()` adds notebooks and percent scripts
+  to its documents and leaves executing them to `quarto render`; a folder
+  with no `_quarto.yml` renders them with Quarto, never rmarkdown. A failed
+  Python `claim()` is placed at the line of its call in the file, two ways,
+  for notebooks and percent scripts only (a Jupyter `.qmd` keeps what it had):
+  - under `chunk_claims: stop` (the default) the claim raises, Quarto stops,
+    and no stamp holds it; `verify_log_claims()` reads the render log, where
+    Quarto prints the cell's source after "An error occurred while executing
+    the following cell:" and the traceback gives "Cell In[n], line k". The
+    cell is found by its source among the Python chunks of the document named
+    by the "Executing '<stem>.quarto_ipynb'" line, so the place is exact
+    whatever Quarto trims from a cell;
+  - under `chunk_claims: collect` the stamp holds the failure with no line
+    (the kernel does not know its cell's place in the file), and
+    `verify_place_guest_claims()` finds the call among the document's own
+    claims (`working_constructs()`, at file lines) by its checks: the
+    arguments but the first and `level`, white space and quote kind ignored,
+    against the kernel's `claim(..., '> 10')`; the k-th failure of one key is
+    the k-th call.
+  Refused: teaching the Python package the cell's file line (Quarto gives the
+  kernel no map) and changing the Lua filter (another agent's). The log
+  reading follows Quarto 1.11.9's wording; another wording leaves the render
+  failure as it was, with its log lines, not a wrong place.
+- **`status()`'s `python` row** appears for a notebook (by name alone) or a
+  percent script, of the files `status()` acts on; the `.py` files are read
+  only when there is no notebook. `use_quarto()`, which asks the same
+  question, now names the Python package for such a project too.
+- **Not changed.** `quarto_engine()`, `filter_resolves()` and the Lua config
+  (another agent's). `resolve_files()`: `files =` still takes `.qmd`, `.Rmd`
+  and `.R` only, since tests fix its message; naming a notebook there is
+  future work. Quarto's skipping of a virtual environment folder (one holding
+  `pyvenv.cfg`) is not modelled: a percent cell in such a folder would be read.
+- **Disputed test.** "notebooks verify: since lists a finding added in a
+  notebook at its JSON line" adds `[a site]{n="j" if="y"}`, a construct error
+  (the same form as `NBS_BAD`, `construct` at line 11). Rule 8.1.1 lists
+  construct errors apart, and `added` holds only the tier-1 findings that are
+  not construct errors (6.2.2, `GATE_CONSTRUCT_RULES`), for a `.qmd` too; it
+  passed before only through the notebook's `engine` finding, which the base
+  side did not read. Left failing, for a ruling; with a tier-1 finding that
+  is not a construct error it would hold.
+
 ## An html target and rich plot text (2026-11-27)
 
 - **Design** `dev/design-html-target.md`, decisions D86 to D104, built as

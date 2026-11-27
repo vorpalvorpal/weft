@@ -16,7 +16,15 @@
 # names a format and is not a block), and a code cell is an executable chunk in the kernel's language. A
 # finding is then placed in the notebook's JSON file (nb_place_findings()): at the line of the JSON string
 # that holds the source line, and at the column of the character in that JSON line (escapes counted as
-# written), so an editor that opens the file as text goes to the character.
+# written), so an editor that opens the file as text goes to the character. A percent script is read the
+# same way (percent_doc_view()): its markdown cells prose with the `# ` taken off, its code cells Python
+# chunks, and a finding is placed at its line and column in the `.py` file.
+#
+# Which files are such documents is Quarto's rule (rule P7, 5.1.8): an `.ipynb` the project lists (none in
+# a `.` folder or a `_` folder), and a `.py` whose text has a `# %% [markdown]` or `# %% [raw]` line
+# (quarto.js, isJupyterPercentScript); a `.py` with only code cells, and an ordinary module, are code.
+# lints(), checks(), verify() and the gate read them all (lint_doc_files(), and the gate's own reading of
+# its sides); status() asks only whether one exists (project_has_jupyter_doc()).
 
 is_notebook_path <- function(path) grepl("\\.ipynb$", path, ignore.case = TRUE)
 is_percent_path <- function(path) grepl("\\.py$", path, ignore.case = TRUE)
@@ -217,17 +225,20 @@ notebook_places <- function(text, view) {
 nb_place <- function(places, line, col) {
   if (is.na(line) || line < 1L || line > nrow(places) || is.na(places$line[line])) return(c(line, col))
   raw <- places$raw[line]
+  # a percent script's line is the file's own text from `col` on (percent_doc_view())
+  if (isTRUE(places$plain[line])) return(c(places$line[line], places$col[line] + col - 1L))
   if (is.na(raw)) return(c(places$line[line], places$col[line]))
   u <- regmatches(raw, gregexpr(NB_UNIT_RX, raw, perl = TRUE))[[1L]]
   k <- max(0L, min(length(u), col - 1L))
   c(places$line[line], places$col[line] + sum(nchar(u[seq_len(k)])))
 }
 
-# The findings `x` with those of each notebook placed in its JSON file (nb_place()), the source of each read
-# through `ctx`. A finding about the whole file (context "project") stays where it is.
+# The findings `x` with those of each notebook placed in its JSON file (nb_place()), and those of each
+# percent script in its `.py` file, the source of each read through `ctx`. A finding about the whole file
+# (context "project") stays where it is.
 nb_place_findings <- function(x, ctx) {
   if (!nrow(x)) return(x)
-  for (f in unique(x$file[is_notebook_path(x$file)])) {
+  for (f in unique(x$file[is_jupyter_path(x$file)])) {
     src <- tryCatch(ctx$source(f), error = function(e) NULL)
     pl <- if (is.list(src)) src$nb_places else NULL
     if (is.null(pl)) next
@@ -242,41 +253,132 @@ nb_place_findings <- function(x, ctx) {
   x
 }
 
+# The rows `x` read from a source `src` (checks, constructs, decision pointers) with their `cols`, lines of
+# the document weft reads, placed at the line of the file: a notebook's JSON line, a percent script's own
+# line (nb_place()). Any other source's rows are returned as they are.
+src_place_lines <- function(src, x, cols = "line") {
+  pl <- if (is.list(src)) src$nb_places else NULL
+  if (is.null(pl) || !NROW(x)) return(x)
+  for (cn in intersect(cols, names(x))) {
+    x[[cn]] <- vapply(x[[cn]], function(l) as.integer(nb_place(pl, l, 1L)[1L]), 1L, USE.NAMES = FALSE)
+  }
+  x
+}
+
 # ---- percent scripts --------------------------------------------------------------------------------
 
 PERCENT_SCRIPT_RX <- "^\\s*#\\s*%%+\\s+\\[(markdown|raw)\\]"
 PERCENT_HEADER_RX <- "^\\s*#\\s*%%+\\s*(?:\\[(markdown|raw)\\])?\\s*(.*)?$"
+# The test on a whole text, as Quarto makes it (multiline, any line end).
+PERCENT_SCRIPT_TEXT_RX <- paste0("(*ANYCRLF)(?m)", PERCENT_SCRIPT_RX)
+# A raw cell whose `# %%` line names a format is raw output.
+PERCENT_RAW_FORMAT_RX <- "(^|\\s)(format|raw_mimetype)="
 
-# A percent script as the markdown text Quarto reads its front matter from, from its `text`: each markdown
-# and raw cell, its empty lines at either end dropped, its lines with the leading `#` and one white-space
-# character off (or, when it is wrapped in `"""` lines, the lines between), then a blank line. A raw cell that
-# names a format (`format=` or `raw_mimetype=` on its `# %%` line) is raw output, fenced. A code cell holds
-# no front matter, and is left out. A `.py` with no markdown or raw cell is no Quarto document (J7):
-# character().
-percent_view <- function(text) {
-  lines <- split_source_lines(trim_ws(text))
-  if (!any(grepl(PERCENT_SCRIPT_RX, lines, perl = TRUE))) return(character())
+# Is a `.py` file's text (`bytes`, a raw vector) one Quarto claims as a percent script (quarto.js,
+# isJupyterPercentScript): a `# %% [markdown]` or `# %% [raw]` line anywhere. A file that is not text (a
+# NUL byte) is not.
+is_percent_bytes <- function(bytes) {
+  if (!length(bytes) || any(bytes == as.raw(0L))) return(FALSE)
+  grepl(PERCENT_SCRIPT_TEXT_RX, rawToChar(bytes), perl = TRUE, useBytes = TRUE)
+}
+
+# The same, of the file at `path`; FALSE when it cannot be read.
+is_percent_file <- function(path) {
+  b <- tryCatch(readBin(path, "raw", file.size(path)), error = function(e) raw(), warning = function(w) raw())
+  is_percent_bytes(b)
+}
+
+# The percent scripts under `root` that `use` reads (doc_path_ok()), as sorted relative paths: the `.py`
+# files Quarto claims. Each `.py` is read once in a walk (walk_memo()).
+percent_script_paths <- function(root, use = c("lint", "anchors", "setup")) {
+  use <- match.arg(use)
+  walk_memo(paste0("percent_", use), root, function() {
+    py <- project_doc_paths(root, use, "\\.[Pp][Yy]$")
+    py[vapply(py, function(rel) is_percent_file(file.path(root, rel)), NA, USE.NAMES = FALSE)]
+  })
+}
+
+# The documents of the project at `root` that lints(), checks(), verify() and the gate read (rule P7, 5.1.8):
+# its `.qmd` and `.Rmd` files, its notebooks and its percent scripts, as sorted relative paths.
+lint_doc_files <- function(root) {
+  sort(c(lint_files_under(root, LINT_DOC_EXT_RE), percent_script_paths(root, "lint")), method = "radix")
+}
+
+# The cells of a percent script, from its `lines`: for each `# %%` line, the cell's `type` ("code",
+# "markdown" or "raw"), its `hdr` (that line's number) and the rest of that line (`opts`), and its body: the
+# lines up to the next `# %%` line, its empty lines at either end dropped, as their line numbers `at` and
+# the text Quarto reads from them (`lines`). A markdown or raw cell's lines have the leading `#` and one
+# white-space character off, `cut` the characters taken off each (or, when the cell is wrapped in `"""`
+# lines, the lines between). The text above the first `# %%` line is no cell.
+percent_cells <- function(lines) {
   hdr <- regmatches(lines, regexec(PERCENT_HEADER_RX, lines, perl = TRUE))
   is_hdr <- lengths(hdr) > 0L
   cell <- cumsum(is_hdr)
   keep <- which(is_hdr)
-  out <- lapply(seq_along(keep), function(i) {
+  lapply(seq_along(keep), function(i) {
     h <- hdr[[keep[i]]]
     type <- if (nzchar(h[2L])) h[2L] else "code"
-    if (type == "code") return(NULL)
-    body <- lines[cell == i & !is_hdr]
-    nb <- which(nzchar(trim_ws(body)))
-    body <- if (length(nb)) body[min(nb):max(nb)] else character()
-    tq <- "^\"{3,}\\s*$"
-    body <- if (length(body) > 2L && grepl(tq, body[1L]) && grepl(tq, body[length(body)])) {
-      body[-c(1L, length(body))]
-    } else {
-      sub("^#\\s?", "", body, perl = TRUE)
+    at <- which(cell == i & !is_hdr)
+    nb <- which(nzchar(trim_ws(lines[at])))
+    at <- if (length(nb)) at[min(nb):max(nb)] else integer()
+    body <- lines[at]
+    cut <- integer(length(at))
+    if (type != "code") {
+      tq <- "^\"{3,}\\s*$"
+      if (length(body) > 2L && grepl(tq, body[1L]) && grepl(tq, body[length(body)])) {
+        at <- at[-c(1L, length(at))]
+        body <- body[-c(1L, length(body))]
+        cut <- integer(length(at))
+      } else {
+        m <- regexpr("^#\\s?", body, perl = TRUE)
+        cut <- ifelse(m > 0L, attr(m, "match.length"), 0L)
+        body <- substring(body, cut + 1L)
+      }
     }
-    if (type == "raw" && grepl("(^|\\s)(format|raw_mimetype)=", h[3L])) body <- nb_fenced(body, "{=raw}")$lines
+    list(type = type, hdr = keep[i], opts = h[3L], at = at, lines = body, cut = as.integer(cut))
+  })
+}
+
+# A percent script as the markdown text Quarto reads its front matter from, from its `text`: each markdown
+# and raw cell (percent_cells()), then a blank line. A raw cell that names a format (`format=` or
+# `raw_mimetype=` on its `# %%` line) is raw output, fenced. A code cell holds no front matter, and is left
+# out. A `.py` with no markdown or raw cell is no Quarto document (J7): character().
+percent_view <- function(text) {
+  lines <- split_source_lines(trim_ws(text))
+  if (!any(grepl(PERCENT_SCRIPT_RX, lines, perl = TRUE))) return(character())
+  out <- lapply(percent_cells(lines), function(cl) {
+    if (cl$type == "code") return(NULL)
+    body <- cl$lines
+    if (cl$type == "raw" && grepl(PERCENT_RAW_FORMAT_RX, cl$opts)) body <- nb_fenced(body, "{=raw}")$lines
     c(body, "")
   })
   as.character(unlist(out))
+}
+
+# A percent script as the document the lints read, from its `text`, as notebook_view() with `code = TRUE`
+# reads a notebook: each markdown cell is prose, a raw cell its text (or raw output fenced as `{=raw}`, as
+# percent_view() has it), a code cell a Python chunk, each followed by a blank line. The result has the
+# `lines`, and `places` (for nb_place()): for each line the `line` of the file it comes from and the `col`
+# its first character is at, `plain` (the text from there on is the file's own). A fence or a blank line
+# weft adds is placed at the cell's `# %%` line. NULL when the text is no percent script.
+percent_doc_view <- function(text) {
+  lines <- split_source_lines(text)
+  if (!any(grepl(PERCENT_SCRIPT_RX, lines, perl = TRUE))) return(NULL)
+  parts <- lapply(percent_cells(lines), function(cl) {
+    info <- if (cl$type == "code") "{python}" else if (cl$type == "raw" && grepl(PERCENT_RAW_FORMAT_RX, cl$opts)) "{=raw}"
+    if (is.null(info)) {
+      body <- list(lines = cl$lines, line = cl$at, col = cl$cut + 1L)
+    } else {
+      f <- nb_fenced(cl$lines, info)
+      body <- list(lines = f$lines, line = c(cl$hdr, cl$at, cl$hdr), col = c(1L, cl$cut + 1L, 1L))
+    }
+    list(lines = c(body$lines, ""), line = c(body$line, cl$hdr), col = c(body$col, 1L))
+  })
+  ln <- as.integer(unlist(lapply(parts, `[[`, "line")))
+  list(lines = as.character(unlist(lapply(parts, `[[`, "lines"))),
+       places = data.frame(line = ln, col = as.integer(unlist(lapply(parts, `[[`, "col"))),
+                           raw = rep(NA_character_, length(ln)), plain = rep(TRUE, length(ln)),
+                           stringsAsFactors = FALSE))
 }
 
 # The lines a Jupyter document's front matter is read from (rule P7): a notebook's raw and markdown cells

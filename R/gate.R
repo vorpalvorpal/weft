@@ -132,8 +132,35 @@ gate_side_entries <- function(g, ent, prefix, deeper = character()) {
   e <- e[!in_store, , drop = FALSE]
   rownames(e) <- NULL
   e$content <- e$mode %in% c("100644", "100755") & is_content_path(e$rel)
+  # a `.py` is content only when Quarto claims it as a percent script (rule P7); any other is code
+  py <- which(e$content & is_percent_path(e$rel))
+  if (length(py)) e$content[py] <- gate_percent_blobs(g, e$blob[py])
   list(entries = e, prefix = prefix)
 }
+
+# Which of the `.py` `blobs` are percent scripts Quarto claims (rule P7, is_percent_bytes()). A blob never
+# changes, so each is read once: the answers are kept, by blob, in one entry of the cache, and a commit reads
+# only the `.py` files it stages (and, with a cold cache, every one once). A blob over 5 MB is not read, and
+# is not one.
+gate_percent_blobs <- function(g, blobs) {
+  key <- gate_key("pct", PERCENT_SCRIPT_RX)
+  if (is.null(g$percent)) {
+    v <- cache_get(g$cache, "pct", key)
+    g$percent <- if (is.logical(v) && !is.null(names(v))) v else stats::setNames(logical(), character())
+  }
+  need <- setdiff(unique(blobs), names(g$percent))
+  if (length(need)) {
+    sz <- git_sizes(g$top, need)
+    small <- need[!is.na(sz[need]) & sz[need] <= GATE_MAX_BYTES]
+    bl <- git_blobs(g$top, small, g$blobs)
+    got <- vapply(need, function(b) b %in% small && is_percent_bytes(bl[[b]]), NA)
+    # the newest answers last, so a long list drops the oldest
+    g$percent <- utils::tail(c(g$percent[setdiff(names(g$percent), need)], got), GATE_PERCENT_KEEP)
+    cache_put(g$cache, "pct", key, g$percent)
+  }
+  unname(g$percent[blobs])
+}
+GATE_PERCENT_KEEP <- 20000L
 
 # A path `rel` of a project, as a path from the repository's top (`prefix` is the project's folder, or "").
 gate_top_path <- function(prefix, rel) if (nzchar(prefix)) paste0(prefix, "/", rel) else rel
@@ -371,7 +398,8 @@ gate_side_results <- function(g, s, p, ids) {
     local_walk_memo(fresh = TRUE)
     out <- tryCatch({
       lroot <- normalizePath(find_project_root(root), winslash = "/", mustWork = FALSE)
-      all_files <- lint_files_under(lroot)
+      # the documents, notebooks and percent scripts among them (rule P7)
+      all_files <- lint_doc_files(lroot)
       # the scripts this side reads: its own `scripts_skip` (C17)
       all_scripts <- project_script_paths(lroot)
       tab <- lint_rule_table()

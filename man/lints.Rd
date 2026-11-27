@@ -46,7 +46,11 @@ Reads \code{.qmd} and \code{.Rmd} documents as text and returns the typed number
 construct errors and other problems the rules of \code{\link[=lint_rules]{lint_rules()}} find.
 Nothing in a document is run. A Jupyter notebook (\code{.ipynb}) is read as the
 document its cells make, its markdown cells prose and its code cells chunks,
-and a finding in it is placed at its line and column in the JSON file.
+and a finding in it is placed at its line and column in the JSON file. A
+percent script (a \code{.py} file with a \verb{# \%\% [markdown]} or \verb{# \%\% [raw]} cell,
+the ones Quarto renders) is read the same way, and a finding in it is placed
+at its line and column in the \code{.py} file; any other \code{.py} file is code, and
+is not read.
 }
 \details{
 The \code{.R} and \code{.r} files of the project (its scripts) are read too, for the

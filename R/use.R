@@ -164,8 +164,12 @@ MSG_E62 <- paste0("Install the Julia package: using Pkg; ",
 # Does Quarto run this .qmd on the jupyter engine (N74)? The rule is in quarto_engine().
 doc_is_jupyter <- function(lines, path = NULL) quarto_engine(lines, path) == "jupyter"
 
-# Does any .qmd of the project below `root` run on the jupyter engine?
+# Does any document of the project below `root` run on the jupyter engine: a notebook, a percent script
+# (rule P7: always Jupyter's, J8), or a .qmd? The notebooks are known by their names; the `.py` files are read
+# only when there is none.
 project_has_jupyter_doc <- function(root) {
+  if (length(project_doc_paths(root, "setup", "\\.ipynb$"))) return(TRUE)
+  if (length(percent_script_paths(root, "setup"))) return(TRUE)
   docs <- project_doc_paths(root, "setup")
   docs <- docs[grepl("\\.qmd$", docs, ignore.case = TRUE)]
   for (d in docs) {

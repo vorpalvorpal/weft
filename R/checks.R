@@ -559,6 +559,8 @@ checks_read <- function(src) {
     filter = vapply(tbl$recs, function(r) r$filter, NA), stringsAsFactors = FALSE)
   out$line <- as.integer(out$line)
   rownames(out) <- NULL
+  # a notebook's or a percent script's checks are at the lines of its file (rule P7)
+  out <- src_place_lines(src, out)
   attr(out, "rebound_names") <- rebound_names
   out
 }
@@ -740,7 +742,8 @@ checks <- function(path = ".", files = NULL, repeats = 3L) {
   full <- normalizePath(path, winslash = "/", mustWork = TRUE)
   root <- normalizePath(find_project_root(full), winslash = "/", mustWork = FALSE)
   local_walk_memo()
-  all_files <- c(lint_files_under(root), project_script_paths(root))
+  # the documents, notebooks and percent scripts among them (rule P7), and the scripts
+  all_files <- c(lint_doc_files(root), project_script_paths(root))
   files_rel <- if (!is.null(files)) resolve_files(files, root, lint_abort)
   report <- lint_report_under(all_files, full, root)
   if (!is.null(files_rel)) report <- intersect(report, files_rel)

@@ -855,13 +855,14 @@ project_included <- function(ctx) {
   inc
 }
 
-# A notebook is read as a .qmd is, but Quarto runs it with Jupyter whatever its front matter says (J8), so
-# no key of its marks it knitr's.
+# A notebook or a percent script is read as a .qmd is, but Quarto runs it with Jupyter whatever its front
+# matter says (J8), so no key of its marks it knitr's. (The only `.py` files the lints read are percent
+# scripts, lint_doc_files().)
 lint_engine <- function(ctx) {
   out <- list()
   inc <- NULL
   for (f in ctx$report) {
-    if (!tolower(sub("^.*\\.", "", f)) %in% c("qmd", "ipynb")) next
+    if (!tolower(sub("^.*\\.", "", f)) %in% c("qmd", "ipynb", "py")) next
     if (startsWith(basename(f), "_")) next
     src <- lint_source_or_fault(ctx, f, "the engine rule did not check it")
     if (is.null(src) || isTRUE(src$invalid)) next
@@ -869,7 +870,7 @@ lint_engine <- function(ctx) {
     held <- !rw$kind %in% c("bare", "link", "literal")
     if (!nrow(rw) || !any(held)) next
     eng <- src_first_block(src)$engine
-    if (!is_notebook_path(f) && is.character(eng) && length(eng) == 1L && identical(tolower(eng), "knitr")) next
+    if (!is_jupyter_path(f) && is.character(eng) && length(eng) == 1L && identical(tolower(eng), "knitr")) next
     if (is.null(inc)) inc <- project_included(ctx)
     if (f %in% inc) next
     # what the filter resolves needs no R: a named value or a span of the grammar (N146)
@@ -913,14 +914,15 @@ resolver_installed <- function(ctx, src) {
   cache$quarto_filters
 }
 
-# The message and hint of the `engine` lint, by case (rule 5.8.9): 0, a notebook; 1, another engine named in
-# the first metadata block; 2, Python chunks and no executed R chunk; 3, Julia chunks and no executed R chunk;
-# 4, the rest. The chunks are those of the include-expanded text (rule P4).
+# The message and hint of the `engine` lint, by case (rule 5.8.9): 0, a notebook or a percent script; 1,
+# another engine named in the first metadata block; 2, Python chunks and no executed R chunk; 3, Julia chunks
+# and no executed R chunk; 4, the rest. The chunks are those of the include-expanded text (rule P4).
 engine_message <- function(f, src) {
-  if (is_notebook_path(f)) {
+  if (is_jupyter_path(f)) {
+    what <- if (is_notebook_path(f)) "a notebook" else "a percent script"
     return(list(
-      message = sprintf(paste0("%s holds weft constructs, and a notebook always runs on Jupyter, which does not ",
-                               "evaluate weft constructs (rule 5.8.9)."), f),
+      message = sprintf(paste0("%s holds weft constructs, and %s always runs on Jupyter, which does not ",
+                               "evaluate weft constructs (rule 5.8.9)."), f, what),
       hint = "Move the prose that holds them to a .qmd marked `engine: knitr`."))
   }
   front <- src_first_block(src)
@@ -1059,10 +1061,10 @@ fmq_jupyter_later <- function(src) {
 
 # Does knitr knit this document: an .Rmd; a .qmd marked `engine: knitr`, or with an executed {r} chunk and no
 # `engine:` or `jupyter:` key (each read from the first metadata block, rule 2.1.6; the chunks from the
-# include-expanded text, rule P4). A notebook never is (J8).
+# include-expanded text, rule P4). A notebook or a percent script never is (J8).
 dl_knitr_doc <- function(src) {
   if (is_rmd(src)) return(TRUE)
-  if (is_notebook_path(src$file)) return(FALSE)
+  if (is_jupyter_path(src$file)) return(FALSE)
   first <- src_first_block(src)
   eng <- first$engine
   if (!is.null(eng)) return(is.character(eng) && length(eng) == 1L && identical(tolower(eng), "knitr"))
