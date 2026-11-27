@@ -7,43 +7,6 @@
 # but the temporary ones it makes (GIT_CONFIG_GLOBAL and GIT_CONFIG_SYSTEM are empty temporary files,
 # HOME is a temporary folder, the identity is invented, signing is off).
 
-skip_if_no_git <- function() {
-  testthat::skip_if(!nzchar(Sys.which("git")), "git is not on the PATH")
-}
-
-# Isolate git for the calling test: no user or system configuration, an invented identity and fixed dates,
-# no inherited repository variables. `env` is the frame the settings last until.
-git_env <- function(env = parent.frame()) {
-  empty_g <- withr::local_tempfile(.local_envir = env, lines = character())
-  empty_s <- withr::local_tempfile(.local_envir = env, lines = character())
-  home <- withr::local_tempdir(.local_envir = env)
-  withr::local_envvar(
-    GIT_CONFIG_GLOBAL = empty_g, GIT_CONFIG_SYSTEM = empty_s, GIT_CONFIG_NOSYSTEM = "1", HOME = home,
-    XDG_CONFIG_HOME = file.path(home, "xdg"),
-    GIT_AUTHOR_NAME = "Test Writer", GIT_AUTHOR_EMAIL = "writer@example.invalid",
-    GIT_COMMITTER_NAME = "Test Writer", GIT_COMMITTER_EMAIL = "writer@example.invalid",
-    GIT_AUTHOR_DATE = "2026-01-02T03:04:05+0000", GIT_COMMITTER_DATE = "2026-01-02T03:04:05+0000",
-    GIT_DIR = NA, GIT_WORK_TREE = NA, GIT_INDEX_FILE = NA, GIT_COMMON_DIR = NA, GIT_PREFIX = NA,
-    GIT_EDITOR = "true", GIT_TERMINAL_PROMPT = "0",
-    .local_envir = env)
-  invisible(NULL)
-}
-
-# Run git in `dir`; returns the output lines with the exit status as attribute "status".
-g_git <- function(dir, ...) {
-  args <- c("-C", dir, "-c", "core.quotepath=false", c(...))
-  out <- suppressWarnings(system2("git", shQuote(args), stdout = TRUE, stderr = TRUE))
-  st <- attr(out, "status")
-  structure(as.character(out), status = if (is.null(st)) 0L else st)
-}
-g_ok_git <- function(dir, ...) {
-  out <- g_git(dir, ...)
-  if (!identical(attr(out, "status"), 0L)) {
-    stop("git failed: ", paste(c(...), collapse = " "), "\n", paste(out, collapse = "\n"))
-  }
-  invisible(out)
-}
-
 # Write `lines` (or a raw vector) to `path` under `dir`, creating folders.
 g_write <- function(dir, path, lines) {
   f3_write(file.path(dir, path), lines)
