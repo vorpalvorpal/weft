@@ -277,7 +277,10 @@ format_numbers <- function(value, class, keys, cfg, bound = NULL, range = FALSE,
   }
   # a year prints with no thousands mark (4.2.1)
   if (inherits(value, "weft_year")) cfg$thousands_from <- Inf
-  value <- as.numeric(value)
+  # an integer64 is whole: under `.num` without `sigfig` its digits print exactly, every one of them
+  # (3.11.2), so the double it is read as for the rest is only an approximation
+  exact <- if (inherits(value, "integer64") && class == ".num" && is.null(sigfig)) as.character(value)
+  value <- if (is.null(exact)) as.numeric(value) else suppressWarnings(as.numeric(value))
   if (is.null(bound)) bound <- rep(FALSE, length(value))
   default <- is.null(digits) && is.null(sigfig) && class %in% c(".num", ".pct")
   # `.range` prints both ends to the default decimals; that is not a `digits` given
@@ -289,6 +292,7 @@ format_numbers <- function(value, class, keys, cfg, bound = NULL, range = FALSE,
     sv <- if (class == ".pct" && isTRUE(cfg$pct_proportion)) v * 100 else v
     p <- print_one(sv, digits, sigfig, cfg, quantity)
     p$text <- zero_noise(p, cfg)
+    if (!is.null(exact)) p$text <- exact_int_text(exact[i], if (is.null(digits)) 0L else as.integer(digits), cfg)
     hit <- FALSE
     shown <- ""
     if (default && p$number == 0 && sv != 0 && !whole(sv)) {
@@ -322,6 +326,16 @@ format_numbers <- function(value, class, keys, cfg, bound = NULL, range = FALSE,
                               printed = as.character(out)[first])
   }
   out
+}
+
+# A whole number written as the decimal digits `ex` (an integer64's, with its sign) printed as
+# print_one() prints a whole number, to `nd` decimals.
+exact_int_text <- function(ex, nd, cfg) {
+  neg <- startsWith(ex, "-")
+  int <- sub("^-", "", ex)
+  if (as.numeric(int) >= (cfg$thousands_from %||% 1000)) int <- group_int(int, cfg$big_mark)
+  txt <- if (nd > 0L) paste0(int, cfg$decimal_mark, strrep("0", nd)) else int
+  if (neg) paste0(cfg$minus, txt) else txt
 }
 
 # What a number that printed as zero says (stage 1i).
@@ -724,10 +738,18 @@ formatter_input <- function(value, classes, keys, config, unit_form, on_pick, ta
   if (tex) cfg <- tex_cfg(cfg)
   reg <- cfg$formatters %||% list()
   classes <- unique(as.character(classes))
-  if (tex) tex_class_check(classes)
   keys <- as.list(keys)
   names(keys) <- tolower(names(keys))
   keys <- keys[!vapply(keys, is.null, NA)]
+  # a self-formatting value gives its number, and its format joins what the use wrote (3.11.8)
+  if (inherits(value, "weft_val")) {
+    m <- sv_merge(value, classes, keys, unit_form, reg)
+    value <- m$value
+    classes <- m$classes
+    keys <- m$keys
+    unit_form <- m$unit_form
+  }
+  if (tex) tex_class_check(classes)
   if (inherits(value, "POSIXlt")) value <- as.POSIXct(value)
   check_one_unit(value)
   # the form a unit is asked to print in at the use: a unit class, or the

@@ -920,8 +920,16 @@ render_bare <- function(rc, k, idx = NULL, line_info = NULL, start = NULL) {
     rc$bare_aux$raw <- ledger_raw(ev$aux$value)
     rc$bare_aux$unit <- ledger_unit(ev$aux$value)
   }
-  if (is_unit_quantity(ev$quantity) && !ev$claim_failed) {
+  is_val <- inherits(ev$quantity, "weft_val")
+  if (is_unit_quantity(ev$quantity) && !ev$claim_failed && !is_val) {
     unit_note(rc, bare_quantity_message(label, ev$quantity), li$file, li$line, label)
+  }
+  # a self-formatting value in math or raw LaTeX prints its TeX, wrapped in raw LaTeX (3.11.8); a
+  # failed claim's marker is wrapped with it by render_item()
+  tex_at <- if (is.na(k)) "" else R$tex[k]
+  if (is_val && nzchar(tex_at)) {
+    ev$value <- paste(format(ev$quantity, target = "tex"), collapse = ", ")
+    if (identical(tex_at, "raw") && !ev$claim_failed) ev$value <- paste0("\\ensuremath{", ev$value, "}")
   }
   if (ev$claim_failed) {
     rc$bare_aux$failed <- "failed claim"
@@ -983,7 +991,8 @@ value_finish <- function(rc, k, cc, label, v, claim_failed) {
   has_fmt <- any(!is.na(class_group(cc$own, reg))) || ".no" %in% cc$own ||
     ".a" %in% cc$own || ".plus" %in% cc$own ||
     any(c("digits", "sigfig", "unit", "trunc", "label") %in% names(cc$keys)) ||
-    (length(cc$own) > 0L && inherits(v, "units"))   # a text class acts on a quantity with its unit (4.4.2)
+    (length(cc$own) > 0L && inherits(v, "units")) ||   # a text class acts on a quantity with its unit (4.4.2)
+    inherits(v, "weft_val")   # a self-formatting value is formatted by its own format (3.11.8)
   own <- cc$own
   res <- tryCatch({
     if (has_fmt) {
@@ -1020,7 +1029,7 @@ named_leave <- function(rc, k, nm, join = FALSE) {
 # collapse class says, or by ", ".
 val_text <- function(rc, k, nm, v, cc, label) {
   cfg <- rc$cfg
-  el <- named_val_elements(v, nm)
+  el <- if (inherits(v, "weft_val")) sv_named_elements(v, nm, nzchar(rc$R$tex[k])) else named_val_elements(v, nm)
   if (!is.null(el$fail)) return(list(stop = record_fail(rc, k, el$fail, label, el$detail)))
   own <- setdiff(cc$own, ".val")
   reg <- cfg$formatters
@@ -1032,6 +1041,15 @@ val_text <- function(rc, k, nm, v, cc, label) {
   if (inherits(txt, "error")) return(list(stop = fail_from_error(rc, k, txt, label)))
   txt <- apply_text_classes(txt, own, cfg, keys = cc$keys)
   list(text = txt)
+}
+
+# `.val` on a self-formatting value prints its own format (3.11.8, D13): its markdown, or in math
+# and raw LaTeX its TeX. An element with no number to print is the "no value" failure (1.12.2).
+sv_named_elements <- function(v, nm, tex) {
+  if (!length(v) || !all(sv_ok(sv_strip(v)))) {
+    return(list(fail = "no value", detail = sprintf("`%s` has no value to print: it is missing (rule 1.12.2).", nm)))
+  }
+  list(text = unname(format(v, target = if (tex) "tex" else "markdown")))
 }
 
 # a named value inside a `.weft-literal` span is text, not a value (1.8.9)

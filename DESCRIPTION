@@ -11,6 +11,8 @@ License: MIT + file LICENSE
 URL: https://vorpalvorpal.github.io/weft/,
     https://github.com/vorpalvorpal/weft
 BugReports: https://github.com/vorpalvorpal/weft/issues
+Depends:
+    R (>= 4.3.0)
 Remotes:
     r-quantities/units
 Imports:

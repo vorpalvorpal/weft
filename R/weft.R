@@ -263,7 +263,7 @@ resolve_string <- function(s, x, ctx) {
 inline_function_names <- function() {
   if (is.null(weft_env$inline_names)) {
     weft_env$inline_names <- c("claim", "plural", "glue_vec", "u", "dict_glossary", "py_value",
-                               "jl_value", grep("^fmt_", getNamespaceExports(asNamespace("weft")), value = TRUE))
+                               "jl_value", grep("^(fmt|val)_", getNamespaceExports(asNamespace("weft")), value = TRUE))
   }
   weft_env$inline_names
 }

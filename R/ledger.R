@@ -266,6 +266,7 @@ dict_refs <- function(code) {
 
 # D11: the raw number of a value, rounded to six significant figures, or NA.
 ledger_raw <- function(v) {
+  v <- sv_strip(v)
   if (inherits(v, "weft_text")) {
     v <- attr(v, "raw")
     if (!(is.numeric(v) && length(v) == 1L)) return(NA_real_)
@@ -286,6 +287,7 @@ ledger_raw <- function(v) {
 # D8 (amended): the unit the raw number is in, as units::deparse_unit() writes it,
 # or NA for a plain number.
 ledger_unit <- function(v) {
+  v <- sv_strip(v)
   un <- if (inherits(v, c("units", "weft_text"))) attr(v, "units") else NULL
   if (is.null(un)) return(NA_character_)
   tryCatch({

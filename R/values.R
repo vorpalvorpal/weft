@@ -71,6 +71,9 @@ float_text <- function(x) {
 E44_TAIL <- paste0("is a units quantity; named values carry no units. Publish the number in ",
                    "the unit you mean (rule 2.13.3).")
 
+E46_TAIL <- paste0("is a self-formatting value; named values carry no format. Publish the number with ",
+                   "as.numeric() and write its classes where it is used (rule 3.8.4).")
+
 # A refused value: the text after the subject, and the kind of refusal.
 values_refusal <- function(code, tail) {
   list(code = code, tail = tail,
@@ -120,12 +123,13 @@ values_scalars <- function(x) {
 }
 
 # The record of an R value, as list(json, code, tail). `code` is NULL for a
-# record, and "E42", "E44" or "E45" for a refused value (its `json` is then an
+# record, and "E42", "E44", "E45" or "E46" for a refused value (its `json` is then an
 # error record, and `tail` the message after the subject).
 values_record <- function(x) {
   if (is.null(x)) {
     return(list(json = "{\"t\":\"missing\",\"why\":\"NULL\"}", code = NULL))
   }
+  if (inherits(x, "weft_val")) return(values_refusal("E46", E46_TAIL))
   if (inherits(x, "units")) return(values_refusal("E44", E44_TAIL))
   plain <- inherits(x, c("integer64", "factor", "Date")) ||
     (!is.object(x) && (is.logical(x) || is.integer(x) || is.double(x) || is.character(x)) &&
@@ -263,7 +267,7 @@ values_claim_parts <- function(e, env) {
 # The records a call publishes: a named list of list(json, code, tail). `exprs`
 # are the arguments as written, `get(i)` the value of the i-th (forced only
 # when it is not a claim), `env` the caller's frame. Raises weft_values_error
-# for E40, E41, E43 and for a value that is refused with E42 or E44; E45 is a
+# for E40, E41, E43 and for a value that is refused with E42, E44 or E46; E45 is a
 # record.
 values_collect <- function(exprs, get, env, frames) {
   n <- length(exprs)
@@ -301,7 +305,7 @@ values_collect <- function(exprs, get, env, frames) {
       text <- written_checks(frames, parts$checks, weft_env$inline$expr)
       rec <- values_with_checks(values_record(value), values_check_json(text, run, parts$level))
     }
-    if (!is.null(rec$code) && rec$code %in% c("E42", "E44")) {
+    if (!is.null(rec$code) && rec$code %in% c("E42", "E44", "E46")) {
       values_abort(sprintf("`%s` %s", nm[i], rec$tail))
     }
     out[[i]] <- rec
