@@ -58,5 +58,5 @@ is written when an argument is refused, and the old file stays.
 f <- tempfile(fileext = ".json")
 weft_values_write(f, n = 12L, site = "north")
 cat(readLines(f), sep = "\n")
-#> {"weft":1,"lang":"r","run":null,"at":1795752851,"values":{"n":{"t":"int","v":"12"},"site":{"t":"string","v":"north"}}}
+#> {"weft":1,"lang":"r","run":null,"at":1795754103,"values":{"n":{"t":"int","v":"12"},"site":{"t":"string","v":"north"}}}
 ```
