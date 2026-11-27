@@ -274,7 +274,8 @@ ledger_raw <- function(v) {
   if (is.null(v) || is.logical(v) || !is.numeric(v) || length(v) != 1L) return(NA_real_)
   if (inherits(v, "integer64")) {
     # a double holds it exactly, or there is no raw
-    x <- tryCatch(as.double(v), error = function(e) NA_real_)
+    # (bit64 warns when precision is lost; the identical() check below is that test)
+    x <- tryCatch(suppressWarnings(as.double(v)), error = function(e) NA_real_)
     if (length(x) != 1L || !is.finite(x) || !identical(as.character(v), sprintf("%.0f", x))) return(NA_real_)
   } else {
     x <- tryCatch(as.numeric(unclass(v)), error = function(e) NA_real_)

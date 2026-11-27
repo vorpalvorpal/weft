@@ -259,7 +259,7 @@ test_that("review 2d #6: ledger_raw() of an integer64 is its value when a double
   expect_equal(weft:::ledger_raw(bit64::as.integer64("5")), 5)
   expect_equal(weft:::ledger_raw(bit64::as.integer64("-3")), -3)
   expect_equal(weft:::ledger_raw(bit64::as.integer64("5000000000")), 5e9)
-  r <- weft:::ledger_raw(bit64::as.integer64("9007199254740993"))     # 2^53 + 1: no double holds it
+  expect_no_warning(r <- weft:::ledger_raw(bit64::as.integer64("9007199254740993")))  # 2^53 + 1: no double holds it
   expect_true(is.null(r) || (length(r) == 1L && is.na(r)))
 })
 

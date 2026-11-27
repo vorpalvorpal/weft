@@ -73,17 +73,20 @@ ws <- function(x) rnb(weft_md(x))
 once <- function(x, unit = M) lengths(regmatches(x, gregexpr(unit, x, fixed = TRUE)))
 
 test_that("review 2b #a: # carries the unit when the governor is a quantity (4.4.4 reversed, 4.4.2)", {
-  expect_equal(ws("[# metre | # metres]{n=\"u(5, m)\"}"), paste0("5", M, " metres"))
+  # "5 m metres" types the unit twice, so 4.4.10 warns (correctly)
+  expect_warning(x <- ws("[# metre | # metres]{n=\"u(5, m)\"}"), "rule 4.4.10")
+  expect_equal(x, paste0("5", M, " metres"))
   expect_equal(as.character(plural(u(3, m), "# metre", "# metres")), paste0("3", M, " metres"))
   expect_equal(as.character(plural(u(1, m), "# metre", "# metres")), paste0("1", M, " metre"))  # arm from the number
-  expect_equal(once(ws("[# metre | # metres]{n=\"u(5, m)\"}")), 1L)
+  expect_equal(once(x), 1L)
   # control: a plain number has no unit
   expect_equal(ws("[# metre | # metres]{n=\"5\"}"), "5 metres")
 })
 
 test_that("review 2b #2: # carries the unit when the n governor is a formatter's text for a quantity (4.4.4 reversed)", {
-  expect_equal(ws("[# metre | # metres]{n=\"fmt_num(u(5, m))\"}"), paste0("5", M, " metres"))
-  expect_equal(once(ws("[# metre | # metres]{n=\"fmt_num(u(5, m))\"}")), 1L)
+  expect_warning(x <- ws("[# metre | # metres]{n=\"fmt_num(u(5, m))\"}"), "rule 4.4.10")
+  expect_equal(x, paste0("5", M, " metres"))
+  expect_equal(once(x), 1L)
   expect_equal(ws("[# metre | # metres]{n=\"fmt_num(5)\"}"), "5 metres")   # control
 })
 
