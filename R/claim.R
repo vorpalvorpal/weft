@@ -202,7 +202,7 @@ claim_args_as_written <- function(sr, dp) {
 }
 
 claim_value_text <- function(value) {
-  # a self-formatting value is judged, and shown, by its number (3.11.10)
+  # a self-formatting value is judged, and shown, by its number (3.12.10)
   value <- sv_strip(value)
   # a date or a factor is shown as format() prints it, not as structure(...)
   s <- if (inherits(value, c("Date", "POSIXt", "factor", "difftime", "units"))) {

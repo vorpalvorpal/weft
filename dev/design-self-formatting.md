@@ -569,9 +569,9 @@ document needs it; Julia not planned.
 
 ## 7. Rules for the spec
 
-### 7.1 A new section, 3.11 Self-formatting values
+### 7.1 A new section, 3.12 Self-formatting values
 
-**3.11.1** `val_num()`, `val_pct()`, `val_sci()` and `val_p()` return a
+**3.12.1** `val_num()`, `val_pct()`, `val_sci()` and `val_p()` return a
 **self-formatting value**: the number given, with the class `weft_val` put
 before its classes and a format that prints it as the function of the same
 name in `fmt_*()` would. They take the arguments of that function except
@@ -581,16 +581,16 @@ NULL, sigfig = NULL, unit = NULL, plus = FALSE)`, `val_sci(x, digits = NULL,
 sigfig = NULL, unit = NULL, unit_form = NULL)`, `val_p(x, digits = NULL,
 label = NULL)`. They are exported and attached (2.1.8), and visible to
 `weft()` markup (3.6.2). An argument that `fmt_*()` refuses is refused with
-the same error.
+the same error, naming the function called.
 
-**3.11.2** `x` is a double, an integer, an `integer64`, a `weft_year`, a
+**3.12.2** `x` is a double, an integer, an `integer64`, a `weft_year`, a
 `units` quantity, or a self-formatting value, whose number is then given the
 new format. Anything else is a `weft_construct_error`: "`%s()` takes a number
 or a quantity; got a %s. To print text, use `weft()`." An element that is
 `NA`, `NaN`, `Inf` or `-Inf` is kept and is not formatted: its text is
 `NA`, `"NaN"`, `"Inf"` or `"-Inf"`.
 
-**3.11.3** The texts are made when the value is made, under the
+**3.12.3** The texts are made when the value is made, under the
 configuration `fmt_*()` would use there (3.6.6): the markdown and plain
 forms, and the TeX form for a class that has one (3.4.11). `[`, `[[`,
 `rev()`, `rep()`, `sort()`, `unique()`, `head()` and `tail()` keep them. `c()`
@@ -598,13 +598,13 @@ and `[<-` make them again for the whole result, under the configuration in
 force at that call. A ladder (4.4.23) picks one rung for the vector the
 texts are made for.
 
-**3.11.4** The check of 2.6.11 runs when the texts are made, never when they
+**3.12.4** The check of 2.6.11 runs when the texts are made, never when they
 are printed: a value made with the default digits that prints a number that
 is not zero as zero records one warned check, or outside a knit signals one
 `weft_zero_warning`. `digits` or `sigfig` given to the constructor silences
 it.
 
-**3.11.5** What a self-formatting value gives:
+**3.12.5** What a self-formatting value gives:
 
 | Call | Gives |
 |---|---|
@@ -623,7 +623,7 @@ it.
 as it prints a `Date`, and `writeLines()` refuses the value: give them
 `format(v)`. A `for` loop over the value reads the numbers.
 
-**3.11.6** Vector operations are those of the table in
+**3.12.6** Vector operations are those of the table in
 `dev/design-self-formatting.md` section 4.4. `c()` and `[<-` of values whose
 formats differ, or with anything that is not a number, are a
 `weft_construct_error`: "Values with different formats cannot be combined:
@@ -632,7 +632,7 @@ Two formats are the same when their class and their keys, defaults filled
 in, are equal. When vctrs is loaded, `vec_c()` and the dplyr verbs follow the
 same rules, and a value combined with a plain number gives a plain number.
 
-**3.11.7** Arithmetic, `Math` and every `Summary` function except `min()`,
+**3.12.7** Arithmetic, `Math` and every `Summary` function except `min()`,
 `max()` and `range()` give the result for the number underneath, without the
 format: a double, or what the class underneath gives (`units`, `weft_year`).
 `min()`, `max()`, `range()`, `mean()` and `median()` keep the format. A
@@ -640,7 +640,7 @@ comparison gives a logical. With another classed operand R's
 `chooseOpsMethod()` chooses weft's method, which hands the operation to the
 classes underneath.
 
-**3.11.8** Where weft formats a self-formatting value (a construct, a
+**3.12.8** Where weft formats a self-formatting value (a construct, a
 governor, a named value R reads, a `fmt_*()` call) its format is put
 together with what is written there. A key written there replaces the
 format's key of that name. A number-stage class written there that differs
@@ -651,27 +651,27 @@ value that holds a self-formatting value prints its markdown, and in math or
 raw LaTeX its TeX, which in raw LaTeX is wrapped in `\ensuremath{...}`. `.val`
 on it prints its own format.
 
-**3.11.9** The ledger records a self-formatting value where it records any
+**3.12.9** The ledger records a self-formatting value where it records any
 value: inline R, a construct, a named value R reads, a caption, a `weft()`
 string (7.1.1, 7.1.2). Its raw value is the number underneath and its unit
 the quantity's. Making it, converting it to text and printing it record
 nothing, and text built from it outside weft's constructs reaches the ledger
 only as the chunk's `table` entry (7.1.1).
 
-**3.11.10** A self-formatting value is not a named value's record: it is
+**3.12.10** A self-formatting value is not a named value's record: it is
 refused (3.8.4, E46). A phrase function uses its number and ignores its
 format. A `claim()` judges its number, and a failure shows the number.
 
-**3.11.11** Stage 2: `val_word()`, `val_count()`, `val_ord()`, `val_no()`,
+**3.12.11** Stage 2: `val_word()`, `val_count()`, `val_ord()`, `val_no()`,
 `val_date()` and `val_as(x, class, ...)` for a project formatter of the
 number stage. A collapse class or a text class is never a format.
 
 ### 7.2 Amendments elsewhere
 
 - **1.4.23**, the bullet on bare values: add "except a self-formatting value
-  (3.11.8)".
+  (3.12.8)".
 - **1.12.2**: add "A self-formatting value prints its own format under `.val`
-  where R reads the name (3.11.8)" (D13).
+  where R reads the name (3.12.8)" (D13).
 - **3.6.3**, the sentence on `paste()`: "`paste()` and `sprintf("%s", )` use
   the plain text, which is the object's content; `toString()`, `message()` and
   `glue::glue()` call `as.character()`, which gives the same."
@@ -679,7 +679,7 @@ number stage. A collapse class or a text class is never a format.
   carry no format".
 - **5.6.1**: "A value whose outermost call is a `val_*()` or `fmt_*()` of weft
   is read by its first argument" (stage 2).
-- **7.1.1**: a sentence pointing to 3.11.9.
+- **7.1.1**: a sentence pointing to 3.12.9.
 - **Part 2, section 13, Functions**: the reasons of D1, D3, D4, D5 and D8, in
   two or three sentences each.
 
@@ -745,7 +745,7 @@ existing tests write them.
     `unique(v)` are `weft_val` with the same spec, and their texts are the
     right subset or order.
 22. `c(v, w)` with the same spec is a `weft_val`; with different digits it is
-    the construct error of 3.11.6, naming both formats.
+    the construct error of 3.12.6, naming both formats.
 23. `c(v, 3)` is a `weft_val` whose last text is the spec's print of 3.
 24. `c(3, v)` is a plain double (pins R's dispatch on the first argument).
 25. `c(v, "a")` is the construct error.
@@ -798,7 +798,7 @@ existing tests write them.
 47. `knitr::kable(data.frame(x = v), format = "pipe")` shows the plain texts,
     right-aligned, and kable's `digits` does not change them.
 48. `format(v, target = "ansi")` equals `format(v)`.
-49. `format(v, target = "html")` is the construct error of 3.11.5.
+49. `format(v, target = "html")` is the construct error of 3.12.5.
 50. `format(val_word(3), target = "tex")` (stage 2) is 3.4.11's error.
 51. `print(val_num(c(a = 1.25), digits = 1))` writes the header line naming
     `.num` and `digits=1`, then the text with its name.
@@ -880,7 +880,7 @@ existing tests write them.
 ### 8.11 Edge cases to keep in view
 
 - A value whose texts were made under one `_weft.yml`, combined by `c()` after
-  the file changed, prints the whole result under the new file (3.11.3).
+  the file changed, prints the whole result under the new file (3.12.3).
 - `units::drop_units(v)`: the unit goes, the spec stays, the value prints
   without a unit.
 - `val_num(v)` where `v` is a `weft_val`: the new spec only, no trace of the
@@ -907,7 +907,7 @@ existing tests write them.
 | `DESCRIPTION` | `Depends: R (>= 4.3.0)` | 1 |
 | `NAMESPACE`, `man/` | roxygen | generated |
 | tests | about 80 cases above, in three or four files | 800 |
-| spec | section 3.11 and the amendments, rationale | 150 |
+| spec | section 3.12 and the amendments, rationale | 150 |
 | `vignettes/strings.Rmd` | a section "Values that format themselves"; the sink table gains a column | 80 |
 | `NEWS.md`, `inst/agent/references/syntax.md` and its `skills/weft` copy | a paragraph each | 30 |
 
@@ -1041,3 +1041,6 @@ repeated in section 11.
   (as `weft()` objects); arithmetic drops the format, except `min()`, `max()`, `range()`, `mean()`
   and `median()`; `.val` on such a value prints its own format (the bend to 1.12.2 is stated in
   the rule); no Python or Julia twin for now.
+- Orchestrator (27 Nov, after stage 1): the section is 3.12, not 3.11, because 3.11 is "Claims in
+  scripts". Case 13: a refused argument gives `fmt_*()`'s error, naming the function the author
+  called (`val_num()`), and the test compares the message with `val_` read as `fmt_`.

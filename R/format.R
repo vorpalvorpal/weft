@@ -278,7 +278,7 @@ format_numbers <- function(value, class, keys, cfg, bound = NULL, range = FALSE,
   # a year prints with no thousands mark (4.2.1)
   if (inherits(value, "weft_year")) cfg$thousands_from <- Inf
   # an integer64 is whole: under `.num` without `sigfig` its digits print exactly, every one of them
-  # (3.11.2), so the double it is read as for the rest is only an approximation
+  # (3.12.2), so the double it is read as for the rest is only an approximation
   exact <- if (inherits(value, "integer64") && class == ".num" && is.null(sigfig)) as.character(value)
   value <- if (is.null(exact)) as.numeric(value) else suppressWarnings(as.numeric(value))
   if (is.null(bound)) bound <- rep(FALSE, length(value))
@@ -741,7 +741,7 @@ formatter_input <- function(value, classes, keys, config, unit_form, on_pick, ta
   keys <- as.list(keys)
   names(keys) <- tolower(names(keys))
   keys <- keys[!vapply(keys, is.null, NA)]
-  # a self-formatting value gives its number, and its format joins what the use wrote (3.11.8)
+  # a self-formatting value gives its number, and its format joins what the use wrote (3.12.8)
   if (inherits(value, "weft_val")) {
     m <- sv_merge(value, classes, keys, unit_form, reg)
     value <- m$value

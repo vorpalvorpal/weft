@@ -924,7 +924,7 @@ render_bare <- function(rc, k, idx = NULL, line_info = NULL, start = NULL) {
   if (is_unit_quantity(ev$quantity) && !ev$claim_failed && !is_val) {
     unit_note(rc, bare_quantity_message(label, ev$quantity), li$file, li$line, label)
   }
-  # a self-formatting value in math or raw LaTeX prints its TeX, wrapped in raw LaTeX (3.11.8); a
+  # a self-formatting value in math or raw LaTeX prints its TeX, wrapped in raw LaTeX (3.12.8); a
   # failed claim's marker is wrapped with it by render_item()
   tex_at <- if (is.na(k)) "" else R$tex[k]
   if (is_val && nzchar(tex_at)) {
@@ -992,7 +992,7 @@ value_finish <- function(rc, k, cc, label, v, claim_failed) {
     ".a" %in% cc$own || ".plus" %in% cc$own ||
     any(c("digits", "sigfig", "unit", "trunc", "label") %in% names(cc$keys)) ||
     (length(cc$own) > 0L && inherits(v, "units")) ||   # a text class acts on a quantity with its unit (4.4.2)
-    inherits(v, "weft_val")   # a self-formatting value is formatted by its own format (3.11.8)
+    inherits(v, "weft_val")   # a self-formatting value is formatted by its own format (3.12.8)
   own <- cc$own
   res <- tryCatch({
     if (has_fmt) {
@@ -1043,7 +1043,7 @@ val_text <- function(rc, k, nm, v, cc, label) {
   list(text = txt)
 }
 
-# `.val` on a self-formatting value prints its own format (3.11.8, D13): its markdown, or in math
+# `.val` on a self-formatting value prints its own format (3.12.8, D13): its markdown, or in math
 # and raw LaTeX its TeX. An element with no number to print is the "no value" failure (1.12.2).
 sv_named_elements <- function(v, nm, tex) {
   if (!length(v) || !all(sv_ok(sv_strip(v)))) {

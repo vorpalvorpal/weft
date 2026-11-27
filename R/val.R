@@ -1,4 +1,4 @@
-# Self-formatting values (rule 3.11, dev/design-self-formatting.md, stage 1): a number with the
+# Self-formatting values (rule 3.12, dev/design-self-formatting.md, stage 1): a number with the
 # class `weft_val` put before its own classes, a format (`weft_spec`: the classes and keys a
 # formatter would be given) and the texts that format gives it (`weft_shown`: markdown, plain and
 # TeX, element by element), made once when the value is made. The internals here are named
@@ -7,7 +7,7 @@
 #' Self-formatting values
 #'
 #' `val_num()`, `val_pct()`, `val_sci()` and `val_p()` return a
-#' **self-formatting value** (rule 3.11): the number given, with the class
+#' **self-formatting value** (rule 3.12): the number given, with the class
 #' `weft_val` put before its own classes, and a format that prints it as the
 #' function of the same name in [fmt_num()] and its siblings would. The value
 #' stays a number: it compares, sorts and plots as one. Only the way it turns
@@ -17,7 +17,7 @@
 #'
 #' The constructors take the arguments of the formatter of the same name,
 #' except `target` and the collapse arguments, and refuse what it refuses with
-#' the same error. `x` is a double, an integer, an `integer64`, a
+#' the same error, naming the function called. `x` is a double, an integer, an `integer64`, a
 #' [weft_year][weft_year], a `units` quantity (see [u()]) or a self-formatting
 #' value, whose number is then given the new format; anything else is a
 #' `weft_construct_error`. An element that is `NA`, `NaN`, `Inf` or `-Inf` is
@@ -57,14 +57,14 @@
 #' `vctrs::vec_c()` and the dplyr verbs follow the same rules, and a value
 #' combined with a plain number gives a plain number.
 #'
-#' **Arithmetic drops the format** (rule 3.11.7): `+`, `*`, `round()`,
+#' **Arithmetic drops the format** (rule 3.12.7): `+`, `*`, `round()`,
 #' `sum()` and the rest give the result for the number underneath: a double,
 #' or what the class underneath gives (a `units` quantity, a `weft_year`).
 #' `min()`, `max()`, `range()`, `mean()` and `median()`, whose result is on
 #' the scale of their input, keep the format. A comparison gives a logical,
 #' so [claim()] judges the number.
 #'
-#' **In weft's constructs** (rule 3.11.8) the format is put together with what
+#' **In weft's constructs** (rule 3.12.8) the format is put together with what
 #' is written at the use: a key written there replaces the format's key of
 #' that name (`digits` and `sigfig` replace each other); a number class
 #' written there that differs from the format's replaces it, with all its
@@ -93,7 +93,7 @@ NULL
 #' @export
 val_num <- function(x, digits = NULL, sigfig = NULL, unit = NULL, unit_form = NULL, plus = FALSE) {
   x <- sv_input("val_num", x)
-  check_unit_form(unit_form, "fmt_num")
+  check_unit_form(unit_form, "val_num")
   check_flag(plus, "plus")
   sv_build(x, sv_spec(c(".num", if (plus) ".plus"), list(digits = digits, sigfig = sigfig, unit = unit),
                       unit_form))
@@ -111,7 +111,7 @@ val_pct <- function(x, digits = NULL, sigfig = NULL, unit = NULL, plus = FALSE) 
 #' @export
 val_sci <- function(x, digits = NULL, sigfig = NULL, unit = NULL, unit_form = NULL) {
   x <- sv_input("val_sci", x)
-  check_unit_form(unit_form, "fmt_sci")
+  check_unit_form(unit_form, "val_sci")
   sv_build(x, sv_spec(".sci", list(digits = digits, sigfig = sigfig, unit = unit), unit_form))
 }
 
@@ -124,7 +124,7 @@ val_p <- function(x, digits = NULL, label = NULL) {
 
 # ---- making a value -------------------------------------------------------------------------------
 
-# The number a constructor was given (3.11.2): a self-formatting value gives its number.
+# The number a constructor was given (3.12.2): a self-formatting value gives its number.
 sv_input <- function(fn, x) {
   if (inherits(x, "weft_val")) return(sv_strip(x))
   ok <- inherits(x, c("units", "weft_year", "integer64")) || (is.numeric(x) && !is.object(x))
@@ -137,7 +137,7 @@ sv_input <- function(fn, x) {
 
 # A format: the classes and the keys a formatter is given, and the unit form. The keys that are
 # NULL are left out, and a number key is stored as a double, so that two formats are equal when
-# they print alike (3.11.6).
+# they print alike (3.12.6).
 sv_spec <- function(classes, keys, unit_form = NULL) {
   keys <- keys[!vapply(keys, is.null, NA)]
   for (k in intersect(names(keys), c("digits", "sigfig"))) {
@@ -176,7 +176,7 @@ sv_shown_at <- function(shown, pos) {
 # Each element's position, named as the elements are: what `[`, `[[` and `rep()` select.
 sv_positions <- function(x) stats::setNames(seq_along(x), names(x))
 
-# The value of `number` formatted by `spec` (3.11.3): the formatter runs for markdown and for TeX,
+# The value of `number` formatted by `spec` (3.12.3): the formatter runs for markdown and for TeX,
 # under one configuration, and the plain text is the markdown read by PL, as `target = "plain"`
 # gives it. The zero check (2.6.11) runs once, on the markdown run. A missing element is not
 # formatted; with none to format, the construct errors that need no value still come.
@@ -203,7 +203,7 @@ sv_build <- function(number, spec, config = current_config()) {
   sv_restore(number, spec, list(markdown = md, plain = plain_text(md), tex = if (has_tex) tex))
 }
 
-# ---- a value meeting weft's formatting (3.11.8) -------------------------------------------------
+# ---- a value meeting weft's formatting (3.12.8) -------------------------------------------------
 
 # The value, classes, keys and unit form a formatter works with when it is given a value: the use's
 # own, put together with the value's format. `reg` is the configuration's `formatters`.
@@ -239,7 +239,7 @@ sv_what <- function(x) {
   if (inherits(x, "weft_val")) sprintf("`%s`", sv_spec_text(attr(x, "weft_spec"))) else sprintf("a %s", class(x)[1L])
 }
 
-# c() and `[<-` (3.11.6): `x` joins a value of format `spec` when it is a value of the same format,
+# c() and `[<-` (3.12.6): `x` joins a value of format `spec` when it is a value of the same format,
 # a number or quantity, or NAs; anything else is a construct error.
 sv_check_join <- function(spec, x, first) {
   if (is.null(x)) return(invisible())
@@ -396,7 +396,7 @@ as.list.weft_val <- function(x, ...) {
   out
 }
 
-# ---- methods: arithmetic (3.11.7) -----------------------------------------------------------------
+# ---- methods: arithmetic (3.12.7) -----------------------------------------------------------------
 
 #' @rdname val
 #' @param e1,e2 Operands.

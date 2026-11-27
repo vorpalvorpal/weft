@@ -132,7 +132,8 @@ test_that("val 13: arguments fmt_num() refuses are refused with the same error",
     expect_false(is.null(want))
     expect_false(is.null(got))
     expect_identical(class(got), class(want))
-    expect_identical(conditionMessage(got), conditionMessage(want))
+    # ruling 27 Nov: the same error, but naming the function the author called
+    expect_identical(sub("val_", "fmt_", conditionMessage(got), fixed = TRUE), conditionMessage(want))
   }
 })
 

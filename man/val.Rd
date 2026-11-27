@@ -129,7 +129,7 @@ own classes.
 }
 \description{
 \code{val_num()}, \code{val_pct()}, \code{val_sci()} and \code{val_p()} return a
-\strong{self-formatting value} (rule 3.11): the number given, with the class
+\strong{self-formatting value} (rule 3.12): the number given, with the class
 \code{weft_val} put before its own classes, and a format that prints it as the
 function of the same name in \code{\link[=fmt_num]{fmt_num()}} and its siblings would. The value
 stays a number: it compares, sorts and plots as one. Only the way it turns
@@ -140,7 +140,7 @@ console.
 \details{
 The constructors take the arguments of the formatter of the same name,
 except \code{target} and the collapse arguments, and refuse what it refuses with
-the same error. \code{x} is a double, an integer, an \code{integer64}, a
+the same error, naming the function called. \code{x} is a double, an integer, an \code{integer64}, a
 \link{weft_year}, a \code{units} quantity (see \code{\link[=u]{u()}}) or a self-formatting
 value, whose number is then given the new format; anything else is a
 \code{weft_construct_error}. An element that is \code{NA}, \code{NaN}, \code{Inf} or \code{-Inf} is
@@ -180,14 +180,14 @@ because R dispatches \code{c()} on its first argument. When vctrs is loaded,
 \code{vctrs::vec_c()} and the dplyr verbs follow the same rules, and a value
 combined with a plain number gives a plain number.
 
-\strong{Arithmetic drops the format} (rule 3.11.7): \code{+}, \code{*}, \code{round()},
+\strong{Arithmetic drops the format} (rule 3.12.7): \code{+}, \code{*}, \code{round()},
 \code{sum()} and the rest give the result for the number underneath: a double,
 or what the class underneath gives (a \code{units} quantity, a \code{weft_year}).
 \code{min()}, \code{max()}, \code{range()}, \code{mean()} and \code{median()}, whose result is on
 the scale of their input, keep the format. A comparison gives a logical,
 so \code{\link[=claim]{claim()}} judges the number.
 
-\strong{In weft's constructs} (rule 3.11.8) the format is put together with what
+\strong{In weft's constructs} (rule 3.12.8) the format is put together with what
 is written at the use: a key written there replaces the format's key of
 that name (\code{digits} and \code{sigfig} replace each other); a number class
 written there that differs from the format's replaces it, with all its
