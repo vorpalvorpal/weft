@@ -295,6 +295,12 @@ test_that("I6 + P4 (R engine lint): an include on line 1 with engine: markdown m
   expect_identical(x$message, IFM_MSG1_MD)
 })
 
+# ruling 27 Nov: with no engine key, Quarto picks the engine from the chunks of the include-expanded text
+test_that("P4 (R engine lint): with no engine key, an r chunk in an included file makes the document knitr", {
+  x <- ifm_engine(list("a.qmd" = c("Intro.", "", IFM_INC, "", IFM_RVAL), "inc.qmd" = c("```{r}", "x <- 1", "```")))
+  expect_identical(nrow(x), 0L)
+})
+
 test_that("I6 + P4 (R engine lint): blank lines above the line-1 include do not matter (F2); the included block is first", {
   x <- ifm_engine(list("a.qmd" = c("", "", IFM_INC, "", IFM_RVAL), "inc.qmd" = c(IFM_ENG_KNITR, "Inc.")))
   expect_identical(nrow(x), 0L)
@@ -358,7 +364,10 @@ IFM_KN <- list(
        files = list(doc.qmd = c("Intro.", "", IFM_INC, "", "```{r}", "x <- 1", "```"),
                     inc.qmd = c(IFM_ENG_MD, "Inc."))),
   list(id = "I6: a missing line-1 include does not crash (no engine, an r chunk: knitr)", want = "knitr", new = FALSE,
-       files = list(doc.qmd = c("{{< include nope.qmd >}}", "", "```{r}", "x <- 1", "```")))
+       files = list(doc.qmd = c("{{< include nope.qmd >}}", "", "```{r}", "x <- 1", "```"))),
+  # ruling 27 Nov: with no engine key, Quarto picks the engine from the chunks of the include-expanded text
+  list(id = "P4: no engine key, an r chunk only in a mid-document include: knitr", want = "knitr", new = TRUE,
+       files = list(doc.qmd = c("Intro.", "", IFM_INC, "", "Prose."), inc.qmd = c("```{r}", "x <- 1", "```")))
 )
 
 IFM_LUA_KN <- '
