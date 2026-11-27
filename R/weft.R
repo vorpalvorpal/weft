@@ -36,6 +36,19 @@
 #' leave the object as a top-level value in a chunk (knitr then calls `knit_print()`)
 #' or use `cat(format(x, target = "markdown"))`; an explicit `print()` writes plain text.
 #'
+#' @section Rich plot text:
+#' ggtext (`element_markdown()`, `geom_richtext()`) draws
+#' `format(x, target = "html")`, and marquee (`element_marquee()`,
+#' `geom_marquee()`) draws `format(x, target = "marquee")`. A `weft` object
+#' given to either as it is draws its plain text, since both call
+#' `as.character()`. The html form has class `c("html", "character")` and the
+#' attribute `html = TRUE`, as `htmltools::HTML()` gives, so htmltools, Shiny
+#' and gt take it without escaping; subsetting it gives a bare character
+#' vector. The marquee form is a bare character vector. An element joined by
+#' `c()` or `[<-` is its plain text, escaped. ggtext draws the thin and no-break
+#' spaces as word spaces. The html form suits HTML output only: converted to
+#' Word, a table drops its tags, and `10<sup>4</sup>` would read "104".
+#'
 #' @section In the console and in cli:
 #' The console form of a `weft` text is its plain text with emphasis in italic,
 #' strong emphasis in bold (both for `***`) and each failure marker in bold
@@ -98,8 +111,9 @@
 #'   a `weft` object, which is returned as it is. An `NA` element stays `NA`.
 #' @param .envir The environment the markup's code is evaluated in.
 #' @param ... Not used.
-#' @param target For `format()`: `"plain"` (the default), `"markdown"` or
-#'   `"ansi"` (the console form, see "In the console and in cli").
+#' @param target For `format()`: `"plain"` (the default), `"markdown"`,
+#'   `"ansi"` (the console form, see "In the console and in cli"), `"html"` or
+#'   `"marquee"` (see "Rich plot text").
 #' @param style Not used (for `cli_format()`).
 #' @param inline For `knit_print()`: `TRUE` for inline R.
 #' @return A `weft` object of the same length and names as `x`.
@@ -311,12 +325,12 @@ weft_markdown <- function(x) {
 
 weft_target <- function(target) {
   if (is_string(target)) {
-    if (target %in% c("plain", "markdown", "ansi")) return(target)
+    if (target %in% c("plain", "markdown", "ansi", "html", "marquee")) return(target)
     got <- paste0("\"", target, "\"")
   } else {
     got <- "something else"
   }
-  weft_abort(sprintf("`target` must be \"plain\", \"markdown\" or \"ansi\"; got %s.", got),
+  weft_abort(sprintf("`target` must be \"plain\", \"markdown\", \"ansi\", \"html\" or \"marquee\"; got %s.", got),
              "weft_construct_error")
 }
 
@@ -329,6 +343,9 @@ as.character.weft <- function(x, ...) weft_plain(x)
 format.weft <- function(x, target = "plain", ...) {
   target <- weft_target(target)
   if (identical(target, "ansi")) return(weft_ansi(x, cli::num_ansi_colors()))
+  # RT4, D98: the class and attribute htmltools::HTML() gives, so htmltools, Shiny and gt take it unescaped
+  if (identical(target, "html")) return(structure(weft_rich(x, "html"), class = c("html", "character"), html = TRUE))
+  if (identical(target, "marquee")) return(weft_rich(x, "marquee"))
   out <- if (identical(target, "markdown")) weft_markdown(x) else weft_plain(x)
   out[is.na(out)] <- "NA"
   out
@@ -393,6 +410,13 @@ sort.weft <- function(x, decreasing = FALSE, ...) sort(weft_plain(x), decreasing
 # The two forms of what `c()` and `[<-` take (WS9).
 weft_parts <- function(v) {
   if (is.null(v)) return(list(plain = character(), md = character()))
+  vt <- if (inherits(v, "weft_text")) attr(v, "target")
+  if (is_string(vt) && vt %in% names(TARGET_WORDS)) {
+    # E109 (RT5): its markup would be read as text
+    weft_abort(sprintf(paste0("A text formatted for %s (target = \"%s\") cannot join a weft text: its markup ",
+                              "would be read as text. Join texts made without `target`, then format the result ",
+                              "(rule 3.6.3)."), TARGET_WORDS[[vt]], vt), "weft_construct_error")
+  }
   if (inherits(v, "weft")) return(list(plain = weft_plain(v), md = weft_markdown(v)))
   if (is.character(v) && !is.factor(v)) {
     v <- as.vector(v)

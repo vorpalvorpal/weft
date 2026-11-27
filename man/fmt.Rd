@@ -176,8 +176,17 @@ again without \code{target}. The formatters that print words, emphasis or a list
 a sink that prints none, such as a ggplot2 scale's labels or a console message
 (rule 1.4.24): scientific notation and units in Unicode superscripts, emphasis without its marks. Every class has a
 plain form. The result carries the attribute \code{target = "plain"}; a text made
-under \code{"tex"} given to a formatter under \code{"plain"} is a \code{weft_value_error}. Any other
-value of \code{target} is a \code{weft_construct_error}.}
+under \code{"tex"} given to a formatter under \code{"plain"} is a \code{weft_value_error}. \code{"html"}
+writes HTML for ggtext, plotly and HTML tables (rule 1.4.25): only the tags \verb{<i>},
+\verb{<b>}, \verb{<sup>}, \verb{<sub>}, \verb{<span>} and \verb{<br>}, with every character a markdown pass
+would read written as an entity (\verb{10<sup>6</sup>}). \code{"marquee"}
+writes the markdown of the marquee package (rule 1.4.26), with \verb{\{.sup ...\}},
+\verb{\{.sub ...\}}, \verb{\{.em ...\}} and \verb{\{.str ...\}} spans (\verb{10\{.sup 6\}}).
+Every class has both forms; the result carries \code{target = "html"} or
+\code{target = "marquee"}, and giving it to a formatter again is a \code{weft_value_error}
+unless a number class formats it again from its number. Put \code{target} on the
+outermost call: \code{fmt_strong(fmt_num(x), target = "html")}. Any other value of
+\code{target} is a \code{weft_construct_error}.}
 
 \item{sep}{The text between items of a collapse.}
 

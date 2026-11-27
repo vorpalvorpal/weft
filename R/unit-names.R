@@ -611,8 +611,9 @@ check_unit_form <- function(unit_form, fn = NULL, no_symbol = FALSE, none = TRUE
 #' @param unit A unit to convert `x` to first, as a string, or a ladder of units
 #'   (one string with `|` between the units, or a character vector; see [fmt_num()]).
 #' @param target `"markdown"` (the default), `"tex"`, which writes the symbol or name as TeX for use
-#'   inside math (rule 4.4.25), or `"plain"`, which writes Unicode text with no markup (`m^2`,
-#'   rule 1.4.24); anything else is a `weft_construct_error`.
+#'   inside math (rule 4.4.25), `"plain"`, which writes Unicode text with no markup (`m^2`,
+#'   rule 1.4.24), `"html"` (`m<sup>2</sup>`, rule 1.4.25) or `"marquee"` (`m{.sup 2}`,
+#'   rule 1.4.26); anything else is a `weft_construct_error`.
 #' @return A `weft_text` of length one.
 #' @examples
 #' fmt_unit(u(5, mg/L))
@@ -620,7 +621,7 @@ check_unit_form <- function(unit_form, fn = NULL, no_symbol = FALSE, none = TRUE
 #' @export
 fmt_unit <- function(x, unit_form = NULL, unit = NULL, target = "markdown") {
   tex <- !identical(target, "markdown") && tex_target(target)
-  plain <- identical(target, "plain")
+  derived <- if (!tex && !identical(target, "markdown")) target
   check_unit_form(unit_form, "fmt_unit", none = FALSE)
   cfg <- current_config()
   lang <- current_lang()
@@ -662,11 +663,11 @@ fmt_unit <- function(x, unit_form = NULL, unit = NULL, target = "markdown") {
     txt <- unit_symbol_text(un, plural, cfg, lang)
   }
   if (tex) txt <- unit_md_to_tex(txt, un)
-  if (plain) txt <- plain_text(txt)
+  if (!is.null(derived)) txt <- rich_text(txt, derived)
   out <- structure(txt, class = c("weft_text", "character"))
   # a symbol's case is its meaning: `.cap` leaves it alone (4.4.16)
   if (form != "name" && !unit_prints_name(un, cfg)) attr(out, "is_symbol") <- TRUE
   if (tex) attr(out, "target") <- "tex"
-  if (plain) attr(out, "target") <- "plain"
+  if (!is.null(derived)) attr(out, "target") <- derived
   out
 }

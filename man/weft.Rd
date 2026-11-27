@@ -50,8 +50,9 @@ a \code{weft} object, which is returned as it is. An \code{NA} element stays \co
 
 \item{...}{Not used.}
 
-\item{target}{For \code{format()}: \code{"plain"} (the default), \code{"markdown"} or
-\code{"ansi"} (the console form, see "In the console and in cli").}
+\item{target}{For \code{format()}: \code{"plain"} (the default), \code{"markdown"},
+\code{"ansi"} (the console form, see "In the console and in cli"), \code{"html"} or
+\code{"marquee"} (see "Rich plot text").}
 
 \item{style}{Not used (for \code{cli_format()}).}
 
@@ -103,6 +104,21 @@ is saved as PDF, use \code{cairo_pdf()} or a ragg device.
 leave the object as a top-level value in a chunk (knitr then calls \code{knit_print()})
 or use \code{cat(format(x, target = "markdown"))}; an explicit \code{print()} writes plain text.
 }
+\section{Rich plot text}{
+
+ggtext (\code{element_markdown()}, \code{geom_richtext()}) draws
+\code{format(x, target = "html")}, and marquee (\code{element_marquee()},
+\code{geom_marquee()}) draws \code{format(x, target = "marquee")}. A \code{weft} object
+given to either as it is draws its plain text, since both call
+\code{as.character()}. The html form has class \code{c("html", "character")} and the
+attribute \code{html = TRUE}, as \code{htmltools::HTML()} gives, so htmltools, Shiny
+and gt take it without escaping; subsetting it gives a bare character
+vector. The marquee form is a bare character vector. An element joined by
+\code{c()} or \verb{[<-} is its plain text, escaped. ggtext draws the thin and no-break
+spaces as word spaces. The html form suits HTML output only: converted to
+Word, a table drops its tags, and \verb{10<sup>4</sup>} would read "104".
+}
+
 \section{In the console and in cli}{
 
 The console form of a \code{weft} text is its plain text with emphasis in italic,

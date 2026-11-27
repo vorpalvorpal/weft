@@ -488,10 +488,11 @@ check_formatters <- function(fm) {
   fm
 }
 
-# `targets:` of a registration (rule 1.4.8, E104): markdown and, optionally, tex.
+# `targets:` of a registration (rule 1.4.8, E104): markdown and, optionally, tex. plain, html and marquee
+# are never listed: under them a formatter is called as for markdown and its text is read (D104).
 check_targets <- function(raw, nm) {
   got <- as.character(unlist(raw))
-  if (!"markdown" %in% got || !all(got %in% TARGETS) || anyDuplicated(got)) {
+  if (!"markdown" %in% got || !all(got %in% c("markdown", "tex")) || anyDuplicated(got)) {
     weft_abort(sprintf(paste0("The formatter `%s` has `targets: %s`; `targets` lists markdown and, ",
                               "optionally, tex (rule 1.4.8)."), nm, paste(got, collapse = ", ")),
                "weft_config_error")

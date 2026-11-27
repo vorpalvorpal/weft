@@ -372,14 +372,17 @@ markdown and, optionally, tex (rule 1.4.8)." When it lists more than
 in `targets:`, so its function `%s` must take an argument `target` (rule
 1.4.8)." When it lists `markdown` only, the call is as before, with the value
 and the options. A later registration of the same class replaces `targets` as a
-whole. Under the plain target (1.4.24) a project formatter is called as for
-markdown and its text is read as 1.4.24 says; `targets:` does not list `plain`.
+whole. Under the plain, html and marquee targets (1.4.24 to 1.4.26) a project
+formatter is called as for markdown and its text is read as 1.4.24 says;
+`targets:` lists only `markdown` and `tex`, and naming any other target there is
+the error above.
 
 **1.4.9** A value that is a `units` object prints with its unit (4.4.8). No
 formatter supplies a unit of its own.
 
 **1.4.10** Formatter output is markdown, as stock knitr's inline output is,
-except inside math and raw LaTeX (1.4.23) and under the plain target (1.4.24). Text that comes from data is not
+except inside math and raw LaTeX (1.4.23) and under the plain (1.4.24), html
+(1.4.25) and marquee (1.4.26) targets. Text that comes from data is not
 escaped. A vector that no collapse class
 joins prints its elements joined with ", ", as stock knitr prints an inline
 vector.
@@ -758,6 +761,64 @@ of a span go; a list keeps its lines; the minus sign, the no-break space and the
 markers of 2.6.8 stay; a formula keeps its TeX as written. Every class has a
 plain form. The plain form of a `weft()` string is read the same way, the
 author's text included: a literal `*`, `_`, `^` or `~` is kept with a backslash.
+
+**1.4.25** Under the target `html` a formatter writes HTML for a sink that
+draws a small set of tags: ggtext, plotly, and HTML tables and widgets. The
+HTML is the markdown text read by PL1 to PL10 (1.4.24) and written by these
+rules, so it never disagrees with the plain text:
+
+- **HR1** The tags are `<i>`, `<b>`, `<sup>`, `<sub>`, `<span>` and `<br>`,
+  and no others.
+- **HR2** Text writes `&`, `<`, `>` and `"` as `&amp;`, `&lt;`, `&gt;` and
+  `&quot;`, `'` as `&#39;`, and each of `` * _ ` \ [ ] ^ ~ $ { } `` as its
+  numeric entity, so that the markdown pass ggtext makes first leaves it as
+  text. A `/` between two digits is `&#47;`, and `(` before `c)`, `r)` or `tm)`
+  (either case) is `&#40;`. Each `-` of a run of two or more is `&#45;`, and
+  each `.` of a run of three or more is `&#46;`, so no dash or ellipsis is
+  made of them. Every other character is written as it is, in UTF-8.
+- **HR3** At the start of the text, `#`, `-`, `+` and `=` are numeric
+  entities, a leading space or tab is `&#32;` or `&#9;`, and in a leading run
+  of digits followed by `.` or `)` and a space, a tab or the end, that `.` or
+  `)` is an entity.
+- **HR4** Emphasis is `<i>`, strong emphasis `<b>` (`***x***` nests the two), a
+  superscript `<sup>`, a subscript `<sub>`. A code span is its text. A formula
+  is its text as written, escaped. A span is a `<span>` with its attributes
+  (HR6), or its content when it has none. An empty run writes nothing.
+- **HR5** A newline is `<br>` (`\r\n` is one). A list keeps its lines, with no
+  blank line before or after it.
+- **HR6** A span's id is `id`, its classes `class`, its keys `style`, `title`,
+  `lang` and `dir` themselves, and any other key `data-` and the key, in that
+  order (keys in the order written); values are escaped as HR2. A block the
+  scanner cannot read gives no attributes.
+- **HR7** A marker (2.6.8) is text.
+
+So `.sci` writes `1.2 × 10<sup>−4</sup>`, a unit `m<sup>2</sup>`, a list `- a<br>- b`
+(with the first `-` an entity), and `[Depth]{style='color:#c00'}` a coloured
+word in ggtext. Every class has an html form. ggtext draws every white-space
+character, the thin and no-break spaces included, as an ordinary word space.
+
+**1.4.26** Under the target `marquee` a formatter writes the markdown dialect of
+the marquee package. It is the markdown text read by PL1 to PL10 and written by
+these rules:
+
+- **MQ1** Text puts a backslash before each of
+  `` \ ` * _ ~ [ ] { } < > & $ ^ ``. Nothing else is escaped: marquee has no
+  smartypants.
+- **MQ2** At the start of the text and of each line, `#`, `-`, `+`, `=` and `:`
+  get a backslash, as does the `.` or `)` after a leading run of digits that a
+  space, a tab or the end follows; each leading space or tab is a no-break
+  space.
+- **MQ3** Emphasis is `{.em ...}`, strong emphasis `{.str ...}`, a superscript
+  `{.sup ...}`, a subscript `{.sub ...}`. A code span is a code span, fenced by
+  one backtick more than the longest run inside. A formula is text, escaped by
+  MQ1, so `$x^2$` draws as typed. A span is its content. An empty run writes
+  nothing.
+- **MQ4** A newline is a hard break, `\` and the newline; two or more are one
+  blank line. A list keeps its lines, with no blank line before or after it.
+- **MQ5** A marker is text.
+
+So `.sci` writes `1.2 × 10{.sup −4}` and `H~2~O` writes `H{.sub 2}O`. Every
+class has a marquee form.
 
 ### 1.5 Governed spans
 
@@ -2918,6 +2979,8 @@ result carries no new attribute. `target = "tex"` writes the forms of 1.4.23 and
 4.4.25, for text that goes into math or raw LaTeX from code: a chunk that
 builds a table of formulas. `target = "plain"` writes the forms of 1.4.24, for a
 sink that prints no markdown: a ggplot2 scale's labels, a console message.
+`target = "html"` writes the forms of 1.4.25 and `target = "marquee"` those of
+1.4.26, for rich plot text and HTML tables (3.6.11).
 
 ```r
 fmt_num(-1234567.89, target = "tex")      # -1{,}234{,}567.9
@@ -2926,12 +2989,14 @@ fmt_num(u(5, mg/L), target = "tex")       # 5\,\text{mg/L}
 fmt_sci(0.000123, target = "plain")       # 1.2 × 10⁻⁴
 fmt_num(u(5, m^2), target = "plain")      # 5 m² (a no-break space)
 scale_y_continuous(labels = \(b) fmt_num(b, target = "plain"))
+fmt_sci(0.000123, target = "html")        # 1.2 × 10<sup>−4</sup>
+fmt_sci(0.000123, target = "marquee")     # 1.2 × 10{.sup −4}
 ```
 
-- A `target` that is not `"markdown"`, `"tex"` or `"plain"` is a
-  `weft_construct_error`: "`target` must be \"markdown\", \"tex\" or \"plain\";
-  got %s." Here `%s` is the value in double quotes, or `something else` when it
-  is not one string.
+- A `target` that is not `"markdown"`, `"tex"`, `"plain"`, `"html"` or
+  `"marquee"` is a `weft_construct_error`: "`target` must be \"markdown\",
+  \"tex\", \"plain\", \"html\" or \"marquee\"; got %s." Here `%s` is the value
+  in double quotes, or `something else` when it is not one string.
 - A function of a class that has no TeX form (`fmt_word()`, `fmt_count()`,
   `fmt_ord()`, `fmt_no()`, `fmt_date()`, `fmt_a()`, `fmt_cap()`, `fmt_em()`,
   `fmt_strong()`, `fmt_and()`, `fmt_or()`, `fmt_pairs()`, `fmt_ul()`,
@@ -2950,8 +3015,23 @@ scale_y_continuous(labels = \(b) fmt_num(b, target = "plain"))
 - A result made under `"plain"` has the attribute `target = "plain"`, keeps its
   printed record, and its `unit` attribute holds the plain symbol or name. Given
   to another formatter it is treated as a markdown text.
+- A result made under `"html"` or `"marquee"` has the attribute `target` of
+  that name, keeps its printed record and its `unit_form`, `units` and
+  `unit_before` attributes, and its `unit` and `unit_suffix` attributes are in
+  its own form (`m<sup>2</sup>`, `m{.sup 2}`).
+- Such a result given to any formatter is a `weft_value_error` unless a number
+  class formats it again from its number: "This text was formatted for %s
+  (target = \"%s\"), and weft cannot format it again. Give the formatter the
+  value itself, or a text made without `target`, and put `target` on the outer
+  call: fmt_strong(fmt_num(x), target = \"%s\") (rule 3.4.11)." The first `%s`
+  is `HTML` or `marquee`. A result made under `"tex"` reaching an html or
+  marquee result is a `weft_value_error`: "This text was formatted for TeX
+  (target = \"tex\") and would print here as %s. Format the number again, with
+  target = \"%s\" (rule 3.4.11)." The first `%s` is `HTML` or `marquee text`.
 - `fmt_unit()` takes `target` too: `fmt_unit(u(5, mg/L), target = "tex")` is
-  `\text{mg/L}`; `fmt_unit(u(1, m^2), target = "plain")` is `m²`.
+  `\text{mg/L}`; `fmt_unit(u(1, m^2), target = "plain")` is `m²`;
+  `fmt_unit(u(1, m^2), target = "html")` is `m<sup>2</sup>`, and with
+  `"marquee"` it is `m{.sup 2}`.
 - In a knit weft passes `target = "tex"` itself, for a construct in math or raw
   LaTeX (1.4.23). A bare `fmt_num(x)` in math is a bare value and writes
   markdown there; the lint `value-format` (5.6.4) says so.
@@ -3053,7 +3133,9 @@ attribute `markdown` holds the markdown.
 | `format(x)`, `format(x, target = "plain")` | plain; names kept; `NA` is `"NA"` |
 | `format(x, target = "markdown")` | markdown; names kept; `NA` is `"NA"` |
 | `format(x, target = "ansi")` | the console form (3.6.9); names kept; `NA` is `"NA"` |
-| `format(x, target = other)` | `weft_construct_error`: "`target` must be \"plain\", \"markdown\" or \"ansi\"; got %s." |
+| `format(x, target = "html")` | the html form (1.4.25), of class `c("html", "character")` with the attribute `html = TRUE`, as `htmltools::HTML()` gives; names kept; `NA` is `"NA"`; subsetting it gives a bare character vector |
+| `format(x, target = "marquee")` | the marquee form (1.4.26), a bare character vector; names kept; `NA` is `"NA"` |
+| `format(x, target = other)` | `weft_construct_error`: "`target` must be \"plain\", \"markdown\", \"ansi\", \"html\" or \"marquee\"; got %s." |
 | `print(x)` | each element on its own line, in the console form when the console draws styles (3.6.9), else plain; `NA` as `NA`; names not shown; a length-0 object prints `<weft[0]>`; returns `x` invisibly |
 | `knitr::knit_print(x, inline = TRUE)` | the markdown elements joined by `", "` |
 | `knitr::knit_print(x)` | the markdown elements joined by a blank line |
@@ -3066,7 +3148,13 @@ plain text, which is the object's content; `toString()`, `message()` and
 `sort()` give a plain character vector. `c()` and `[<-` take `weft` objects (both
 forms) and character vectors (text as it is: not markup, not evaluated; plain and
 markdown are both the string); anything else is a `weft_construct_error`: "A weft
-text can be combined only with weft texts and character vectors; got a %s." An
+text can be combined only with weft texts and character vectors; got a %s." A
+formatter's text made under `"tex"`, `"html"` or `"marquee"` is a
+`weft_construct_error` there: "A text formatted for %s (target = \"%s\") cannot
+join a weft text: its markup would be read as text. Join texts made without
+`target`, then format the result (rule 3.6.3)." The first `%s` is `TeX`, `HTML`
+or `marquee`. In the html and marquee forms an element joined as text is its
+plain text, escaped as text (HR2, MQ1). An
 element changed by a function that kept the attributes (`substr()`, `toupper()`)
 has its plain text as its markdown form. A `weft` object used as a value inside
 `weft()` markup, or passed to an `fmt_*()`, contributes its markdown text.
@@ -3084,6 +3172,20 @@ the object and draws its plain text. A formula in the markup keeps its TeX in th
 plain form (1.4.24): a plot that needs one uses plotmath. The plain text uses superscripts, the minus
 sign and other characters outside Latin-1, which the default `pdf()` device cannot draw; use
 `cairo_pdf()` or a ragg device for plots with weft text.
+Which form goes where:
+
+| Sink | Form |
+|---|---|
+| `element_text()`, `geom_text()`, scale labels | plain (the `weft` object, or `target = "plain"`) |
+| ggtext `element_markdown()`, `element_textbox()`, `geom_richtext()`, `geom_textbox()` | `format(x, target = "html")`; scale labels `fmt_*(target = "html")` |
+| marquee `element_marquee()`, `geom_marquee()`, `guide_marquee()` | `format(x, target = "marquee")` |
+| gt in HTML output | `format(x, target = "html")` with `fmt_markdown()` or `gt::html()` |
+| gt, flextable or kable in a document for Word or PDF | plain, or markdown where the table reads Pandoc markdown (kable); the html form there loses its tags, and `10<sup>−4</sup>` reads "10−4", a wrong number |
+| reactable `colDef(html = TRUE)`, htmltools, Shiny, DT with `escape = FALSE`, leaflet popups, plotly text and hover text | `"html"` |
+
+A `weft` object given straight to ggtext or marquee draws its plain text, since
+both call `as.character()`: weft cannot see the sink, so the author writes
+`format(x, target = )`.
 
 **3.6.5** A string given to `weft()` is prose wherever it is called from. During
 a knit with weft's hooks installed, a failed check, a missing value, a value
@@ -3151,6 +3253,28 @@ w <- weft("Depth at *[one site | # sites]{n='k'}*: `r d`{.num unit='m'}")
 cli::cli_inform("{.val {w}}")          # emphasis drawn, in the value colour
 cli::cli_inform("Plotted {w}")         # plain text
 msg <- cli::format_inline("{.val {w}}")
+```
+
+**3.6.11** Rich plot text. ggtext draws `format(x, target = "html")` and
+marquee draws `format(x, target = "marquee")`; `fmt_*()` take the same targets
+for a scale's labels. A `weft` object given to either as it is draws its plain
+text. ggtext draws the thin and no-break spaces as word spaces; marquee keeps
+them. marquee draws `{.sup }` and `{.sub }` from its first release, so no
+version is checked. The ledger records a `weft()` string's markdown when it is
+evaluated; the target is the sink's choice and changes no entry (7.1), and
+`format()` records nothing.
+
+```r
+w <- weft("*Eucalyptus* cover at `r cover`{.pct}, 10^`r k`^ stems")
+ggplot(d, aes(x, y)) + geom_point() +
+  labs(title = format(w, target = "html")) +
+  theme(plot.title = ggtext::element_markdown()) +
+  scale_y_continuous(labels = \(b) fmt_sci(b, target = "html")) +
+  theme(axis.text.y = ggtext::element_markdown())
+
+ggplot(d, aes(x, y)) + geom_point() +
+  labs(title = format(w, target = "marquee")) +
+  theme(plot.title = marquee::element_marquee())
 ```
 
 ### 3.7 `arms()` and `rehearse()`
@@ -7740,6 +7864,24 @@ escaped (1.4.10), reads the same in both. Lists keep their lines instead of bein
 refused, as under TeX, because a string is rendered at its sink, long after the
 call that made it.
 
+**1.4.25** ggtext runs a markdown pass before it reads HTML, and that pass
+depends on the markdown package's version: it superscripts `^6^` but not
+`^−4^`, and under both 1.13 and 2.0 it curls straight quotes and makes dashes
+and ellipses of `--`, `---` and `...` (tested 27 Nov). Writing weft's own HTML,
+escaped so the pass leaves it alone, makes the result the same under every
+version. The tag set is what gridtext and plotly both read; gridtext stops a
+plot on any other tag, and plotly shows `<strong>` as typed. A list is lines
+because `<ul>` stops a ggtext plot. Tags, not Unicode superscripts, because the
+sinks that want HTML draw tags best; marquee, which drops tags, has its own
+form.
+
+**1.4.26** marquee reads `_x_` as underline, has no superscript syntax, drops
+HTML tags silently (`10<sup>−4</sup>` draws "10−4", a wrong number), and fails
+on HTML entities such as `&#45;`, so neither weft's markdown nor its HTML is
+safe there. Custom spans are marquee's only route to its `sup` and `sub`
+styles, and they have no flanking rules. A formula is text because marquee
+1.3.0 reads `$...$` as math and cannot draw it without a newer textshaping.
+
 **1.8.12** A pointer on a claim that never runs supports nothing, so it is not
 collected; the claims rule (6.3.1) and this rule now agree on which chunks do
 not run. A pointer prints nothing; recording it in the ledger would only
@@ -7997,6 +8139,11 @@ plots, files and `paste()`, which must not change with the terminal.
 
 **3.6.10** cli reads a template once and inserts values after, so a value is safe and a template is
 not; weft escapes nothing, because escaping would be needed in one sink and wrong in every other.
+
+**3.6.11** A sink calls `as.character()`, so weft cannot choose the form for
+it; the author names the target where the text meets the sink. Recording the
+target at `format()` time was refused: `format()` runs outside a knit, from
+`print()`, and many times per object.
 
 **3.2.3** A function for each governor would be a second syntax to keep in
 step with the first. The markup already works in a string.

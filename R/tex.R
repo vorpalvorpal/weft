@@ -2,19 +2,21 @@
 # `target = "markdown"` is the default and today's output; `"tex"` writes the forms a formula holds.
 # The markdown path pays one `identical()` for all of this; everything else is here.
 
-TARGETS <- c("markdown", "tex", "plain")
+TARGETS <- c("markdown", "tex", "plain", "html", "marquee")
 
-# E100, FT3: `target` is "markdown", "tex" or "plain". Returns TRUE for "tex", FALSE for the other two.
-# Anything else is a construct error.
+# E100, FT3, RT1: `target` is "markdown", "tex", "plain", "html" or "marquee". Returns TRUE for "tex", FALSE
+# for the others (plain, html and marquee are the markdown read by PL and rendered, R/rich.R). Anything
+# else is a construct error.
 tex_target <- function(target) {
   if (is_string(target)) {
     if (identical(target, "tex")) return(TRUE)
-    if (identical(target, "markdown") || identical(target, "plain")) return(FALSE)
+    if (target %in% TARGETS) return(FALSE)
     got <- paste0("\"", target, "\"")
   } else {
     got <- "something else"
   }
-  construct_error(sprintf("`target` must be \"markdown\", \"tex\" or \"plain\"; got %s.", got))
+  construct_error(sprintf(paste0("`target` must be \"markdown\", \"tex\", \"plain\", \"html\" or \"marquee\"; ",
+                                 "got %s."), got))
 }
 
 # E101: the classes with no TeX form, and why.
@@ -39,20 +41,31 @@ tex_in_plain_error <- function() {
 }
 
 # The result of a formatter under `plain` (FT1): its text, its unit and its unit suffixes read by PL.
-plain_finish <- function(out) {
-  a <- attributes(out)
-  x <- plain_text(as.character(unclass(out)))
-  attributes(x) <- a
-  if (!is.null(a$unit)) attr(x, "unit") <- plain_text(a$unit)
-  if (!is.null(a$unit_suffix)) attr(x, "unit_suffix") <- plain_text(a$unit_suffix)
-  attr(x, "target") <- "plain"
-  x
-}
+plain_finish <- function(out) derived_finish(out, "plain")
 
 # E103: a text made for TeX reaching a markdown result.
 tex_in_markdown_error <- function() {
   value_error(paste0("This text was formatted for TeX (target = \"tex\") and would print here as markdown. ",
                      "Format the number again, without `target` (rule 3.4.11)."))
+}
+
+# E107, E108 (RT5): a text made for another target given to a formatter, when no number class formats it
+# again from its number. `from` is the text's target, `to` the formatter's derived target (NULL for
+# markdown or tex).
+target_in_error <- function(from, to) {
+  if (from %in% c("html", "marquee")) {
+    value_error(sprintf(paste0(
+      "This text was formatted for %s (target = \"%s\"), and weft cannot format it again. Give the formatter ",
+      "the value itself, or a text made without `target`, and put `target` on the outer call: ",
+      "fmt_strong(fmt_num(x), target = \"%s\") (rule 3.4.11)."), TARGET_WORDS[[from]], from, from))
+  }
+  if (identical(to, "plain")) tex_in_plain_error()
+  if (isTRUE(to %in% c("html", "marquee"))) {
+    value_error(sprintf(paste0(
+      "This text was formatted for TeX (target = \"tex\") and would print here as %s. Format the number ",
+      "again, with target = \"%s\" (rule 3.4.11)."), if (to == "html") "HTML" else "marquee text", to))
+  }
+  tex_in_markdown_error()
 }
 
 # ---- TX6: text in math ---------------------------------------------------

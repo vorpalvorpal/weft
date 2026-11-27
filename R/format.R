@@ -654,14 +654,15 @@ unit_affix <- function(un, form, plural, before, word, cfg, lang) {
 # (", " gives ","; "; " gives ";").
 serial_mark <- function(sep) sub("[ \t]+$", "", sep)
 
-# The list formatters (1.4.3): a block with a blank line before and after.
-collapse_list <- function(cls, text, nms) {
+# The list formatters (1.4.3): a block with a blank line before and after. Under html and marquee
+# (`block = FALSE`) the lines alone: no document holds the text, and a list keeps its lines (HR5, MQ4).
+collapse_list <- function(cls, text, nms, block = TRUE) {
   body <- switch(
     cls,
     ".ul" = paste0("- ", text, collapse = "\n"),
     ".ol" = paste0(seq_along(text), ". ", text, collapse = "\n"),
     ".dl" = paste0(nms, "\n:   ", text, collapse = "\n\n"))
-  paste0("\n", body, "\n")
+  if (block) paste0("\n", body, "\n") else body
 }
 
 # ---- the four stages ----------------------------------------------------
@@ -693,7 +694,7 @@ apply_formatters <- function(value, classes = character(), keys = list(),
       length(f$value) == 0L && !inherits(f$value, "weft_text") &&
       (length(intersect(f$classes, COLLAPSE_CLASSES)) || length(proj_classes(f, "collapse")))) {
     none <- new_weft_text(stage_text(f, as.character(f$keys$none)))
-    return(if (f$plain) plain_finish(none) else none)
+    return(if (!is.null(f$derived)) derived_finish(none, f$derived) else none)
   }
   f <- number_classes(f)
   f <- unit_forms(f, governor)
@@ -716,19 +717,24 @@ proj_classes <- function(f, stage) intersect(f$classes, registered_classes(f$reg
 # and the value, converted by a `unit` key. The list it returns is the formatting `f` the
 # later steps take and return.
 formatter_input <- function(value, classes, keys, config, unit_form, on_pick, target) {
-  # the one check the markdown path pays for the TeX target (rule 3.4.11)
+  # the one check the markdown path pays for the other targets (rule 3.4.11)
   tex <- FALSE
-  tex_in <- FALSE
-  plain <- FALSE
+  derived <- NULL
   if (!identical(target, "markdown")) {
     tex <- tex_target(target)
-    # plain (FT1): the markdown result read by PL, so everything below runs as for markdown
+    # plain, html and marquee (FT1, RT2): the markdown result read by PL and rendered, so everything
+    # below runs as for markdown
     if (!tex) {
-      plain <- TRUE
+      derived <- target
       target <- "markdown"
     }
   }
-  if (!tex && inherits(value, "weft_text")) tex_in <- identical(attr(value, "target"), "tex")
+  # the target of a text given as the value (RT5): one made for html or marquee, or for TeX outside TeX
+  in_target <- NULL
+  if (inherits(value, "weft_text")) {
+    vt <- attr(value, "target")
+    if (is_string(vt) && (vt %in% c("html", "marquee") || (!tex && vt == "tex"))) in_target <- vt
+  }
   # a weft object contributes its markdown (WS11)
   if (inherits(value, "weft")) {
     md <- weft_markdown(value)
@@ -781,7 +787,7 @@ formatter_input <- function(value, classes, keys, config, unit_form, on_pick, ta
     }, form = explicit)
   }
   list(value = value, classes = classes, keys = keys, cfg = cfg, reg = reg, target = target,
-       tex = tex, tex_in = tex_in, plain = plain, explicit = explicit, unit_form = unit_form,
+       tex = tex, in_target = in_target, derived = derived, explicit = explicit, unit_form = unit_form,
        ladder = picks$ladder)
 }
 
@@ -1017,7 +1023,7 @@ unit_forms <- function(f, governor) {
   # only text classes on a quantity's text: the unit stays where it is, inside any markup (4.4.8)
   f$pass_text <- f$keep_forms && !governor &&
     !length(c(intersect(classes, COLLAPSE_CLASSES), proj_classes(f, "collapse"))) && is.null(f$trunc)
-  if (f$tex_in && !length(ncls)) if (f$plain) tex_in_plain_error() else tex_in_markdown_error()
+  if (!is.null(f$in_target) && !length(ncls)) target_in_error(f$in_target, f$derived)
   if (length(ncls)) f$prior_tc <- NULL
   if (!is.null(un)) {
     judge_unit(f, un)
@@ -1332,14 +1338,14 @@ stage_collapse <- function(f, join) {
         text <- collapse_items(paste0(nms, " (", text, ")"), sep, keys$last %||% " and ", trunc,
                                serial = isTRUE(cfg$serial_comma) && is.null(keys$last))
       } else {
-        text <- collapse_list(cl, text, nms)
+        text <- collapse_list(cl, text, nms, block = !isTRUE(f$derived %in% c("html", "marquee")))
       }
     } else if (cl %in% LIST_CLASSES) {
       f$placed <- any(!is.na(forms))
       text <- add_unit(f, text)
       f$out_forms <- forms[n_el]
       f$out_suffix <- if (f$unit_pre) f$elem_pre[n_el] else f$elem_suffix[n_el]
-      text <- collapse_list(cl, text, nms)
+      text <- collapse_list(cl, text, nms, block = !isTRUE(f$derived %in% c("html", "marquee")))
     } else {
       sep <- keys$sep %||% ", "
       last <- keys$last %||% (if (cl == ".or") " or " else " and ")
@@ -1432,7 +1438,7 @@ formatted_text <- function(f, governor, on_zero) {
   }
   if (!governor && !is.null(zero)) attr(out, "warned") <- TRUE
   if (f$tex) attr(out, "target") <- "tex"
-  if (f$plain) out <- plain_finish(out)
+  if (!is.null(f$derived)) out <- derived_finish(out, f$derived)
   if (!governor) {
     tc <- union(f$prior_tc, intersect(f$classes, text_classes(f$reg)))
     if (length(tc)) attr(out, "text_classes") <- tc
@@ -1652,8 +1658,17 @@ apply_project <- function(spec, x, number_source, args = list(), cls = NULL, tar
 #'   a sink that prints none, such as a ggplot2 scale's labels or a console message
 #'   (rule 1.4.24): scientific notation and units in Unicode superscripts, emphasis without its marks. Every class has a
 #'   plain form. The result carries the attribute `target = "plain"`; a text made
-#'   under `"tex"` given to a formatter under `"plain"` is a `weft_value_error`. Any other
-#'   value of `target` is a `weft_construct_error`.
+#'   under `"tex"` given to a formatter under `"plain"` is a `weft_value_error`. `"html"`
+#'   writes HTML for ggtext, plotly and HTML tables (rule 1.4.25): only the tags `<i>`,
+#'   `<b>`, `<sup>`, `<sub>`, `<span>` and `<br>`, with every character a markdown pass
+#'   would read written as an entity (`10<sup>6</sup>`). `"marquee"`
+#'   writes the markdown of the marquee package (rule 1.4.26), with `{.sup ...}`,
+#'   `{.sub ...}`, `{.em ...}` and `{.str ...}` spans (`10{.sup 6}`).
+#'   Every class has both forms; the result carries `target = "html"` or
+#'   `target = "marquee"`, and giving it to a formatter again is a `weft_value_error`
+#'   unless a number class formats it again from its number. Put `target` on the
+#'   outermost call: `fmt_strong(fmt_num(x), target = "html")`. Any other value of
+#'   `target` is a `weft_construct_error`.
 #'
 #' @details
 #' A missing value (`NA`, `NaN`, `Inf`, `-Inf` or a value of length zero)
