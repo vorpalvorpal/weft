@@ -547,11 +547,11 @@ test_that("notebook files verify: an ordinary .py, and a missing file, are refus
 
 nbf_expected <- function(kinds) c("top.qmd", nbf_files(NBF_READ, kinds))
 
-test_that("notebook folders lints: skips the folders Quarto skips, reads the others (a .py is not linted, 6.1.2)", {
+test_that("notebook folders lints: skips the folders Quarto skips, reads the others (a percent .py is linted, 5.1.8)", {
   root <- lint_proj(nbf_fixture())
   x <- nbf_lints(root)
-  expect_true(all(nbf_expected(c("n.ipynb", "b.qmd")) %in% x$file), label = "control: the folders Quarto reads are read")
-  expect_setequal(unique(x$file), nbf_expected(c("n.ipynb", "b.qmd")))
+  expect_true(all(nbf_expected(c("n.ipynb", "p.py", "b.qmd")) %in% x$file), label = "control: the folders Quarto reads are read")
+  expect_setequal(unique(x$file), nbf_expected(c("n.ipynb", "p.py", "b.qmd")))
 })
 
 test_that("notebook folders checks: skips the folders Quarto skips, reads the others", {
