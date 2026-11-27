@@ -302,8 +302,8 @@ fm_child_indent <- function(lines, a, b, default) {
 # engine's chunks alone. The one rule, used by use_setup() and by status().
 qmd_needs_engine <- function(fm_names, body) {
   if (any(c("engine", "jupyter") %in% fm_names)) return(FALSE)
-  # the chunks Quarto picks the engine by (unfenced_chunks(), A18)
-  chunks <- tolower(vapply(unfenced_chunks(body), function(ch) ch$engine, ""))
+  # the chunk languages Quarto picks the engine by (quarto_chunk_langs())
+  chunks <- quarto_chunk_langs(body)
   # a document of another engine's chunks alone is left as it is unless it holds an R construct (G41, N74)
   if (length(chunks) && !("r" %in% chunks)) {
     return(lines_hold_construct(body))

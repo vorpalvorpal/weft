@@ -301,48 +301,191 @@ find_chunks_ <- function(lines) {
   })
 }
 
-# The chunks of find_chunks() that no fenced example holds: the cells Quarto reads. Quarto reads the
-# markdown before knitr runs, so the fences here are CommonMark's over the whole text, chunk lines included
-# (a ```` ```` ```` fence around a chunk header holds it; a ```` ```{julia} ```` after that fence closes is a
-# cell).
+# The chunks of find_chunks() that no fenced example holds. The fences here are read over the whole text,
+# chunk lines included, a chunk header taken as a fence (a ```` ```` ```` fence around a chunk header holds
+# it; a ```` ```{julia} ```` after that fence closes is not held).
 unfenced_chunks <- function(lines) {
-  pl <- doc_memo("commonmark_fences", lines, function(l) plain_blocks(l, logical(length(l)))$fences)
-  Filter(function(ch) !any(pl$open < ch$open & pl$close >= ch$open), find_chunks(lines))
+  fenced <- fenced_lines(lines)
+  Filter(function(ch) !fenced[ch$open], find_chunks(lines))
 }
 
-# The engine Quarto runs a document on: "knitr", "jupyter", "julia" or
-# "markdown". An `engine:` key decides (its mapping form, `engine:` then
-# `  julia: ...`, names the first key); then a `knitr:` key means knitr
-# (9.2.8) and a `jupyter:` key jupyter;
-# with neither, the executed chunks do: an {r} chunk is knitr, else {python}
-# is jupyter, else {julia} is julia. Only lower-case languages are executable
-# (Quarto's rule), and Quarto reads its cells outside fenced examples, so a
-# chunk shown inside a plain fence does not count (knitr would run it, but the
-# engine is chosen before knitr runs: unfenced_chunks()). When the document's
-# `path` is given, the keys and the chunks are read from the include-expanded
-# text (rule P4), and a notebook or a percent script is jupyter whatever it
-# says (J8).
+# For each line, is it inside a plain fence that opened above it (the fences of unfenced_chunks()).
+fenced_lines <- function(lines) {
+  doc_memo("fenced_lines", lines, function(l) {
+    pl <- plain_blocks(l, logical(length(l)), any_brace = TRUE)$fences
+    out <- logical(length(l))
+    inner <- pl$close > pl$open
+    if (any(inner)) out[sequence(pl$close[inner] - pl$open[inner], pl$open[inner] + 1L)] <- TRUE
+    out
+  })
+}
+
+# ---- the engine Quarto runs a document on ---------------------------------------------------------
+
+# Quarto 1.11.9's markdownExecutionEngine() (src/execute/engine.ts), the ruling of 27 Nov. Its engines, in
+# order: a project's `engines:` list first, then julia, knitr, jupyter, markdown. The front block's keys
+# come first: the first engine of that order that a truthy top-level key of its name claims (`knitr: true`,
+# a `knitr:` mapping, `jupyter: python3`), or that `engine:` or `execute: engine:` names, is the engine.
+# Only then do the chunk languages decide (quarto_chunk_langs()). knitr's own pattern still decides which
+# chunks run (find_chunks()): `{r-x}` picks knitr and runs nothing.
+QUARTO_ENGINES <- c("julia", "knitr", "jupyter", "markdown")
+
+# The languages of Quarto's cell handlers (mermaid, dot) and `ojs`: a chunk of one of these alone does not
+# send a document to jupyter.
+QUARTO_HANDLER_LANGS <- c("mermaid", "dot", "ojs")
+
+# Quarto's chunk header for the engine (languagesWithClasses()): the language, lower-cased.
+QUARTO_LANG_RE <- "^[\t >]*```+\\s*\\{([a-zA-Z][a-zA-Z0-9_.]*)([^}]*)?\\}\\s*$"
+# Quarto's cell start and end (breakQuartoMd()), which decide the text the languages are read from.
+QUARTO_CELL_RE <- "^\\s*(```+)\\s*\\{([=A-Za-z][=A-Za-z0-9._]*)( *[ ,].*)?\\}\\s*$"
+QUARTO_CODE_END_RE <- "^\\s*(```+)\\s*$"
+
+# The lines of the chunk headers Quarto reads the engine's languages from, with their languages: every line
+# of QUARTO_LANG_RE, but not the header of a cell that never closes (breakQuartoMd() leaves an unclosed
+# cell's header out of the text it hands on, when the file ends in a newline, as a file read by lines is
+# taken to), and not a header inside a plain fence (fenced_lines(); Quarto 1.11.9 reads those too, the
+# sweep-d table holds them out: dev/decisions.md, 27 Nov).
+quarto_chunk_headers <- function(lines) {
+  doc_memo("quarto_chunk_headers", lines, function(l) {
+    hdr <- which(grepl(QUARTO_LANG_RE, l, perl = TRUE))
+    if (!length(hdr)) return(list(line = integer(), lang = character()))
+    hdr <- setdiff(hdr, c(quarto_unclosed_cell(l), which(fenced_lines(l))))
+    lang <- tolower(sub(QUARTO_LANG_RE, "\\1", l[hdr], perl = TRUE))
+    list(line = hdr, lang = lang)
+  })
+}
+
+# The chunk languages Quarto picks the engine by, in order, once each.
+quarto_chunk_langs <- function(lines) unique(quarto_chunk_headers(lines)$lang)
+
+# The header line of the cell breakQuartoMd() leaves open at the end of `lines`, or integer(): its states
+# (a YAML block, a cell, a plain backtick block) change only on `---` lines and on lines that start with
+# backticks, so only those are read.
+quarto_unclosed_cell <- function(lines) {
+  n <- length(lines)
+  cand <- which(grepl("^(---\\s*$|\\s*```)", lines, perl = TRUE))
+  if (!length(cand)) return(integer())
+  blank <- function(j) j < 1L || j > n || !nzchar(trimws(lines[j]))
+  in_yaml <- FALSE
+  in_cell <- NA_integer_
+  in_code <- 0L
+  for (i in cand) {
+    l <- lines[i]
+    if (grepl("^---\\s*$", l, perl = TRUE) && is.na(in_cell) && in_code == 0L &&
+        (in_yaml || !(i > 1L && blank(i - 1L) && blank(i + 1L)))) {
+      in_yaml <- !in_yaml
+    } else if (!in_yaml && is.na(in_cell) && in_code == 0L && grepl(QUARTO_CELL_RE, l, perl = TRUE)) {
+      in_cell <- i
+      in_code <- nchar(sub(QUARTO_CELL_RE, "\\1", l, perl = TRUE))
+    } else if (in_code > 0L && grepl(QUARTO_CODE_END_RE, l, perl = TRUE) &&
+               nchar(sub(QUARTO_CODE_END_RE, "\\1", l, perl = TRUE)) == in_code) {
+      in_cell <- NA_integer_
+      in_code <- 0L
+    } else if (in_code == 0L && startsWith(l, "```")) {
+      # the backticks of the first word (tickCount())
+      in_code <- nchar(gsub("[^`]", "", sub(" .*$", "", l)))
+    }
+  }
+  if (is.na(in_cell)) integer() else in_cell
+}
+
+# The engine that the front block's keys claim, in Quarto's order `order`, or NA (then the chunks decide).
+# `fm` is the front block's lines, read as text: a top-level key at column 0; a value is falsy when it is
+# `false`, `null`, `~`, `0` or empty with nothing indented under it. `engine:` is lower-cased, and its
+# mapping form names its first key (Quarto 1.11.9 refuses both; weft keeps the older reading, the grammar
+# table's `engine: Knitr` row); of `engine:` and `execute: engine:` the later key wins, as Quarto's
+# metadataAsFormat() merges them.
+front_engine_claim <- function(fm, order) {
+  if (!length(fm)) return(NA_character_)
+  top <- which(grepl("^[A-Za-z_][A-Za-z0-9_.-]*[ \t]*:", fm))
+  if (!length(top)) return(NA_character_)
+  key <- sub("[ \t]*:.*$", "", fm[top])
+  val <- vapply(top, function(i) yaml_scalar_text(sub("^[^:]*:", "", fm[i])), "")
+  raw <- vapply(top, function(i) trim_ws(sub("(^|[ \t])#.*$", "", sub("^[^:]*:", "", fm[i]))), "")
+  # the indented lines under each top-level key
+  under <- function(t) {
+    to <- if (t < length(top)) top[t + 1L] - 1L else length(fm)
+    if (to <= top[t]) return(character())
+    b <- fm[(top[t] + 1L):to]
+    b[nzchar(trim_ws(b)) & !grepl("^[ \t]*#", b)]
+  }
+  truthy <- function(t) {
+    if (!nzchar(raw[t])) return(length(under(t)) > 0L)
+    !(raw[t] %in% c("false", "False", "FALSE", "null", "Null", "NULL", "~", "0", "\"\"", "''"))
+  }
+  child_engine <- function(t) {
+    b <- under(t)
+    if (!length(b)) return(NA_character_)
+    ind <- nchar(sub("[^ \t].*$", "", b[1L]))
+    e <- b[nchar(sub("[^ \t].*$", "", b)) == ind & grepl("^[ \t]*engine[ \t]*:", b)]
+    if (length(e)) yaml_scalar_text(sub("^[^:]*:", "", e[1L])) else NA_character_
+  }
+  exec <- NA_character_
+  for (t in seq_along(top)) {
+    if (key[t] == "engine") {
+      v <- val[t]
+      if (!nzchar(v)) {
+        b <- under(t)
+        v <- if (length(b)) sub("^[ \t]*([A-Za-z]+).*$", "\\1", b[1L]) else ""
+      }
+      exec <- tolower(v)
+    } else if (key[t] == "execute") {
+      e <- child_engine(t)
+      if (!is.na(e)) exec <- tolower(e)
+    }
+  }
+  for (e in order) {
+    t <- which(key == e)
+    if (length(t) && truthy(t[length(t)])) return(e)
+    if (identical(exec, e)) return(e)
+  }
+  NA_character_
+}
+
+# The engine names a project's `engines:` lists (its `_quarto.yml` and active profiles), in order: those
+# Quarto puts ahead of its own. An extension engine (a mapping with a `path`) has no name weft knows.
+quarto_project_engines <- function(path) {
+  if (is.null(path) || is.na(path)) return(character())
+  files <- quarto_layer_files(path)
+  files <- files[!grepl("_metadata\\.ya?ml$", files)]
+  e <- unlist(lapply(files, function(f) {
+    v <- quarto_layer_yaml(f)[["engines"]]
+    Filter(function(x) is.character(x) && length(x) == 1L, as.list(v))
+  }))
+  unique(as.character(e))
+}
+
+# The engine and how it was chosen (`by`: "key" or "chunks"), from the front block `fm` and the lines the
+# chunks are read from, for a project whose `engines:` list is `project`.
+quarto_engine_choice <- function(fm, chunk_lines, project = character()) {
+  order <- unique(c(project, QUARTO_ENGINES))
+  e <- front_engine_claim(fm, order)
+  if (!is.na(e)) return(list(engine = e, by = "key"))
+  langs <- quarto_chunk_langs(chunk_lines)
+  # only r (knitr) and julia (julia, and jupyter after it) are claimed; Quarto takes the first claimed
+  # language in the text, and an R chunk anywhere is taken first here (the sweep-d table pins it: decisions,
+  # 27 Nov); with neither, a language outside Quarto's handlers sends the document to jupyter
+  e <- if ("r" %in% langs) {
+    "knitr"
+  } else if ("julia" %in% langs) {
+    order[order %in% c("julia", "jupyter")][1L]
+  } else if (length(setdiff(langs, QUARTO_HANDLER_LANGS))) {
+    "jupyter"
+  } else {
+    "markdown"
+  }
+  list(engine = e, by = "chunks")
+}
+
+# The engine Quarto runs a document on: "knitr", "jupyter", "julia" or "markdown", by
+# quarto_engine_choice(). When the document's `path` is given, the keys and the chunks are read from the
+# include-expanded text (rule P4), its project's `engines:` list is read, a notebook or a percent script
+# is jupyter whatever it says (J8), and an `.Rmd` is knitr's (Quarto's knitr engine claims the file).
 quarto_engine <- function(lines, path = NULL) {
   if (!is.null(path) && is_jupyter_path(path)) return("jupyter")
+  if (!is.null(path) && grepl("\\.(rmd|rmarkdown)$", path, ignore.case = TRUE)) return("knitr")
   xl <- front_source_lines(path, lines)
-  fm <- front_block(xl)
-  k <- grep("^engine[ \t]*:", fm)
-  if (length(k)) {
-    v <- sub("(^|[ \t])#.*$", "", sub("^engine[ \t]*:", "", fm[k[1L]]))
-    v <- tolower(gsub("^[ \t\"']+|[ \t\"']+$", "", v))
-    if (!nzchar(v) && k[1L] < length(fm)) {
-      nxt <- regmatches(fm[k[1L] + 1L], regexec("^[ \t]+([A-Za-z]+)[ \t]*:", fm[k[1L] + 1L]))[[1]]
-      if (length(nxt)) v <- tolower(nxt[2L])
-    }
-    return(if (v %in% c("knitr", "jupyter", "julia")) v else "markdown")
-  }
-  if (any(grepl("^knitr[ \t]*:", fm))) return("knitr")
-  if (any(grepl("^jupyter[ \t]*:", fm))) return("jupyter")
-  langs <- vapply(unfenced_chunks(xl), function(ch) ch$engine, "")
-  if ("r" %in% langs) return("knitr")
-  if ("python" %in% langs) return("jupyter")
-  if ("julia" %in% langs) return("julia")
-  "markdown"
+  quarto_engine_choice(front_block(xl), xl, quarto_project_engines(path))$engine
 }
 
 # `lines` with the block-quote markers of a quoted chunk taken off its lines
@@ -1246,26 +1389,22 @@ caption_ids <- function(extra) {
 has_child_chunk <- function(lines) any(grepl("child[ \t]*[=:]", lines))
 
 # Does the Lua filter resolve the spans of this document (N14): any document the knitr hooks do not knit.
-# The hooks knit an `.Rmd`; a `.qmd` with `engine: knitr`, or with an executed {r} chunk and no `engine:` or
-# `jupyter:` key. Read from the lines with no parse: the first metadata block's top-level keys, and the
-# chunk headers. `fm` is the front block and `chunk_lines` the lines the chunks are read from, when the
-# caller has read them from the include-expanded text (rule P4). A notebook or a percent script is Jupyter's
-# (J8), so the filter's.
+# The hooks knit an `.Rmd`; a `.qmd` that Quarto runs on knitr (quarto_engine_choice()), unless the engine
+# came from its chunks and every R chunk among them is `eval = FALSE` (`#| eval: false`). Read from the lines
+# with no parse: the first metadata block's top-level keys, and the chunk headers. `fm` is the front block and
+# `chunk_lines` the lines the chunks are read from, when the caller has read them from the include-expanded
+# text (rule P4). A notebook or a percent script is Jupyter's (J8), so the filter's.
 filter_resolves <- function(lines, file = NA_character_, fm = front_block(lines), chunk_lines = lines) {
   if (!is.na(file) && grepl("\\.rmd$", file, ignore.case = TRUE)) return(FALSE)
   if (!is.na(file) && is_jupyter_path(file)) return(TRUE)
+  ch <- quarto_engine_choice(fm, chunk_lines, quarto_project_engines(if (is.na(file)) NULL else file))
+  if (ch$engine != "knitr") return(TRUE)
+  if (ch$by == "key") return(FALSE)
+  # the header test is the Lua filter's too (source_is_knitr()) and the grammar table's: keep them together
   lines <- chunk_lines
   n <- length(lines)
-  eng <- grep("^engine[ \t]*:", fm, value = TRUE)
-  if (length(eng)) {
-    v <- trim_ws(sub("(^|[ \t])#.*$", "", sub("^engine[ \t]*:", "", eng[1L])))
-    v <- tolower(gsub("^[\"']|[\"']$", "", v))
-    return(!identical(v, "knitr"))
-  }
-  if (any(grepl("^jupyter[ \t]*:", fm))) return(TRUE)
-  # the header test is the Lua filter's too (source_is_knitr()) and the grammar table's: keep them together
-  hdr <- grep("^[ \t>]*`{3,}[ \t]*\\{[ \t]*[rR][ \t,}]", lines)
-  for (k in hdr) {
+  h <- quarto_chunk_headers(lines)
+  for (k in h$line[h$lang == "r"]) {
     if (grepl("[ ,{]eval[ \t]*=[ \t]*(FALSE|F)[ \t]*[,}]", lines[k])) next
     j <- k + 1L
     off <- FALSE

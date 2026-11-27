@@ -7,15 +7,18 @@
 # 1. the executable chunks, over the whole text, as knitr finds them (knitr_chunks()): knitr swaps each one
 #    for its output before Pandoc reads anything, so a chunk is a chunk inside an HTML comment, inside a
 #    plain fence, at any indent and behind any `>` markers;
-# 2. in the text outside the chunks, the plain fences as CommonMark (and Pandoc) reads them, the HTML
-#    comments that hide them and the metadata blocks (plain_blocks()).
+# 2. in the text outside the chunks, the plain fences as Pandoc's `markdown` reader (which Quarto uses)
+#    reads them, the HTML comments that hide them and the metadata blocks (plain_blocks()). Where Pandoc
+#    markdown and CommonMark agree, CommonMark's rules describe them; where they differ (an unclosed fence,
+#    an info string of more than one word, a fence at indent 4 in a list item with no blank line above),
+#    Pandoc's reading holds (the amendment of 27 Nov, late).
 #
 # `doc_fences(lines)` gives both: `fences`, a data frame with a row per fence (chunks and plain ones, by
-# their opening line): `open`, `close` (the closer, or the last line of an unclosed fence: line n, or the
-# last line of the quote or list item an unclosed fence was opened in), `info` (the text after the fence
-# characters), `chunk`, `closed`, and for a chunk its `engine` and `header` (the options after the engine);
-# and `meta`, the metadata blocks' `open` and `close`. A chunk opened inside a plain fence is a row of its
-# own inside that fence's rows.
+# their opening line): `open`, `close` (the closer; for an unclosed chunk, line n), `info` (the text after
+# the fence characters), `chunk`, `closed` (a plain fence is always closed: an unclosed one is no fence),
+# and for a chunk its `engine` and `header` (the options after the engine); and `meta`, the metadata
+# blocks' `open` and `close`. A chunk opened inside a plain fence is a row of its own inside that fence's
+# rows.
 doc_fences <- function(lines) doc_memo("doc_fences", lines, doc_fences_)
 
 doc_fences_ <- function(lines) {
@@ -118,7 +121,24 @@ knitr_chunks <- function(lines) {
              substring(spec, nchar(engine) + 1L))
 }
 
-# ---- pass 2: plain fences, comments and metadata blocks, as CommonMark reads them --------------------------
+# ---- pass 2: plain fences, comments and metadata blocks, as Pandoc's markdown reader reads them -------------
+
+# The info strings that open a fence to Pandoc's markdown reader: none; one word (no white space, `{` or
+# backtick in it), then optionally an attribute block; an attribute block alone (`{#id .class key=value}`,
+# items as Pandoc's attribute parser reads them); or a raw attribute (`{=html}`). Anything else (two words, a
+# backtick, `{python}`, `{ r }`) is no fence: the line is prose.
+PANDOC_ATTR_RE <- paste0(
+  "\\{[ \t]*(?:(?:#[A-Za-z0-9_:.-]+|\\.[A-Za-z][A-Za-z0-9_:.-]*",
+  "|[A-Za-z][A-Za-z0-9_:.-]*=(?:\"(?:[^\"\\\\]|\\\\.)*\"|'(?:[^'\\\\]|\\\\.)*'|[^ \t}]+)|-)[ \t]*)*\\}")
+PANDOC_INFO_RE <- paste0("^(?:\\{[ \t]*=[A-Za-z0-9_-]+[ \t]*\\}|[^ \t{`]*[ \t]*(?:", PANDOC_ATTR_RE, ")?)$")
+
+# Does a fence line's info string (`x`, trimmed) open a fence for Pandoc's markdown reader? With `any_brace`,
+# a braced info string (a chunk header) does too.
+pandoc_fence_info <- function(x, any_brace = FALSE) {
+  ok <- grepl(PANDOC_INFO_RE, x, perl = TRUE)
+  if (any_brace) ok <- ok | grepl("^\\{.*\\}$", x)
+  ok
+}
 
 # A fence line read as CommonMark reads it: `depth` (the number of block-quote markers), `indent` (the
 # columns before the fence characters: inside the quote when it is quoted, a tab to the next stop of 4),
@@ -163,9 +183,10 @@ lead_width <- function(l) nchar(regmatches(l, regexpr("^ *", expand_lead_tabs(l)
 # The content column of the list item a line `k` indented `ind` (4 or more) columns sits in, or NA: the
 # nearest item above whose content starts at most 3 columns to the left of it, through blank lines and
 # lines that may belong to the item. A top-level block above (a line at column 0 after a blank line) ends
-# the search: then the line is indented code, or a paragraph's.
+# the search: then the line is indented code, or a paragraph's. An empty item (`-` alone) has its content
+# one column after its marker, as Pandoc's markdown reader reads it.
 list_item_col <- function(lines, k, ind) {
-  item_re <- "^( *)([-+*]|[0-9]{1,9}[.)])( {1,4})(?=\\S)"
+  item_re <- "^( *)([-+*]|[0-9]{1,9}[.)])(?:( {1,4})(?=\\S)|[ \t]*$)"
   blank <- function(j) !nzchar(trim_ws(lines[j]))
   j <- k - 1L
   while (j >= 1L) {
@@ -176,7 +197,7 @@ list_item_col <- function(lines, k, ind) {
     l <- expand_lead_tabs(lines[j])
     m <- regmatches(l, regexec(item_re, l, perl = TRUE))[[1L]]
     if (length(m)) {
-      c0 <- nchar(m[1L])
+      c0 <- if (nzchar(m[4L])) nchar(m[1L]) else nchar(m[2L]) + nchar(m[3L]) + 1L
       if (ind >= c0 && ind <= c0 + 3L) return(c0)
       if (!nzchar(m[2L])) return(NA_integer_)
     } else if (lead_width(l) == 0L && (j == 1L || blank(j - 1L))) {
@@ -188,19 +209,24 @@ list_item_col <- function(lines, k, ind) {
 }
 
 # The plain fences, the HTML comments and the metadata blocks of `lines`, read in one pass over the lines
-# outside the chunks (`inchunk`), by CommonMark's rules as Pandoc applies them:
+# outside the chunks (`inchunk`), as Pandoc's markdown reader reads them (CommonMark's rules where the two
+# agree):
 # - a fence is 3 or more backticks or tildes, indented at most 3 spaces (inside its block quote, or inside
-#   its list item); a backtick fence whose info string holds a backtick is not a fence;
+#   its list item), whose info string is none, one word, an attribute block or both (pandoc_fence_info();
+#   `any_brace`: or any braced text, for a reading that takes chunk headers as fences); in a list item, a
+#   fence indented 4 or more columns needs a blank line (or a block's end) above it, else it is the
+#   paragraph's text;
 # - it closes at a line of the same character, at least as long, with only spaces after it, in the same
 #   container; a fence opened in a block quote ends with its quote, one in a list item with its item, and
-#   a quoted line does not close a fence opened outside a quote; an unclosed fence runs to line n;
+#   a quoted line does not close a fence opened outside a quote; a fence that does not close there is no
+#   fence: its lines are prose, read on as if it were not there;
 # - an HTML comment that starts a line (`<!--`, indented at most 3 spaces) runs to its `-->` and hides the
 #   fences and the blocks in it; one that never ends hides nothing;
 # - a metadata block opens with a line that is exactly `---` (trailing white space allowed, no indent) at
 #   the top of the file (only blank lines above) or after a blank line, followed by a line that is not
 #   blank, closes at the next `---` or `...` line, and holds a YAML mapping (rule 2.1.6).
 # Fences and blocks inside a fence, a comment or a block are not read.
-plain_blocks <- function(lines, inchunk) {
+plain_blocks <- function(lines, inchunk, any_brace = FALSE) {
   n <- length(lines)
   fl <- grepl("^[ \t>]*(`{3,}|~{3,})", lines) & !inchunk
   co <- grepl("^ {0,3}<!--", lines) & !inchunk
@@ -253,14 +279,17 @@ plain_blocks <- function(lines, inchunk) {
     if (fl[k]) {
       r <- at[k]
       if (!pf$ok[r]) next
-      if (pf$fch[r] == "`" && grepl("`", pf$info[r], fixed = TRUE)) next
+      if (!pandoc_fence_info(trimws(pf$info[r]), any_brace)) next
       c0 <- 0L
       if (pf$indent[r] > 3L) {
         if (pf$depth[r] > 0L) next
+        # no blank line (or end of a block) above: the line goes on the paragraph above (Pandoc markdown)
+        if (k > 1L && !is_blank(lines[k - 1L]) && !inchunk[k - 1L] && !((k - 1L) %in% f_close)) next
         c0 <- list_item_col(lines, k, pf$indent[r])
         if (is.na(c0)) next
       }
       fc <- fence_close(k, r, c0)
+      if (!fc$closed) next
       f_open <- c(f_open, k)
       f_close <- c(f_close, fc$close)
       f_info <- c(f_info, trimws(pf$info[r]))
