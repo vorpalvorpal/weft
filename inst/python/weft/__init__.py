@@ -321,6 +321,11 @@ def _quarto_root(main_dir):
 
 def _include_targets(lines, main_dir, root, in_included):
     """The paths the includes of one file's lines resolve to (absolute; the file may not exist)."""
+    return [p for _, p in _include_lines(lines, main_dir, root, in_included)]
+
+
+def _include_lines(lines, main_dir, root, in_included):
+    """(index of the line, path it resolves to) of each include of one file's lines (I1 to I5)."""
     skip = None if in_included else _include_skipped(lines)
     out = []
     for k, line in enumerate(lines):
@@ -334,7 +339,7 @@ def _include_targets(lines, main_dir, root, in_included):
             continue
         p = sc[1][0]
         p = root.rstrip("/") + p if p.startswith("/") else _os.path.join(main_dir, p)
-        out.append(_os.path.realpath(_os.path.normpath(p)))
+        out.append((k, _os.path.realpath(_os.path.normpath(p))))
     return out
 
 

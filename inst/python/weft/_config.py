@@ -13,8 +13,10 @@ kept: a kernel's environment can go stale, and the files cannot. Standard librar
              `---` at the top (only blank lines above) or after a blank line, a next line that is not
              blank, closed at the next `---` or `...` line, holding a mapping, and not inside a fence
              or an HTML comment. A later block's `weft:` replaces an earlier one's whole, so the value
-             is read from the last block with a top-level `weft:` key. The document's value, when it
-             has one, wins over _weft.yml.
+             is read from the last block with a top-level `weft:` key. The blocks are read with the
+             document's includes expanded as Quarto expands them (rule P5; the include rules I1 to I6,
+             by the package's own include reader): an included file's blocks sit where its include
+             sits. The document's value, when it has one, wins over _weft.yml.
 
 The result is "collect" exactly when the value that applies is `collect`; anything else, an absent
 key, `Collect`, `true` or an empty value, is "stop".
@@ -202,10 +204,40 @@ def _blocks(lines):
     return out
 
 
+def _expanded(source, lines):
+    """The lines of the document `source` with every include expanded as Quarto splices them: each include
+    line replaced by the included file's expanded lines and one blank line (two for an include inside an
+    included file). A file is not expanded inside itself (I6); an include whose file cannot be read stays
+    the line it is. The twin of R's include_expand()."""
+    if not any("{{< " in line for line in lines):
+        return lines
+    from . import _include_lines, _quarto_root
+    main = _os.path.realpath(_os.path.abspath(source))
+    main_dir = _os.path.dirname(main)
+    root = _quarto_root(main_dir)
+    out = []
+
+    def go(ls, key, stack, in_included):
+        targets = dict(_include_lines(ls, main_dir, root, in_included))
+        stack = stack | {key}
+        for k, line in enumerate(ls):
+            p = targets.get(k)
+            sub = _lines(p) if p is not None and p not in stack and _os.path.isfile(p) else None
+            if sub is None:
+                out.append(line)
+                continue
+            go(sub, p, stack, True)
+            out.extend([""] * (2 if in_included else 1))
+
+    go(lines, main, frozenset(), False)
+    return out
+
+
 def _front_value(source):
     lines = _lines(source)
     if not lines:
         return None
+    lines = _expanded(source, lines)
     weft = [b for b in _blocks(lines) if any(_WEFT_KEY.match(line) for line in b)]
     if not weft:
         return None
