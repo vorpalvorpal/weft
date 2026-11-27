@@ -980,6 +980,64 @@ behaviour went through test-first.
   reasons, are in that file: reading `weft:` from Quarto's merged metadata;
   modelling `doc.meta` instead of Quarto's view; a lint in place of
   following I6; `metadata-files`.
+- **Stage 3, P6 and P7 (built 27 Nov).** Notebooks and percent scripts are
+  read as the markdown text Quarto reads their front matter from
+  (`markdownFromNotebookJSON`, `markdownFromJupyterPercentScript`): each raw
+  and markdown cell, then a blank line; the block rules of 2.1.6 apply to
+  that text, so F2 decides within a cell. One reader per language
+  (`R/notebook.R`, `weftlib/config.lua` with `pandoc.json`, `weft/_config.py`
+  with `json`, `Weft/src/notebook.jl` with a small base-only JSON reader,
+  since the Julia package takes no dependencies). Includes are not expanded
+  in a notebook or a percent script: Quarto's own reading of their metadata
+  does not expand them.
+- **How the lints read `.ipynb` prose: a virtual document.** `read_source()`
+  reads a notebook as the `.qmd` its cells make (markdown cells as prose, a
+  raw cell verbatim unless it names a format and is not a block, a code cell
+  as a chunk in the kernel's language, fenced longer than any run of
+  backticks in it), with a map from each line to the JSON. Every rule then
+  runs unchanged. Refused: reading only the front matter of a notebook and
+  none of its prose (the lints would then honour a notebook's `lang` and never
+  use it); converting with `quarto convert` or jupytext (Quarto or Python at
+  lint time, and files written); scanning the JSON text itself (escapes,
+  outputs, and every rule taught JSON). `lints()` lists `.ipynb`; the gate,
+  `verify()`, `checks()` and `status()` do not yet, and percent scripts are
+  not linted (a `.py` is code unless it has a markdown cell, and the lints
+  read scripts as R).
+- **Where a finding in a notebook is placed: the line and column in the
+  JSON file.** The line of the JSON string that holds the source line, and
+  the column of the character in that JSON line, escapes counted as written
+  (`\"` is two columns). Chosen over the cell index (the convention of ruff
+  and nbqa, `cell 3:2:1`) because a finding's `line` and `col` are integers
+  that editors and `git diff` read as places in the file:
+  a cell index would need a new column or would overload `line`. Jupyter,
+  VS Code and nbformat write one source line per JSON line, so the line is
+  the one a text editor shows; a notebook written as one JSON line puts every
+  finding on line 1 with an exact column. A finding about the whole file
+  (context `project`, such as `engine`) stays at 1:1; one in a fence or blank
+  line weft adds is placed at the cell's `"source"` key. Refused also: the
+  virtual line numbers (no place in any file).
+- **A notebook's `engine` finding has its own message** (rule 5.8.9, case 0):
+  no key makes a notebook knitr's (J8), so case 1's "is marked
+  `engine: markdown`" would mislead; the same message with or without a key.
+- **P6 placement.** A later block the `.qmd` writes is reported at its `---`
+  line; one from an included file at the include's line, as P5 places nothing
+  in an included file.
+- **P4 follow-up.** With no engine key the chunks of the include-expanded text
+  pick the engine: `quarto_engine()`, the scanner's `filter_resolves()`, the
+  lints' `dl_knitr_doc()` and `engine_message()`, and Lua's
+  `source_is_knitr()`. `use_setup()`'s `qmd_needs_engine()` still reads the
+  document's own chunks: it decides what to write into that file.
+- **`knitr:` picks knitr in `quarto_engine()`** (9.2.8, Quarto's
+  `markdownExecutionEngine`), which the P6 control "a knitr: key in the first
+  block has no finding" needs. `engine:` still decides first; Quarto's exact
+  order (a `knitr:` key beats `engine: jupyter`) is not modelled, nor in
+  `filter_resolves()` and Lua, which kept their reading.
+- **Disputed test.** "P4 (R engine lint): with no engine key, an r chunk in
+  an included file makes the document knitr" expects no `engine` finding.
+  Rule 5.8.9 (the table: "has `engine: knitr` in its own front matter
+  (9.2.8)") and the test "5e G38 case 4: an R chunk ... keeps today's message
+  and hint" make a document with its own `{r}` chunk and no key a finding, so
+  one whose `{r}` chunk is included is one too. Left failing, for a ruling.
 
 ## An html target and rich plot text (2026-11-27)
 

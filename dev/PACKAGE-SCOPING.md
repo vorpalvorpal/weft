@@ -1721,8 +1721,12 @@ themselves, by these rules (the evidence is in
   the engine; one further down never does. `.ipynb` and `.py` are always
   Jupyter. Other `execute:` options come through P1's layers. The knit's
   scanner, `status()`, the lints and the filter's `source_is_knitr` read the
-  engine keys so; the chunks that pick an engine when no key does are still
-  the document's own.
+  engine keys so, and with no key the chunks that pick the engine are those
+  of the include-expanded text too, as Quarto's are: an `{r}` chunk in an
+  included file makes the document knitr's (for the scanner, the filter and
+  the lints' reading of the engine; the `engine` lint still asks for
+  `engine: knitr`, 9.2.8). A `knitr:` key in the first block picks knitr, as
+  an `engine:` key does (9.2.8).
 - **P5. An included file's front matter is part of the document**, its blocks
   at the include's position after full expansion, the later block winning per
   top-level key. The included file's folder `_metadata.yml` does not apply.
@@ -1737,11 +1741,33 @@ themselves, by these rules (the evidence is in
   block is honoured but not placed in the included file.
 - **P6. A later block in a Jupyter-engine `.qmd`** (written or included)
   follows P5, and `front-matter-quarto` reports it: under the Jupyter engine
-  Quarto applies the block but also prints its text. (To be built.)
+  Quarto applies the block but also prints its text. The engine is P4's
+  (`engine: jupyter`, a `jupyter:` key, or a `{python}` chunk and no key);
+  every block of the include-expanded text but the front block is reported,
+  one the document writes at its `---` line and one from an included file at
+  the include's line (5.8 rule 10).
 - **P7. Notebooks and scripts have front matter.** In an `.ipynb`, every raw
   or markdown cell whose source is a `---` block is a block, in cell order. In
   a percent `.py`, the same for `# %% [markdown]` and `# %% [raw]` cells, the
-  leading `# ` stripped. All readers read them. (To be built.)
+  leading `# ` stripped. All readers read them. As Quarto does
+  (`markdownFromNotebookJSON`, `markdownFromJupyterPercentScript`), the text
+  read is each raw and markdown cell's source, in cell order, each followed by
+  a blank line, and items 2 and 3 apply to it, so a `---` block with text
+  above it in its cell is no block, and a later cell's block wins per
+  top-level key. Code cells hold none. A percent cell has its empty lines at
+  either end dropped and `#` and one white-space character taken off each line
+  (or is the lines inside its `"""` lines); a raw cell that names a format is
+  raw output; the text above the first `# %%` line is no cell, and a `.py`
+  with no markdown or raw cell has no front matter (J7). Includes are not
+  expanded in either. Both are Jupyter's whatever their front matter says
+  (J8). The lints read an `.ipynb` as a document (5.1.8): a markdown cell is
+  prose, a raw cell is its text (raw output when it names a format and is not
+  a block), and a code cell is a chunk in the kernel's language. A finding in
+  a notebook is placed in its JSON file: at the line of the JSON string that
+  holds the source line, and at the column of the character in that JSON line,
+  escapes counted as written; a finding a fence or blank line weft adds holds
+  is placed at the cell's `"source"` key. The lints do not read percent
+  scripts.
 - **P8. Under rmarkdown or plain knitr there are no layers**: weft reads
   `_weft.yml` and the document only. At knit time the renderer is known
   (`QUARTO_EXECUTE_INFO`). For the lints, `.qmd`, `.ipynb` and `.py` are
@@ -5312,7 +5338,8 @@ when asked for. When `tier` is given and a named rule lies outside it, a note
 says so. `reader` is `"weft"`, the package's own reader and the default, or
 `"pandoc"` (2.10.3). An unknown rule id is an error that offers the nearest.
 
-**5.1.8** Every `.qmd`, `.Rmd` and `.rmd` under the root is read, whatever
+**5.1.8** Every `.qmd`, `.Rmd`, `.rmd` and, for `lints()`, `.ipynb` under
+the root is read (a notebook as the document its cells make, 2.1.6 P7), whatever
 `files` says, because ids, anchors, includes and child documents are
 project-wide. Folders whose name starts with `.`, and `renv`, are skipped.
 Folders whose name starts with `_` (an include folder, `_partials`) are read
@@ -5723,8 +5750,8 @@ nothing, and no finding says so. Without the setting nothing changes.
 | 6 | `dict-key` | every `dict$key` and `dict_local$key` read names a key that exists, under the rules of §4.3 | 1 |
 | 7 | `tar-cache` | a chunk that reads a pipeline target (`tar_read()`, `tar_load()`) does not have `cache: true` | 1 |
 | 8 | `config-place` | no `weft:` key in Quarto's project files, nor under `format: <fmt>:` in them or in front matter (9.1.1); where `_weft.yml` exists, no `draft` and no part switched off in a document's front matter (9.1.4) | 1 |
-| 9 | `engine` | a `.qmd` that holds a construct, and is rendered on its own rather than included or knit as a child, has `engine: knitr` in its own front matter (9.2.8), or holds only named values and spans in the grammar of 1.12.4 and has the resolver installed | 1 |
-| 10 | `front-matter-quarto` | in a `.qmd`, no `---` block that Quarto reads as front matter and Pandoc does not (2.1.6): one with text directly above its `---` line, and one inside a `~~~` fence | 1 |
+| 9 | `engine` | a `.qmd` that holds a construct, and is rendered on its own rather than included or knit as a child, has `engine: knitr` in its own front matter (9.2.8), or holds only named values and spans in the grammar of 1.12.4 and has the resolver installed; an `.ipynb` that holds a construct holds only those, with the resolver installed (no key makes a notebook knitr's, 2.1.6 P7) | 1 |
+| 10 | `front-matter-quarto` | in a `.qmd`, no `---` block that Quarto reads as front matter and Pandoc does not (2.1.6): one with text directly above its `---` line, and one inside a `~~~` fence; and under the Jupyter engine no block after the front block (2.1.6 P6) | 1 |
 
 - Rule 1: `section-anchor` skips a heading inside a callout or a
   `.panel-tabset` div, which is not a section, and reads a setext underline
@@ -5766,6 +5793,12 @@ nothing, and no finding says so. Without the setting nothing changes.
      `engine: knitr` and no document includes it (rule 5.8.9)." Hint: "Add
      `engine: knitr` to its front matter."
 
+  For a notebook, whatever its front matter says (2.1.6 P7, J8): "a.ipynb
+  holds weft constructs, and a notebook always runs on Jupyter, which does not
+  evaluate weft constructs (rule 5.8.9)." Hint: "Move the prose that holds
+  them to a .qmd marked `engine: knitr`." The chunks of cases 2 to 4 are
+  those of the include-expanded text (2.1.6 P4).
+
   A `.qmd` rendered on its own that is not knit is valid when every
   construct in it is a named value or a span in the grammar of 1.12.4, and
   the resolver is installed: `_quarto.yml` lists the filter `weft-check`
@@ -5784,7 +5817,15 @@ nothing, and no finding says so. Without the setting nothing changes.
   underline is followed by a blank line, so it is no candidate. The finding is
   at the `---` line: "Quarto reads this block as front matter but Pandoc does
   not; put a blank line above it (rule 5.8.10)." or "...; move it out of the
-  `~~~` fence (rule 5.8.10)."
+  `~~~` fence (rule 5.8.10)." Under the Jupyter engine (2.1.6 P4, P6) each
+  metadata block of the include-expanded text after the front block is a
+  finding too: at its `---` line, "Quarto's Jupyter engine applies this later
+  block but also prints its text in the document; move its keys into the
+  first block (rule 5.8.10)."; for a block from an included file, at the
+  include's line, "The file this line includes holds a metadata block that is
+  not the front block; Quarto's Jupyter engine applies it but also prints its
+  text in the document; move its keys into this document's first block (rule
+  5.8.10)."
 
 ### 5.9 Figures and tables
 
