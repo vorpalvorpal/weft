@@ -53,12 +53,10 @@ test_that("G1 (R): the oracle itself: read_front_matter() and metadata_blocks() 
 
 test_that("G1 (oracle): Pandoc reads the probe as a metadata block exactly where the table says collect", {
   efa_skip_if_no_quarto()
-  # Chunks are knitr's, not Pandoc's, so only the cases with no `{r}` header are checked here. One plain case is left
-  # out: Pandoc's markdown reader reads a fence only when its info string is one word or an attribute block, so
-  # "~~~ a`b" is no fence to it (it reads prose, so the probe below it would be a block), where CommonMark and the
-  # R1 ruling say a tilde fence's info may hold a backtick. Reported to the coordinator, not yet ruled.
+  # Chunks are knitr's, not Pandoc's, so only the cases with no `{r}` header are checked here. (Pandoc's markdown
+  # reader reads a fence only when its info string is one word or an attribute block: ruling 27 Nov.)
   for (cs in EFA_MB_CASES) {
-    if (any(grepl("^[ >]*(```|~~~)+ ?\\{", cs$lines)) || cs$name == "R1-tilde-info-backtick-is-a-fence") next
+    if (any(grepl("^[ >]*(```|~~~)+ ?\\{[a-zA-Z]", cs$lines))) next
     expect_identical(efa_pandoc_has_meta(cs$lines, "weft"), cs$want == "collect", label = cs$name)
   }
 })

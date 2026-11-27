@@ -11,7 +11,10 @@
 #   quote); an unclosed chunk runs to the end; tilde `~~~{r}` is not a chunk, and a `~~~` line does not
 #   end a `{r}` chunk (knitr runs it as R code; checked by the orchestrator, 27 Nov).
 # The rulings for plain fences:
-#   R1  a backtick fence whose info string holds a backtick is not an opener; a tilde fence's may
+#   R1  a plain fence whose info string is more than one word, or holds a backtick, is not an opener, backtick or
+#       tilde (27 Nov ruling after 1cb2897: Pandoc's markdown reader reads a fence only for one word or a braced
+#       attribute block, `{.text .x}`; checked with `pandoc -f markdown -t native`). Chunks are knitr's, and a backtick
+#       in a chunk header is fine.
 #   R2  a closer has the same character, is at least as long, and has only spaces after it; a fence is
 #       indented at most 3 spaces
 #   R3  an unclosed CHUNK runs to the end of the document: the last line is n, and the finder says unclosed.
@@ -78,16 +81,20 @@ test_that("R1 (plain): a backtick fence with a backtick in its info is not a fen
   expect_true(is.na(fo_fb_close(c("``` a`b", "text", "```"), 1L)))
 })
 
-test_that("R1 (plain): a tilde fence's info string may hold a backtick", {
-  expect_identical(fo_fb_close(c("~~~ a`b", "x", "~~~"), 1L), 3L)
+test_that("R1 (plain): a tilde fence whose info string holds a backtick, or has two words, is not a fence (Pandoc markdown)", {
+  expect_true(is.na(fo_fb_close(c("~~~ a`b", "x", "~~~"), 1L)))
+  expect_true(is.na(fo_fb_close(c("~~~ a b", "x", "~~~"), 1L)))
+  expect_true(is.na(fo_fb_close(c("```text a", "x", "```"), 1L)))
+  expect_identical(fo_fb_close(c("``` text", "x", "```"), 1L), 3L)
+  expect_identical(fo_fb_close(c("```{.text .x}", "x", "```"), 1L), 3L)
 })
 
 test_that("R1 (plain): metadata_blocks() reads a block after a line that is not a fence opener", {
   expect_identical(fo_mb_pairs(c("``` a`b", "", "---", "k: v", "---")), "3-5")
 })
 
-test_that("R1 (plain): metadata_blocks() reads no block inside a tilde fence whose info holds a backtick", {
-  expect_identical(fo_mb_pairs(c("~~~ a`b", "", "---", "k: v", "---", "~~~")), character())
+test_that("R1 (plain): metadata_blocks() reads a block after a tilde line whose info holds a backtick (it is no fence)", {
+  expect_identical(fo_mb_pairs(c("~~~ a`b", "", "---", "k: v", "---", "~~~")), "3-5")
 })
 
 test_that("R1 (chunk): knitr runs a chunk whose header holds a backtick, so every finder sees it", {
@@ -346,4 +353,15 @@ test_that("amendment 27 Nov: Pandoc's markdown reader reads an unclosed plain fe
   # the same fences closed are fences
   expect_identical(efa_pandoc_verdict(c("```text", "x", "```")), "fence")
   expect_identical(efa_pandoc_verdict(c("> ```", "> x", "> ```")), "fence")
+})
+
+test_that("amendment 27 Nov: Pandoc's markdown reader reads a plain fence only for one word or an attribute block", {
+  skip_if(!nzchar(Sys.which("quarto")), "quarto is not available")
+  for (l in list(c("~~~ a b", "x", "~~~"), c("```text a", "x", "```"), c("``` a b", "x", "```"),
+                 c("~~~ a`b", "x", "~~~"), c("``` a`b", "x", "```"))) {
+    expect_identical(efa_pandoc_verdict(l), "none", label = l[[1]])
+  }
+  for (l in list(c("``` text", "x", "```"), c("```{.text .x}", "x", "```"), c("~~~ text", "x", "~~~"))) {
+    expect_identical(efa_pandoc_verdict(l), "fence", label = l[[1]])
+  }
 })

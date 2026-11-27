@@ -17,7 +17,13 @@ EFA_MB_CASES <- list(
   efa_mb("control-probe-inside-chunk", c("```{r}", EFA_PROBE, "```"), "stop"),
   # R1: a backtick in a backtick fence's info string: not an opener
   efa_mb("R1-backtick-info-is-not-a-fence", c("``` a`b", "", EFA_PROBE), "collect"),
-  efa_mb("R1-tilde-info-backtick-is-a-fence", c("~~~ a`b", "", EFA_PROBE, "~~~"), "stop"),
+  efa_mb("R1-tilde-info-backtick-is-not-a-fence", c("~~~ a`b", "", EFA_PROBE, "~~~"), "collect"),
+  # 27 Nov: Pandoc markdown reads a fence only for one word or a braced attribute block
+  efa_mb("R1-two-word-info-is-not-a-fence", c("```text a", "", EFA_PROBE, "```"), "collect"),
+  efa_mb("R1-two-word-tilde-info-is-not-a-fence", c("~~~ a b", "", EFA_PROBE, "~~~"), "collect"),
+  efa_mb("R1-one-word-info-after-a-space-is-a-fence", c("``` text", "", EFA_PROBE, "```"), "stop"),
+  efa_mb("R1-attribute-block-info-is-a-fence", c("```{.text .x}", "", EFA_PROBE, "```"), "stop"),
+  efa_mb("R1-tilde-one-word-info-is-a-fence", c("~~~ text", "", EFA_PROBE, "~~~"), "stop"),
   efa_mb("R1-chunk-header-backtick-is-a-chunk", c("```{r a`b}", EFA_PROBE, "```"), "stop"),
   # R2: indent and closers
   efa_mb("R2-3-space-fence-hides", c("   ```", "", EFA_PROBE, "   ```"), "stop"),
