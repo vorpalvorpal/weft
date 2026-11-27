@@ -37,8 +37,8 @@
 #' `sprintf("%s", )`, `glue::glue()`, `message()`, `warning()`, `stop()`,
 #' cli's `{v}` and `{.val {v}}`, a ggplot2 title or label, a printed data
 #' frame and `knitr::kable()` give the plain text. `format(v, target = )`
-#' takes `"plain"` (the default), `"markdown"`, `"tex"` or `"ansi"` (plain);
-#' other arguments of `format()` are ignored. `knitr::knit_print()` gives the
+#' takes `"plain"` (the default), `"markdown"`, `"tex"`, `"ansi"` (plain),
+#' `"html"` or `"marquee"` (what the matching `fmt_*()` call gives); other arguments of `format()` are ignored. `knitr::knit_print()` gives the
 #' markdown, joined by ", " inline and one element per line otherwise, so a
 #' document with no weft hooks prints the value right in prose. `print()`
 #' writes a header naming the format, then the plain texts. Three limits are
@@ -265,6 +265,8 @@ sv_texts <- function(x, target, na = NULL) {
                   if (is.null(shown$tex)) tex_class_check(attr(x, "weft_spec")$classes)
                   shown$tex
                 },
+                html = ,
+                marquee = rich_text(shown$markdown, target),
                 shown$plain)
   if (!is.null(na)) out[is.na(out)] <- na
   names(out) <- names(x)
@@ -279,14 +281,19 @@ sv_texts <- function(x, target, na = NULL) {
 as.character.weft_val <- function(x, ...) sv_texts(x, "plain")
 
 #' @rdname val
-#' @param target `"plain"` (the default), `"markdown"`, `"tex"` or `"ansi"`, which is plain.
+#' @param target `"plain"` (the default), `"markdown"`, `"tex"`, `"ansi"` (which is plain),
+#'   `"html"` or `"marquee"`. The last two give what the matching `fmt_*()` call gives for the same
+#'   number and format; the html form has class `c("html", "character")` and the attribute
+#'   `html = TRUE`.
 #' @export
 format.weft_val <- function(x, target = "plain", ...) {
-  if (!is_string(target) || !target %in% c("plain", "markdown", "tex", "ansi")) {
+  if (!is_string(target) || !target %in% c("plain", "markdown", "tex", "ansi", "html", "marquee")) {
     got <- if (is_string(target)) paste0("\"", target, "\"") else "something else"
-    construct_error(sprintf("`target` must be \"plain\", \"markdown\", \"tex\" or \"ansi\"; got %s.", got))
+    construct_error(sprintf(paste0("`target` must be \"plain\", \"markdown\", \"tex\", \"ansi\", ",
+                                   "\"html\" or \"marquee\"; got %s."), got))
   }
-  sv_texts(x, if (identical(target, "ansi")) "plain" else target, na = "NA")
+  out <- sv_texts(x, if (identical(target, "ansi")) "plain" else target, na = "NA")
+  if (identical(target, "html")) structure(out, class = c("html", "character"), html = TRUE) else out
 }
 
 #' @rdname val

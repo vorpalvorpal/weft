@@ -103,7 +103,10 @@ val_p(x, digits = NULL, label = NULL)
 
 \item{...}{Passed on, or ignored where the text says so.}
 
-\item{target}{\code{"plain"} (the default), \code{"markdown"}, \code{"tex"} or \code{"ansi"}, which is plain.}
+\item{target}{\code{"plain"} (the default), \code{"markdown"}, \code{"tex"}, \code{"ansi"} (which is plain),
+\code{"html"} or \code{"marquee"}. The last two give what the matching \verb{fmt_*()} call gives for the same
+number and format; the html form has class \code{c("html", "character")} and the attribute
+\code{html = TRUE}.}
 
 \item{options}{Passed by knitr.}
 
@@ -160,8 +163,8 @@ Printing it never warns again.
 \code{sprintf("\%s", )}, \code{glue::glue()}, \code{message()}, \code{warning()}, \code{stop()},
 cli's \code{{v}} and \verb{\{.val \{v\}\}}, a ggplot2 title or label, a printed data
 frame and \code{knitr::kable()} give the plain text. \code{format(v, target = )}
-takes \code{"plain"} (the default), \code{"markdown"}, \code{"tex"} or \code{"ansi"} (plain);
-other arguments of \code{format()} are ignored. \code{knitr::knit_print()} gives the
+takes \code{"plain"} (the default), \code{"markdown"}, \code{"tex"}, \code{"ansi"} (plain),
+\code{"html"} or \code{"marquee"} (what the matching \verb{fmt_*()} call gives); other arguments of \code{format()} are ignored. \code{knitr::knit_print()} gives the
 markdown, joined by ", " inline and one element per line otherwise, so a
 document with no weft hooks prints the value right in prose. \code{print()}
 writes a header naming the format, then the plain texts. Three limits are
