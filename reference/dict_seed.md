@@ -60,9 +60,9 @@ for (f in c("a.R", "b.R")) writeLines("depth <- 4.5", file.path(dir, f))
 dict_seed(file.path(dir, c("a.R", "b.R")))
 #>    name value differs n
 #> 1 depth   4.5   FALSE 2
-#>                                                                                        files
-#> 1 /tmp/RtmpB7FqLJ/weft-example1a0032270336/a.R, /tmp/RtmpB7FqLJ/weft-example1a0032270336/b.R
-#>                                                                                                      where
-#> 1 /tmp/RtmpB7FqLJ/weft-example1a0032270336/a.R:1: 4.5; /tmp/RtmpB7FqLJ/weft-example1a0032270336/b.R:1: 4.5
+#>                                                                                      files
+#> 1 /tmp/RtmpOVQdG0/weft-example1ab0606b199/a.R, /tmp/RtmpOVQdG0/weft-example1ab0606b199/b.R
+#>                                                                                                    where
+#> 1 /tmp/RtmpOVQdG0/weft-example1ab0606b199/a.R:1: 4.5; /tmp/RtmpOVQdG0/weft-example1ab0606b199/b.R:1: 4.5
 unlink(dir, recursive = TRUE)
 ```
