@@ -369,7 +369,7 @@ filters or `.Rprofile` lines installed into the real project.
 - Not done from the sweep: package F (test helpers: do F1 and F2 only, the
   rest is churn before a release), package H (structural leftovers, one at
   a time, whole suite after each), a Windows CI job (to raise with Robin).
-  (Package H is done except A18, one fence finder, which is open and in
+  (Package H is done; A18, one fence finder, closed 27 Nov, 9fec4f1. It was open and in
   progress 27 Nov; `dev/refactor-sweep.md`. Windows CI is deferred by
   Robin.)
 - Waterways trial: survey in `dev/hw-comparison.md` (public) and
@@ -532,7 +532,7 @@ or hold); no answer yet. (Answered the same day: see "More rulings".)
   `claim-word` noise (closed 14 Nov); the alias-policy tests left by the
   units switch (done 2026-11-25; the tests are open, in progress 27 Nov);
   Windows CI (deferred); the questions listed under "Position after stage 7".
-  (Status on 27 Nov: package H done but A18 (in progress); findings 1, 2,
+  (Status on 27 Nov: package H done, A18 closed 9fec4f1; findings 1, 2,
   7, 21 and `claim-word` noise closed 14 Nov; the alias-policy tests open,
   in progress 27 Nov; Windows CI deferred by Robin; the questions answered
   in "Position and rulings, 27 Nov" at the end.)
@@ -690,7 +690,7 @@ Robin's rulings today:
   - the three "Later" pieces of weft everywhere
     (`dev/plan-weft-everywhere.md`): self-formatting values, an HTML
     target with rich plot text, and a claim collector for scripts;
-  - package H's A18, one fence finder (in progress 27 Nov).
+  - package H's A18, one fence finder (closed 27 Nov, 9fec4f1).
 - **Also open:** the review-closing and targets test warnings (fixture
   warnings leaking from in-process `tar_make`), being fixed 27 Nov.
 - **Fixed today:** `unit_md_to_tex` is linear in the length of the unit
