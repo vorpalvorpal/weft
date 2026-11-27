@@ -39,6 +39,57 @@ first, then `dev/build-log.md`.
   libunwind fix. weft now takes JuliaCall from GitHub (`Remotes:`, 6dc0050) and keeps its own
   preload for a CRAN copy.
 
+## Paused 28 Nov, about 09:55, at Robin's request (read this first)
+
+Robin said: "Pause all your work. Save WIP. I'll pick this up again later." Every agent and
+background run was stopped; no R is running and `scratchpad/r.lock` is free. Everything is
+committed and pushed; the tree is clean, apart from the stray `tests/testthat/Rplots.pdf`
+(proposal 10 removes it).
+
+Done since the 3.5-hour pause ended (28 Nov, early morning):
+
+- **files = for notebooks; skipped folders** (13e80b9, 7b15c45; ruling on a stale test 985dc19).
+  `DOC_VENDORED_DIRS` in R/io.R: renv, packrat, rsconnect, node_modules, venv and env, by name.
+  The decisions.md note that said Quarto skips by `pyvenv.cfg` is corrected (ab4cb8f).
+- **Engine as Quarto 1.11.9 in every case** (tests 0d51f06; R 4706147, Lua c8379fd, docs
+  943f90b). The golden check over 670 files showed no differences. The one reading kept: a mapping
+  `engine:` is read as its first key, since Quarto rejects the document with a schema error.
+  Quarto reads `_quarto.yml.local`, not `_quarto.local.yml`.
+- **CI** (a9888a2, c27b36c, 8c30be5): test Suggests added; E62's child Julia now runs with
+  `julia_child_env()` (the segfault came from libunwind on LD_LIBRARY_PATH); the marquee title
+  test skips with marquee 1.3.0 and S7 1.0.0 (an upstream bug). Run 46030714113 showed only the
+  TDD failures that later commits fixed.
+- **Test-suite plan, WP0** (10deb0a): `dev/test-inventory.R` (run and `--compare`) and
+  `dev/test-mutants.R` (planted bugs in a `git archive` copy, and `--diff`). Mutants are in
+  `dev/mutants/`.
+  - Baseline: 8043 tests, 73539 expectations, 1 failure, 34.8 min.
+- **WP A, git isolation** (f07d7b5, 44a11fc, 2fae8b8): 0 failures in the full run (35.0 min),
+  with the same tests and nb. Under a hostile git config, 118 failures went to 0. The SC11 T41 flake
+  is fixed.
+- **WP H, gap tests** (49e4e68): 7 new tests and 1 extended; all 12 mutants are caught.
+
+Interrupted, to finish on resume:
+
+- **WP B** (gate edits, proposal 4). The fold is committed (e9bd640), and the mutants were run
+  before and after (b1-b5; each is caught by 74-82 tests). Not done: the full inventory and
+  `--compare` against the WP A run, and the time saved.
+- **WP C** (in-process renders, proposals 5 and 16). Committed: aa348d8, 7932ed9, 5273736 and
+  4f3a61f. **Main may be failing tests now.** A full run at 08:23 (before 4f3a61f) had 246
+  failures, many of them Python guest tests ("attempt to apply non-function") and `1f last_knit`.
+  4f3a61f was meant to fix them, but it has not been checked by a full run. Not done: the mutant
+  run after the change (c1-c4 of c1-c6 were done), the double run in one session, and the
+  inventory compare. On resume, run the full inventory first. If C's leaks can't be closed
+  quickly, revert C's four commits and redo it.
+- The proof files (inventory-*.rds, mutant tsv files) are in the session scratchpad under
+  `tp/`. If the scratchpad is wiped, re-run a baseline with `dev/test-inventory.R` before
+  comparing.
+
+The queue after B and C: WP D (proposal 6 and fast mode), E (9, 10), F (11, F1, 15/F2),
+G (12, 13), I (duplicate merges), J (17). Then a full suite, the golden checks
+(scratchpad/pm2/dump.R, scratchpad/split/golden.R), and the report to Robin. The report must
+still include the full text of every draft issue in scratchpad/issues/, and the
+use_agent_docs `skills = "auto"` NEWS bullet.
+
 ## In progress
 
 (Dated 13 Nov. Everything in this section was closed by the build's
