@@ -6,6 +6,7 @@
 --   file, line = L:find(needle, ok)    -- the next occurrence after the previous one of the same
 --                                      -- needle; ok(text, start) may reject a match; nil if none
 --   lines.include_targets(lines, main_dir, root, in_included)  -- line -> path of each include
+--   lines.expanded_lines(path, text, main_dir, root)  -- the source's lines, its includes expanded
 --
 -- The searchable text is the source with each `{{< include F >}}` line replaced by F's searchable
 -- text, as Quarto expands it (the include rules I1 to I6, below), with fenced code blocks
@@ -236,6 +237,40 @@ local function expand(path, key, ctx, stack, blank, in_included, parts, files)
   end
   stack[key] = nil
   return true
+end
+
+-- The lines of a source with every include expanded as Quarto splices them, for the readers of its front
+-- matter (rules P4 and P5 of 2.1.6; the twin of R's include_expand()): each include line is replaced by
+-- the included file's expanded lines and one blank line (two for an include inside an included file). A
+-- file is not expanded inside itself (I6); an include whose file cannot be read stays the line it is.
+-- text is the main document's text (nil: it is read from path); main_dir its folder, root the Quarto
+-- project root. Nil when there is no path or no text.
+function M.expanded_lines(path, text, main_dir, root)
+  if not path then return nil end
+  text = text or read_file(path)
+  if not text then return nil end
+  main_dir = normpath(main_dir or dir_of(path))
+  root = normpath(root or main_dir)
+  local out = {}
+  local function go(lines, key, stack, in_included)
+    local incs = M.include_targets(lines, main_dir, root, in_included)
+    stack[key] = true
+    for i, line in ipairs(lines) do
+      local target = incs[i]
+      local sub = target and not stack[target] and read_file(target) or nil
+      if sub then
+        go(raw_lines(sub), target, stack, true)
+        out[#out + 1] = ""
+        if in_included then out[#out + 1] = "" end
+      else
+        out[#out + 1] = line
+      end
+    end
+    stack[key] = nil
+  end
+  local key = path:sub(1, 1) == "/" and normpath(path) or (main_dir .. "/" .. (path:match("([^/\\]*)$")))
+  go(raw_lines(text), normpath(key), {}, false)
+  return out
 end
 
 function M.new(path, main_dir, root)

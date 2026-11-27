@@ -10,7 +10,9 @@
 -- dev/PACKAGE-SCOPING.md): a line that is exactly `---` at the top (only blank lines above) or after a
 -- blank line, a next line that is not blank, closed at the next `---` or `...` line, holding a mapping,
 -- and not inside a fence or an HTML comment. A later block's `weft:` replaces an earlier one's whole, so
--- the `weft:` mapping is read from the last block with a top-level `weft:` key.
+-- the `weft:` mapping is read from the last block with a top-level `weft:` key. The blocks are read with
+-- the source's includes expanded (rule P5): an included file's blocks sit where its include sits, read
+-- by weftlib/lines.lua's expanded_lines() from beside this file.
 -- A mapping may be written in block style or in flow style (`weft: {digits: 3}`, `formatters:
 -- {.f: {digits: 2}}`), on one line or several; both give the same settings. A `weft:` or `formatters:`
 -- value that is neither is a problem (E33), never ignored.
@@ -21,6 +23,10 @@
 -- No side effect on load.
 
 local M = {}
+
+-- the folder of this file, for its sibling weftlib/lines.lua (loaded when a source has an include)
+local HERE = (debug.getinfo(1, "S").source or ""):match("^@(.*)[/\\][^/\\]*$") or "."
+local lines_lib
 
 M.DEFAULTS = {
   digits = 1, decimal_mark = ".", big_mark = ",", thousands_from = 1000, minus = "\u{2212}",
@@ -348,9 +354,7 @@ local function metadata_blocks(lines)
   return out
 end
 
-local function front_matter_weft(text)
-  local lines = {}
-  for l in (text .. "\n"):gmatch("(.-)\r?\n") do lines[#lines + 1] = l end
+local function front_matter_weft(lines)
   local fm
   for _, b in ipairs(metadata_blocks(lines)) do
     for _, l in ipairs(b) do
@@ -464,22 +468,37 @@ function M.find_upward(start_dir, rel)
   return nil
 end
 
+-- The lines of a source its front matter is read from (rules P4 and P5 of 2.1.6): with every include
+-- expanded, when it has one and its folder is known; else its own lines. A failed expansion gives its own.
+local function front_lines(path, text, own)
+  if not path or not text:find("{{< ", 1, true) then return own end
+  local main_dir = dir_of(path)
+  if main_dir == path then main_dir = "." end
+  local q = M.find_upward(main_dir, "_quarto.yml") or M.find_upward(main_dir, "_quarto.yaml")
+  local root = q and dir_of(q) or main_dir
+  local ok, out = pcall(function()
+    lines_lib = lines_lib or dofile(HERE .. "/lines.lua")
+    return lines_lib.expanded_lines(path, text, main_dir, root)
+  end)
+  return ok and out or own
+end
+
 -- Is the source a document the knitr hooks resolve (N14, N92)? The rule of R/scan-contexts.R:
 -- filter_resolves(): an .Rmd is knitr's; a .qmd with `engine: knitr`, or with an executed {r} chunk and no
 -- `engine:` or `jupyter:` key; and the intermediate `.knit.md` of rmarkdown. `engine:` and `jupyter:` are
 -- read from the front block alone, as Quarto reads them (rule 2.1.6): the first metadata block, when only
--- blank lines stand above it.
+-- blank lines stand above it, in the include-expanded text, so an include on line 1 can supply it (P4).
 function M.source_is_knitr(path, text)
   if not path then return false end
   local low = path:lower()
   if low:match("%.rmd$") or low:match("%.rmarkdown$") or low:match("%.knit%.md$") then return true end
   if not low:match("%.qmd$") or not text then return false end
-  local lines = {}
-  for l in (text .. "\n"):gmatch("(.-)\r?\n") do lines[#lines + 1] = l end
-  local fm = metadata_blocks(lines)[1]
+  local lines = lines_of(text)
+  local flines = front_lines(path, text, lines)
+  local fm = metadata_blocks(flines)[1]
   if fm then
     for q = 1, fm.open - 1 do
-      if not blank(lines[q]) then fm = nil; break end
+      if not blank(flines[q]) then fm = nil; break end
     end
   end
   if fm then
@@ -534,7 +553,7 @@ function M.load(source_path, source_text, cwd)
     if text then M.read_text(text, 0, display(yml), cfg, problems) end
   end
   if source_text then
-    local fm = front_matter_weft(source_text)
+    local fm = front_matter_weft(front_lines(source_path, source_text, lines_of(source_text)))
     local file = source_path and display(source_path) or "the document"
     if fm then
       if fm.kind == "flow" then
