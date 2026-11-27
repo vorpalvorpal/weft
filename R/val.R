@@ -455,7 +455,7 @@ drop_units.weft_val <- function(x) {
 # ---- vctrs (registered when vctrs is loaded; no dependency on it) ----------------------------------
 
 # The proxy is a data frame of the bare number and the texts, so slices keep the texts that go with
-# their numbers; the restore puts back the classes and attributes of the number underneath `to`.
+# their numbers, and the names ride as row names; the restore puts back the classes and attributes of the number underneath `to`.
 sv_bare_data <- function(x) {
   d <- sv_strip(x)
   attributes(d) <- NULL
@@ -466,6 +466,9 @@ vec_proxy_weft_val <- function(x, ...) {
   sh <- attr(x, "weft_shown")
   df <- data.frame(n = sv_bare_data(x), markdown = sh$markdown, plain = sh$plain, stringsAsFactors = FALSE)
   if (!is.null(sh$tex)) df$tex <- sh$tex
+  # vctrs carries the names of a data-frame proxy as its row names (as vctrs::new_rcrd does);
+  # `attr<-` takes duplicate names, which data.frame(row.names=) would refuse
+  if (!is.null(names(x))) attr(df, "row.names") <- names(x)
   df
 }
 
@@ -474,6 +477,8 @@ vec_restore_weft_val <- function(x, to, ...) {
   inner <- attributes(sv_strip(to))
   inner$names <- NULL
   attributes(d) <- inner
+  rn <- attr(x, "row.names")
+  if (is.character(rn)) names(d) <- rn
   sv_restore(d, attr(to, "weft_spec"),
              list(markdown = x$markdown, plain = x$plain, tex = if ("tex" %in% names(x)) x$tex))
 }
