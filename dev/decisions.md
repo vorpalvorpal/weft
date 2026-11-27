@@ -1082,6 +1082,18 @@ behaviour went through test-first.
   runs (an indented chunk in a list is common and runs). An unclosed chunk still ends at line n,
   and a quoted unclosed plain fence closes at its quote's last line. Alternative refused: one
   CommonMark reading for both kinds, which is simpler but wrong about what executes.
+  **Amended again (27 Nov, late):** Quarto hands the text to Pandoc's `markdown` reader, not to
+  CommonMark, and they differ on plain fences: Pandoc markdown reads an unclosed fence as no fence
+  (its text is prose, so its constructs render), and reads no fence after a list item or a lazy line
+  with no blank line at indent 4. Plain fences follow `pandoc -f markdown` wherever it differs from
+  CommonMark; CommonMark remains the description where they agree. Chunks still follow knitr.
+- **Quarto's engine choice** follows Quarto 1.11.9's `markdownExecutionEngine` exactly: a project
+  `engines:` list first, then julia, knitr, jupyter, markdown, each claimed by a truthy key of its
+  name, `engine:` or `execute: engine:`; only then the chunk languages, lower-cased, with any
+  language outside Quarto's handlers going to jupyter, and an unclosed chunk in a file ending in a
+  newline not counted (a quirk, modelled because the engine decides what runs). knitr's pattern
+  still decides which chunks run, so `{r-x}` picks knitr and runs nothing. The grammar row for
+  `{ r }` and the sweep-d `{Python}`/`{Julia}` cases are corrected to Quarto's reading.
 - **Script claims tests.** `claim(x, interactive())` is an inert check in a script as in a chunk
   (it never looks at the value); a literal `decision =` is not a check (3.10.1), fixed in
   inert-check for chunks too; the E4 "no note" test follows the new M2 note.
