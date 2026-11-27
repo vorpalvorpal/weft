@@ -81,6 +81,11 @@ skip_if_no_python <- function() {
   started <- tryCatch(reticulate::py_available(), error = function(e) FALSE)
   if (!started) {
     Sys.setenv(RETICULATE_USE_MANAGED_VENV = "no")
+    # one Python for the suite: the one Quarto's Jupyter tests use, when it is set, else python3
+    qp <- Sys.getenv("QUARTO_PYTHON")
+    if (!nzchar(Sys.getenv("RETICULATE_PYTHON")) && nzchar(qp) && file.exists(qp)) {
+      Sys.setenv(RETICULATE_PYTHON = qp)
+    }
     if (!nzchar(Sys.getenv("RETICULATE_PYTHON")) && nzchar(Sys.which("python3"))) {
       Sys.setenv(RETICULATE_PYTHON = unname(Sys.which("python3")))
     }
