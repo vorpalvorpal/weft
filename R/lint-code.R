@@ -366,7 +366,8 @@ lint_inert_check <- function(src, ctx) {
       if (!is_fn(ci, "claim", "weft")) next
       for (j in seq_along(ci$args)) {
         a <- ci$args[[j]]
-        if (j == 1L || identical(a$name, "level")) next
+        # `level` and `decision` are not checks (3.10.1, 3.1.12)
+        if (j == 1L || identical(a$name, "level") || identical(a$name, "decision")) next
         if (has_var(t, a$node)) next
         sp <- piece_span(p, a$node)
         tx <- node_text(t, a$node)
