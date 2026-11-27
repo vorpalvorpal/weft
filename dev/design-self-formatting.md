@@ -1028,3 +1028,15 @@ repeated in section 11.
    `DESCRIPTION`.
 7. **Twins.** Recommended: no Python or Julia twin now; a Python `Val(float)`
    when a Python document asks for it.
+
+## Rulings (27 Nov 2026)
+
+- Robin: the constructors are the `val_*()` family (`val_num()`, `val_pct()`, `val_sci()`,
+  `val_p()`; more in stage 2). Alternatives refused: `num_val()` and kin; `fmt_*(keep = TRUE)`,
+  one function returning two types.
+- Robin: DESCRIPTION gains `Depends: R (>= 4.3.0)`, for `chooseOpsMethod()`. Alternative refused:
+  warn on older R.
+- Orchestrator, under Robin's delegation: build stage 1 now; plain text by default at every sink
+  (as `weft()` objects); arithmetic drops the format, except `min()`, `max()`, `range()`, `mean()`
+  and `median()`; `.val` on such a value prints its own format (the bend to 1.12.2 is stated in
+  the rule); no Python or Julia twin for now.
