@@ -1716,14 +1716,25 @@ themselves, by these rules (the evidence is in
   reports it in each of those, active or not, and under `format: <fmt>:` in a
   document's front matter (9.1.1, 5.8 rule 8).
 - **P4. Engine keys come from the first block of the include-expanded text,
-  never from project files** (item 4). An include on line 1 supplies that
-  block; one further down never does. `.ipynb` and `.py` are always Jupyter.
-  Other `execute:` options come through P1's layers. (The include part is to
-  be built.)
+  never from project files** (item 4). An include on line 1 (only blank lines
+  above it) supplies that block, so the included file's first block can pick
+  the engine; one further down never does. `.ipynb` and `.py` are always
+  Jupyter. Other `execute:` options come through P1's layers. The knit's
+  scanner, `status()`, the lints and the filter's `source_is_knitr` read the
+  engine keys so; the chunks that pick an engine when no key does are still
+  the document's own.
 - **P5. An included file's front matter is part of the document**, its blocks
   at the include's position after full expansion, the later block winning per
   top-level key. The included file's folder `_metadata.yml` does not apply.
-  Every reader expands includes before reading blocks. (To be built.)
+  Every reader (`read_front_matter()` and so the knit, `verify()`, `checks()`
+  and `arms()`; the lints; the filter's `config.load`; Python's and Julia's
+  `chunk_claims`) expands includes before reading blocks, by the rules I1 to
+  I6 of 2.7.4: each include line is replaced by the included file's expanded
+  text and a blank line (two inside an included file), a file is not expanded
+  inside itself, and a missing or unreadable file leaves its include line as
+  it is. A finding about a block (`config-place`, `citation-key`) is placed
+  in the document's own blocks only, at their lines; a key set in an included
+  block is honoured but not placed in the included file.
 - **P6. A later block in a Jupyter-engine `.qmd`** (written or included)
   follows P5, and `front-matter-quarto` reports it: under the Jupyter engine
   Quarto applies the block but also prints its text. (To be built.)
@@ -2218,7 +2229,7 @@ the names a source names (3.8.7, N45), a report's reads (4.6.5) and the lints
 
 Which documents a place reads includes from is its own (the lints read every
 document as a main document). An included file's front matter, which Quarto
-merges into the document's, is not read.
+merges into the document's, is read as part of the document's (2.1.6 P5).
 
 **2.7.5** Only exported knitr functions are used.
 
