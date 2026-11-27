@@ -131,7 +131,23 @@ it is a value, formatted inside the code span. A fenced block is a chunk when
 knitr takes its opening line for one: three or more backticks, optional
 spaces, then `{` with an engine name (`r`, `python`, ...) and `}`. Code in a
 chunk is not searched for inline R. A tilde fence is never a chunk to knitr.
-`{{r}}`, `{ r}` and `{.text}` are not chunks, so their bodies are read. A
+`{{r}}`, `{ r}` and `{.text}` are not chunks, so their bodies are read.
+Every reader finds the fences this one way (the lints, the scanner, the
+knit's front-matter reader, and the Lua, Python and Julia readers alike): a
+chunk as knitr finds it (`knitr::all_patterns$md`), at any indent, behind `>`
+markers and inside an HTML comment or a plain fence, an unclosed chunk running
+to the last line; every other fence as Pandoc's `markdown` reader, which
+Quarto uses, reads it. A plain fence opens with three or more backticks or
+tildes, indented at most 3 spaces within its block quote or list item, and an
+info string that is empty, one word, a Pandoc attribute block (`{.text}`,
+`{#id .c k=v}`), a word then an attribute block, or a raw attribute
+(`{=html}`): `text a`, a word holding a backtick, `{python}` and `{ r }` open
+nothing. It closes at a line of the same character, at least as long, with
+only spaces after it, in its own block quote or list item. A plain fence that
+does not close there is no fence: its lines are prose. In a list item, a fence
+indented 4 or more columns needs a blank line (or the end of a block) above
+it; with none it is the item's text. Where Pandoc's markdown reader and
+CommonMark agree, CommonMark describes the rest. A
 comment is read when it is closed, when it spans lines, and when it is
 unclosed: an unclosed `<!--` at the start of a line runs to the end of the
 text, and knitr evaluates inline R in all of it. A bracketed span inside a
@@ -1661,7 +1677,9 @@ only. The rule is Pandoc's, which Quarto follows for its own options:
    after a blank line. The next line is not blank, so `---` followed by a blank
    line is a rule. The block closes at the next `---` or `...` line, and its
    content is a YAML mapping. A `---` inside a backtick or tilde fence, an HTML
-   comment or indented code opens nothing.
+   comment or indented code opens nothing. Fences are read as 1.1.10 reads
+   them: an unclosed chunk runs to the end and holds every block after it, and
+   an unclosed plain fence is no fence, so a block after it counts.
 3. When two blocks set one top-level key, the later block wins and its value
    replaces the whole earlier value; nothing is merged inside a key, not even
    inside `weft:` (`weft: {strict: true, a: 1}` then `weft: {b: 2}` gives
@@ -1673,6 +1691,30 @@ only. The rule is Pandoc's, which Quarto follows for its own options:
    front-matter route of 9.2.1 is a `knitr:` key in that block, and an
    `engine:` or `knitr:` in a later block counts for nothing. Every other key,
    `execute:` among them, comes from the merged front matter (item 1).
+5. The engine is chosen as Quarto 1.11.9's `markdownExecutionEngine()`
+   chooses it. Its engines are taken in order: those the project's `engines:`
+   list names (in `_quarto.yml` or an active profile), then julia, knitr,
+   jupyter and markdown. The first one the front block claims is the engine:
+   by a top-level key of its name whose value is not `false`, `null`, `0` or
+   empty (`knitr: true`, a `knitr:` mapping, `jupyter: python3`), or by
+   `engine:` or `execute: engine:` naming it (of those two, the later key
+   counts). So a `knitr:` key beats `engine: jupyter`, a `jupyter:` key and
+   `engine: markdown`, and `engine: julia` beats a `knitr:` key. With no
+   claim, the chunk languages decide, read with Quarto's pattern
+   (`` ^[\t >]*```+\s*\{lang...\} ``) and lower-cased, so `{R}` is R,
+   `{r-x}` is R and `{ r }` is no chunk: an R chunk picks knitr, else a Julia
+   chunk julia, else a chunk of any language but mermaid, dot and ojs picks
+   jupyter, else markdown. A chunk that never closes does not count (Quarto
+   drops its header, in a file that ends in a newline), nor does one shown
+   inside a plain fence. knitr's own pattern still decides which chunks run, so
+   a `{r-x}` chunk picks knitr and runs nothing. The knit's scanner
+   (`filter_resolves()`), the lints and the filter's `source_is_knitr` read the
+   engine so. Where weft keeps a reading of its own against Quarto 1.11.9, its
+   tests pin it: an `engine:` value is lower-cased and its mapping form names
+   its first key (Quarto refuses both), keys are read at column 0 only (Quarto
+   reads a block indented as a whole), an R chunk anywhere beats a Julia chunk
+   above it (Quarto takes the first), and a chunk inside a plain fence does
+   not count (Quarto counts it).
 
 Quarto reads two more blocks than Pandoc, a `---` block with text directly
 above it and one inside a `~~~` fence; weft follows Pandoc, and the lint
@@ -1725,8 +1767,8 @@ themselves, by these rules (the evidence is in
   of the include-expanded text too, as Quarto's are: an `{r}` chunk in an
   included file makes the document knitr's (for the scanner, the filter and
   the lints' reading of the engine; the `engine` lint still asks for
-  `engine: knitr`, 9.2.8). A `knitr:` key in the first block picks knitr, as
-  an `engine:` key does (9.2.8).
+  `engine: knitr`, 9.2.8). A `knitr:` key in the first block picks knitr,
+  ahead of an `engine:` that names a later engine (item 5, 9.2.8).
 - **P5. An included file's front matter is part of the document**, its blocks
   at the include's position after full expansion, the later block winning per
   top-level key. The included file's folder `_metadata.yml` does not apply.
@@ -7114,7 +7156,10 @@ falls back to a read of the tables.
 **9.2.8** A `.qmd` is a weft document when it has two things: `engine: knitr`
 in its own front matter, and the activating call, `weft::weft_setup()`, by one
 of the routes of 9.2.1. `use_setup()` writes both. `engine: knitr` in
-`_quarto.yml` or `_metadata.yml` does not count. Under rmarkdown an `.Rmd` is
+`_quarto.yml` or `_metadata.yml` does not count. A `knitr:` key in the front
+block picks knitr too, ahead of `engine: jupyter`, a `jupyter:` key and
+`engine: markdown`, as Quarto takes it; `engine: julia` keeps its engine
+(2.1.6 item 5). Under rmarkdown an `.Rmd` is
 always knit, so the activating call is enough there. A `.qmd` whose chunks
 are all Python or Julia is a weft document the same way, with `engine:
 knitr` (2.12.1); `use_setup()` adds the line to one that holds a construct
