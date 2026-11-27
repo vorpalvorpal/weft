@@ -927,9 +927,11 @@ read_source <- function(path, root, cfg, bytes = NULL, text = NULL) {
   cr <- chunk_code_regions(lines)
   chunks <- chunk_table(lines, cr)
   ff <- front_fields(lines)
-  # metadata
+  # metadata: `meta` is the document's own blocks, at its own lines; the front matter and the front block are
+  # read with its includes expanded (rules P4, P5)
   meta <- meta_blocks_yaml(lines, mb)
-  front <- merge_front(meta)
+  xl <- front_source_lines(path, lines)
+  front <- if (identical(xl, lines)) merge_front(meta) else doc_front_lines(xl)
   # `lang` as Quarto merges it: the document over the project files (rules P1, P2)
   lang <- quarto_doc_view(path, front)[["lang"]]
   if (!(is.character(lang) && length(lang) == 1L)) lang <- NA_character_
@@ -977,6 +979,7 @@ read_source <- function(path, root, cfg, bytes = NULL, text = NULL) {
   src <- source_assemble(rel, path, ext, cfg, text, lines, ls, inmeta, infence, pieces, rows, chunks, ff, meta,
                          front, lang)
   src$code_regions <- cr
+  src$first_block <- front_block_yaml(xl)
   src
 }
 
@@ -1052,9 +1055,10 @@ source_assemble <- function(rel, path, ext, cfg, text, lines, ls, inmeta, infenc
 }
 
 # The first metadata block of a source, read as YAML (list() when there is none): where the lints read
-# `engine:`, `knitr:` and `jupyter:`, which Quarto honours in that block alone (rule 2.1.6). Every other
-# key comes from the front matter as a whole, `src$front`.
-src_first_block <- function(src) front_block_yaml(src$lines)
+# `engine:`, `knitr:` and `jupyter:`, which Quarto honours in that block alone (rule 2.1.6). It is the first
+# block of the include-expanded text, so an include on line 1 can supply it (rule P4). Every other key
+# comes from the front matter as a whole, `src$front`.
+src_first_block <- function(src) src$first_block %||% front_block_yaml(src$lines)
 
 le_of <- function(lines, ls, i) ls[i] + nchar(lines[i]) - 1
 

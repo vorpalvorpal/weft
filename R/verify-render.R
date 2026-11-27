@@ -323,7 +323,7 @@ verify_read_output <- function(path) {
 # Does a document use the julia engine: `engine: julia` in its front matter, or a julia chunk?
 verify_uses_julia <- function(root, rel) {
   x <- tryCatch(read_source_lines(file.path(root, rel)), error = function(e) character())
-  doc_is_julia(x)
+  doc_is_julia(x, file.path(root, rel))
 }
 
 # does the document hold a weft construct (G11, count > 0)?

@@ -364,13 +364,14 @@ settings_root <- function(root, rel) {
 # The front matter of a document file (rule 2.1.6), for every reader of its own fields: the knit (its
 # `weft:` settings, `lang` and `dict_local`), the lints, verify(), checks() and arms(). The file is read as
 # source text, not through `rmarkdown::metadata`, which holds the first block only; its fields are those of
-# doc_front_lines(). `text` is the file's text when the caller has read it already (NULL: read it here).
-# A script, no path, and a file that is not text have none.
+# doc_front_lines(), read with the document's includes expanded, so an included file's blocks count where
+# its include sits (rule P5, front_source_lines()). `text` is the file's text when the caller has read it
+# already (NULL: read it here). A script, no path, and a file that is not text have none.
 read_front_matter <- function(path, text = NULL) {
   if (is.null(path) || is_script_path(path)) return(list())
   if (is.null(text)) text <- read_source_text_or_null(path)
   if (is.null(text)) return(list())
-  doc_front_lines(split_source_lines(text))
+  doc_front_lines(front_source_lines(path, split_source_lines(text)))
 }
 
 # The metadata blocks `mb` of `lines`, each with its `open` and `close` lines and its `yaml` (list() when it

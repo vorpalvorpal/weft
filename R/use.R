@@ -155,7 +155,7 @@ MSG_E62 <- paste0("Install the Julia package: using Pkg; ",
                   "a trailing colon.")
 
 # Does Quarto run this .qmd on the jupyter engine (N74)? The rule is in quarto_engine().
-doc_is_jupyter <- function(lines) quarto_engine(lines) == "jupyter"
+doc_is_jupyter <- function(lines, path = NULL) quarto_engine(lines, path) == "jupyter"
 
 # Does any .qmd of the project below `root` run on the jupyter engine?
 project_has_jupyter_doc <- function(root) {
@@ -163,13 +163,13 @@ project_has_jupyter_doc <- function(root) {
   docs <- docs[grepl("\\.qmd$", docs, ignore.case = TRUE)]
   for (d in docs) {
     lines <- tryCatch(read_source_lines(file.path(root, d)), error = function(e) character())
-    if (doc_is_jupyter(lines)) return(TRUE)
+    if (doc_is_jupyter(lines, file.path(root, d))) return(TRUE)
   }
   FALSE
 }
 
 # Does Quarto run this .qmd on the julia engine (N74)? `engine: knitr` (JuliaCall) is not; see quarto_engine().
-doc_is_julia <- function(lines) quarto_engine(lines) == "julia"
+doc_is_julia <- function(lines, path = NULL) quarto_engine(lines, path) == "julia"
 
 # Does any .qmd of the project below `root` run on the julia engine?
 project_has_julia_doc <- function(root) {
@@ -177,7 +177,7 @@ project_has_julia_doc <- function(root) {
   docs <- docs[grepl("\\.qmd$", docs, ignore.case = TRUE)]
   for (d in docs) {
     lines <- tryCatch(read_source_lines(file.path(root, d)), error = function(e) character())
-    if (doc_is_julia(lines)) return(TRUE)
+    if (doc_is_julia(lines, file.path(root, d))) return(TRUE)
   }
   FALSE
 }

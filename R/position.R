@@ -27,34 +27,16 @@ read_view_lines <- function(path) read_source_lines(path)
 # Quarto's (include_targets(), rules I1 to I6): every path against the main
 # document's folder `base`. A file is expanded wherever it is included, as
 # Quarto does, but not inside itself (a cycle ends); an include whose file is
-# missing stays a line of its own.
-expand_includes <- function(path, base, seen = character(), nested = FALSE,
-                            root = include_root(base)) {
-  lines <- read_view_lines(path)
+# missing stays a line of its own (include_expand()).
+expand_includes <- function(path, base, root = include_root(base)) {
+  x <- include_expand(path, main_dir = norm_path(base), root = root, read = read_view_lines)
+  b <- normalizePath(base, winslash = "/", mustWork = FALSE)
   rel <- function(p) {
     p <- normalizePath(p, winslash = "/", mustWork = FALSE)
-    b <- normalizePath(base, winslash = "/", mustWork = FALSE)
     if (startsWith(p, paste0(b, "/"))) substring(p, nchar(b) + 2L) else basename(p)
   }
-  me <- rel(path)
-  here <- norm_path(path)
-  tg <- include_targets(lines, norm_path(base), root, in_included = nested)
-  # each line is itself, unless it is an include that is expanded
-  inc <- tg$path[match(seq_along(lines), tg$line)]
-  files <- as.list(rep(me, length(lines)))
-  nums <- as.list(seq_along(lines))
-  for (k in which(!is.na(inc))) {
-    if (utils::file_test("-f", inc[k]) && !(inc[k] %in% c(seen, here))) {
-      sub <- expand_includes(inc[k], base, c(seen, here), nested = TRUE, root = root)
-      # Quarto splices the file's lines, then a blank line (which is the include
-      # line); an include inside an included file leaves two
-      pad <- if (nested) 2L else 1L
-      files[[k]] <- c(sub$file, rep(me, pad))
-      nums[[k]] <- c(sub$line, rep(k, pad))
-    }
-  }
-  list(file = as.character(unlist(files, use.names = FALSE)),
-       line = as.integer(unlist(nums, use.names = FALSE)))
+  files <- unique(x$file)
+  list(file = vapply(files, rel, "", USE.NAMES = FALSE)[match(x$file, files)], line = x$line)
 }
 
 # ---- normal forms for the content search ----------------------------------------

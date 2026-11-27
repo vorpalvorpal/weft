@@ -2,8 +2,9 @@
 # quarto.js: isBlockShortcode, parseShortcodeCapture, breakQuartoMd, processMarkdownIncludes,
 # standaloneInclude and resolvePath). The one R reader of includes: the knit's line map (2.7.4), the
 # names a source names (N45) and the hooks' lists (TR1, TR4), the named-unpublished lint (N144), the
-# engine lint (5.8.9) and a report's reads (4.6.5) all take their includes from here. The Lua filter
-# (weftlib/lines.lua) and the Python package (weft._source_names) are its twins.
+# engine lint (5.8.9), a report's reads (4.6.5) and the readers of front matter (2.1.6 P4, P5) all take
+# their includes from here. The Lua filter (weftlib/lines.lua), the Python package (weft._include_lines)
+# and the Julia package (Weft/src/include.jl) are its twins.
 #
 #   I1  a line is an include only when the whole line is the shortcode: optional white space, `{{< `,
 #       the name, the parameters, ` >}}`, optional white space; exactly one space inside each bracket;
@@ -201,4 +202,50 @@ include_walk <- function(path, lines = NULL, root = NULL,
   if (is.null(lines)) lines <- read(main)
   if (length(lines)) acc <- walk(lines, FALSE, acc)
   list(files = acc$files, missing = unique(acc$missing))
+}
+
+# The text Quarto reads after it expands every include (I1 to I6): `lines` (the main document's own when
+# `nested` is FALSE) with each include line replaced by the included file's expanded lines and a blank line,
+# two when the include sits in an included file, as Quarto splices them. A file is expanded wherever it is
+# included, but not inside itself, so a cycle ends; an include whose file is missing, or cannot be read
+# (`read(path)` gives NULL), stays the line it is. The result is a list of `lines`, and for each the `file`
+# (absolute) and `line` it came from (an added blank line is the include's own). `main_dir` is the MAIN
+# document's folder, against which every path resolves (I4). `read` may also stop, and the call then stops.
+include_expand <- function(path, lines = NULL, main_dir = dirname(norm_path(path)), root = include_root(main_dir),
+                           read = function(p) {
+                             txt <- tryCatch(read_source_text_or_null(p), error = function(e) NULL)
+                             if (is.null(txt)) NULL else split_source_lines(txt)
+                           },
+                           seen = character(), nested = FALSE) {
+  here <- norm_path(path)
+  if (is.null(lines)) lines <- read(here) %||% character()
+  n <- length(lines)
+  out <- list(lines = as.list(lines), file = as.list(rep(here, n)), line = as.list(seq_len(n)))
+  tg <- include_targets(lines, main_dir, root, in_included = nested)
+  for (j in seq_len(nrow(tg))) {
+    k <- tg$line[j]
+    p <- tg$path[j]
+    if (!utils::file_test("-f", p) || p %in% c(seen, here)) next
+    il <- read(p)
+    if (is.null(il)) next
+    sub <- include_expand(p, il, main_dir, root, read, c(seen, here), nested = TRUE)
+    pad <- if (nested) 2L else 1L
+    out$lines[[k]] <- c(sub$lines, rep("", pad))
+    out$file[[k]] <- c(sub$file, rep(here, pad))
+    out$line[[k]] <- c(sub$line, rep(k, pad))
+  }
+  list(lines = as.character(unlist(out$lines, use.names = FALSE)),
+       file = as.character(unlist(out$file, use.names = FALSE)),
+       line = as.integer(unlist(out$line, use.names = FALSE)))
+}
+
+# The lines a document's front matter is read from (rules P4 and P5 of 2.1.6): its own `lines` with every
+# include expanded (include_expand()), so an included file's blocks sit where its include sits and an
+# include on line 1 can supply the front block. The document at `path`; NULL, or lines with no include, give
+# `lines` as they are, as does a walk that fails.
+front_source_lines <- function(path, lines) {
+  if (is.null(path) || !length(lines) || !any(grepl("{{< ", lines, fixed = TRUE))) return(lines)
+  doc_memo("front_source", c(path, lines), function(x) {
+    tryCatch(include_expand(path, lines)$lines, error = function(e) lines)
+  })
 }
