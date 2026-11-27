@@ -5399,7 +5399,12 @@ says so. `reader` is `"weft"`, the package's own reader and the default, or
 the root is read (a notebook or a percent script as the document its cells
 make, 2.1.6 P7), by `lints()`, `checks()`, `verify()` and the gate alike, whatever
 `files` says, because ids, anchors, includes and child documents are
-project-wide. Folders whose name starts with `.`, and `renv`, are skipped.
+project-wide. Folders whose name starts with `.` are skipped, and so are the
+folders Quarto leaves out of a project's inputs (Quarto 1.11.9): by name, at any
+depth, whatever the folder holds, with case significant: `node_modules`, `renv`,
+`packrat`, `rsconnect`, `venv` and `env`. A `pyvenv.cfg` or a conda-meta folder
+does not decide it. The list is `DOC_VENDORED_DIRS` in `R/io.R`, the one place
+every surface (lints, checks, verify, the gate, status) takes it from.
 Folders whose name starts with `_` (an include folder, `_partials`) are read
 for anchors and for what they include, and are not linted; includes are
 followed as Quarto expands them (2.7.4); `_site`, `_book`,
@@ -5409,7 +5414,7 @@ key; the lints read the YAML and install no units. The scripts of the project
 (5.1.9) are listed under the same root, with the same folders left out.
 
 **5.1.9** A script is an `.R` or `.r` file under the root, outside the folders
-5.1.8 leaves out (a dot-folder, `renv`, `packrat`, `node_modules`, `_site`,
+5.1.8 leaves out (a dot-folder, `renv`, `packrat`, `rsconnect`, `venv`, `env`, `node_modules`, `_site`,
 `_book`, `_freeze`, `_extensions`, a `_` folder), not a file whose name starts
 with `.`, and outside `scripts_skip` (9.1.4), which is `[tests]` unless set.
 Each script is judged by the `scripts_skip` of its own settings root (the nearest

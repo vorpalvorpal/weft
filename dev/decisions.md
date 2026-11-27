@@ -1201,3 +1201,17 @@ behaviour went through test-first.
   `_quarto.yml` (P1: without one the document's folder is the project). With no engine key, the
   chunks of the include-expanded text pick Quarto's engine (P4); the engine lint still asks for
   `engine: knitr` in the document's own front matter (9.2.8).
+
+## files = takes notebooks and percent scripts; folders Quarto skips (2026-11-28)
+- **`resolve_files()`** accepts `.ipynb` and a `.py` that `is_percent_file()`
+  accepts, as well as `.qmd`, `.Rmd` and `.R`; one resolver serves `lints()`,
+  `checks()` and `verify()`. Its refusal names `.ipynb` and percent scripts and
+  says a `.py` that is not a percent script is not a document Quarto renders.
+- **Skipped folders** are `DOC_VENDORED_DIRS` in `R/io.R` (node_modules, renv,
+  packrat, rsconnect, venv, env), the one list that `project_doc_paths()` and
+  `project_files_under()` read, so every surface (lints, checks, verify, gate,
+  status, scripts) takes it from there. By name, at any depth, as Quarto does.
+  `.R` scripts in those folders are left out too (5.1.9 says the same folders).
+- **Not changed.** The Lua filter and the Python and Julia ports follow a
+  document's includes, not the project's input folders;
+  `julia_project_files()` filters the files Julia loaded, a different question.
