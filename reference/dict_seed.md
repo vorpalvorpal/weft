@@ -61,8 +61,8 @@ dict_seed(file.path(dir, c("a.R", "b.R")))
 #>    name value differs n
 #> 1 depth   4.5   FALSE 2
 #>                                                                                        files
-#> 1 /tmp/Rtmp7KwD0T/weft-example1ab11eb24e69/a.R, /tmp/Rtmp7KwD0T/weft-example1ab11eb24e69/b.R
+#> 1 /tmp/Rtmp62bcEi/weft-example1a3c4959bcdf/a.R, /tmp/Rtmp62bcEi/weft-example1a3c4959bcdf/b.R
 #>                                                                                                      where
-#> 1 /tmp/Rtmp7KwD0T/weft-example1ab11eb24e69/a.R:1: 4.5; /tmp/Rtmp7KwD0T/weft-example1ab11eb24e69/b.R:1: 4.5
+#> 1 /tmp/Rtmp62bcEi/weft-example1a3c4959bcdf/a.R:1: 4.5; /tmp/Rtmp62bcEi/weft-example1a3c4959bcdf/b.R:1: 4.5
 unlink(dir, recursive = TRUE)
 ```
